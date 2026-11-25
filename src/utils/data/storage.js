@@ -66,6 +66,7 @@ import {
   normalizeNotificationSettings,
 } from '../../constants/notifications/notificationConfig.js';
 import { normalizeRecipes } from '../food/recipe.js';
+import { repairDayEntryIds } from '../food/entryIds.js';
 
 // Split keys for performance
 const PROFILE_KEY = 'energyMapData_profile'; // Settings, preferences, small lists
@@ -604,6 +605,7 @@ const MAX_ADAPTIVE_SMOOTHING_WINDOW_DAYS = 14;
 const FOOD_SEARCH_DEFAULT_ENTRIES = new Set([
   'search_local',
   'search_online',
+  'recents',
   'favourites',
   'chat',
   'manual_entry',
@@ -1659,6 +1661,9 @@ function mergeWithDefaults(data) {
             })
           : [];
       }
+
+      // Older builds could log several entries under one id.
+      normalized[date] = repairDayEntryIds(normalized[date]);
     }
 
     return normalized;

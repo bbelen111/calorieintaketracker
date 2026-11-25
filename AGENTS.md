@@ -280,13 +280,14 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 - `FoodSearchModal` is the **canonical** food favourites UI surface (`viewMode === 'favourites'`).
 - `FoodFavouritesModal` was removed as redundant and should **not** be reintroduced.
-- `FoodSearchModal` is now a **4-mode surface**: local search, online search, favourites, and AI chat (`viewMode` + `searchMode` state machine).
+- `FoodSearchModal` is now a **5-mode surface**: local search, online search, favourites, recents, and AI chat (`viewMode` + `searchMode` state machine).
 - `FoodSearchModal` now composes focused panel components from `modals/fullscreen/panels/`:
   - `FoodSearchChatPanel.jsx`
   - `FoodSearchFilterControls.jsx`
   - `FoodSearchMealPreviewPanel.jsx`
   - `FoodSearchResultsPanel.jsx`
   - `FoodSearchFavouritesPanel.jsx`
+  - `FoodSearchRecentsPanel.jsx` (see "Food Search Recents")
   - `FoodSearchEntryCard.jsx` — renders one finalized chat entry card (primary badge + disclosure chip labels) from `buildFinalizedEntryCardState()` in `utils/food/aiFinalizedEntryState.js` The card's category tag comes from the shared `resolveAiEntryCategory(entry, lookupMeta)` in `utils/food/aiCategory.js` - the same resolver the modal logs with (model food-type category -> matched food's category -> dominant macro; the model's `custom`/`manual` are ignored because they describe provenance, not the food). It returns `null` when nothing is known and the card then shows **no** category tag; never hard-code a `'custom'` fallback for the tag (an omelette used to be labelled "Custom"). Micronutrients render on the right of that tag row (`Fiber / Sodium / Sat. Fat / Sugars`, Tracker colours); the other Food Search item cards (results, favourites, meal preview) deliberately show none.
   Keep panel responsibilities isolated and avoid moving large inline JSX blocks back into `FoodSearchModal`.
 - The **RAG chat request flow is decoupled from the modal**: `FoodSearchModal` calls `runRagChatPipeline(...)` in `services/ragChatPipeline.js` (with injected OpenRouter `modules` + `telemetry`). The modal owns only the chat state machine, stage pill, abort controller, and assistant-bubble entry rendering. Do not re-inline extraction/retrieval/verification/presentation steps into the modal.
@@ -309,6 +310,15 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - Food source/type resolution is centralized in `utils/foodTags.js`.
 - Food display naming is centralized in `utils/foodPresentation.js` (`formatFoodDisplayName`).
 - Brand presentation rule: display brand in name as **`Brand - Food name`**; avoid separate brand tag chips in food list cards.
+
+### Food Search Recents
+
+- Entry point: the **Recents** button in the action row, right after the Search pill (`viewMode === 'recents'`). It is deliberately **not** a segment of the Local | Online | Favorites switch, and that switch is hidden inside the view (Search returns). It can also be the default view (`foodSearchDefaultEntry: 'recents'`; the value is listed in `FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS`, `FoodSearchModal` and `storage.js`).
+- **Derived, nothing persisted** (`utils/food/recentFoods.js`, covered by `tests/utils/recentFoods.test.js`): `buildRecentFoods(nutritionData)` walks every logged entry (local, online, barcode, AI, custom, recipe, manual) into one row per food, newest first by the entry's `timestamp` (falling back to its date key, so a backfilled meal sorts by when it was logged and is labelled with the day eaten). Same food = same `foodId`, except per-log ids (`ai_…`, `manual_…`) and missing ids, which match on brand + name. The search box matches every word against brand + name across **all** recent foods; at most `RECENT_FOODS_LIMIT` (50) rows show. The list is computed only while `FoodSearchRecentsPanel` is mounted.
+- Rows show the **logged** numbers and last log (`170g · Lunch · Today`). Entries don't record every source flag, so `toRecentDisplayFood` recovers it from the food id for `FoodTagBadges`.
+- **Tapping never logs.** The orchestrator's `handleSelectRecentFood` opens the portion modal on the last grams using `resolveFoodForRelog` (`utils/food/loggedEntry.js`): live recipe → saved custom food → local catalog → `cachedFoods` → rebuilt from the entry. A rebuilt food carries `entryMetadata` (source, subcategory, AI lookup fields) that the add path spreads under the new entry, so an AI food keeps its tag. An entry **without grams** opens Manual Entry in add mode, prefilled; it keeps `foodId` / brand / category / source only while its name is unchanged (`pickManualRelogIdentity`).
+- Editing a logged entry does **not** use this resolver (`handleEditFoodEntry` is unchanged).
+- Known limit: the gram wheel stops at 1000 g, so a larger past entry opens clamped.
 
 ### Recipes
 
@@ -1058,11 +1068,13 @@ Migration behavior is now intentionally minimal:
 ### Food Entry Shape
 
 ```javascript
-{ id: 'uuid', foodId: 'chicken_breast', name: 'Chicken Breast',
+{ id: 1699876543210, foodId: 'chicken_breast', name: 'Chicken Breast',
   grams: 174, calories: 287, protein: 54, carbs: 0, fats: 6.3,
   fiber: 0, sodium: 65, saturatedFats: 1.4, sugars: 0,   // optional micros
-  timestamp: 1699876543210 }
+  timestamp: 1699876543210 }                             // ISO string or epoch ms
 ```
+
+**`id` is unique within its day, and the store guarantees it** (`utils/food/entryIds.js`): `addFoodEntry` keeps a requested id only if no entry that day has it (`resolveEntryId`), and `normalizeNutritionData` renumbers repeats left by older builds on load (`repairDayEntryIds` - deterministic, because the repair is only written back when that day next changes).
 
 **Micro nutrients (fiber, sodium, saturatedFats, sugars) are optional and NULL
 semantic.** `null`/absent = untracked (rendered as —); `0` = measured zero. The
@@ -1521,7 +1533,10 @@ src/
 │   │  ├─ nutrientPicker.js      # Shared numeric-picker field config + value helpers (Manual Entry / Add Custom Food / recipe weights)
 │   │  ├─ recipe.js              # Recipes: normalise, totals (full precision, null-honest micros), buildRecipeFood (derived per100g + "1 serving"),
 │   │  │                         #   validateRecipeDraft (serving <= 1000 g), favouriteToIngredientFood, buildRecipeIngredient
-│   │  ├─ loggedEntry.js         # Logged-entry mapping: AI card → logged nutrition, logged entry → editable fallback food
+│   │  ├─ loggedEntry.js         # Logged-entry mapping: AI card → logged nutrition, logged entry → editable fallback food,
+│   │  │                         #   resolveFoodForRelog / pickManualRelogIdentity (Recents)
+│   │  ├─ recentFoods.js         # Food Search Recents: derived one-row-per-food list, search, day labels
+│   │  ├─ entryIds.js            # Per-day unique food entry ids (resolve on add, repair on load)
 │   │  └─ portionNormalization.js # AI/lookup portion→grams normalization + per100g scaling helpers
 │   ├─ formatting/
 │   │  ├─ format.js              # Number formatting (formatOne: 1 decimal place)
@@ -1804,4 +1819,8 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 127. **Recipes are derived foods over snapshotted ingredients - keep them that way:** persist only `userData.recipes` (ingredients + servings + cooked weight); per-100g values and the "1 serving" portion always come from `buildRecipeFood` (`utils/food/recipe.js`), never stored, so a calculator fix fixes every recipe. Do not store a live reference to an ingredient's source food (its `per100g` is copied at add time), do not auto-favourite a recipe (the copy would go stale), do not sum micro nutrients that any ingredient lacks (the result is `null`), do not nest recipes in the ingredient picker, and do not nest the recipe edit button inside the result card button. The ingredient picker is Food Search's browse view: keep filtering / sorting / pinned-first in `utils/food/foodListing.js` (shared with `FoodSearchModal`) and its loading derived from request keys in `useFoodBrowser` rather than copying search-modal logic or setting loading state from effects; its Food | Recipe and Local | Online switches are the shared `SegmentedToggle` (one persistent sliding pill, never per-button remounts), and Food | Recipe keeps the "Add Custom Food" blue in both positions. Logging a recipe adds one entry, never one per ingredient. A recipe food is `isCustom` **and** `isRecipe` - check `isRecipe` / `FOOD_SOURCE_TYPES.RECIPE` first (`resolveFoodSourceType` does). A serving above 1000 g is rejected by `validateRecipeDraft` because the portion modal's gram wheel stops there. Pre-filling the form for an edit is a render-phase seed keyed by what is being opened, not an effect. See "Recipes".
 
 128. **A logged entry is what the user saw - tags and numbers survive log and edit:** an AI chat entry is logged with exactly the card's numbers (`buildAiEntryNutrition`, `utils/food/loggedEntry.js`); database substitution happens once, in `resolveAiFoodEntry`, never again at log time (a second pass logged different macros than the card in the legacy / grounded-fallback paths). Editing an entry whose food can't be looked up goes through `buildFallbackFoodFromEntry`, which keeps the entry's own `category` / `foodId` / `brand` and never invents a category (it used to hard-code `supplements`). Logging paths carry `category` onto the entry, and saving an edit spreads the previous entry first so metadata is not dropped. Covered by `tests/utils/loggedEntry.test.js`.
+
+129. **Food entry ids are settled by the store, never trusted from the caller:** delete and edit match by id, and the logging surfaces number entries from counters that restart on every mount (that once gave a whole meal `id: 1`, so deleting one food removed them all). Every new entry goes through `addFoodEntry`, which resolves the id against the whole day; any other writer of `nutritionData` must do the same (`utils/food/entryIds.js`). Keep the load repair deterministic. Covered by `tests/utils/entryIds.test.js`, the id block in `useEnergyMapStore.spec.js` and `tests/utils/storage.test.js`.
+
+130. **Recents is a view of the log, not a list of its own:** do not persist it, do not log from a row tap, and re-log through `resolveFoodForRelog` so live portions and an entry's own metadata both survive. See "Food Search Recents".
 

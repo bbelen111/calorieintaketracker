@@ -48,6 +48,13 @@ vi.mock('../../services/foodSearch', async (importOriginal) => {
   };
 });
 
+// Re-logging a recent food looks it up in the catalog first; here it is never
+// found (same sql.js reason as above).
+vi.mock('../../services/foodCatalog', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, getFoodById: vi.fn(async () => null) };
+});
+
 // These tests mount the whole app (five screens, the store, lazily loaded
 // modals) and drive real user events, so they are the slowest in the UI tier:
 // the heaviest takes ~2.6s ALONE, against vitest's 5s default. In a full run
@@ -912,6 +919,82 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       await screen.findByRole('heading', { name: 'Weight Tracker' })
     ).toBeInTheDocument();
     expect(getSheet('Weight Tracker')).not.toHaveClass('modal-content-fade');
+  });
+
+  it('logs a recent food again through the portion picker or the manual form, never on tap', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    act(() => {
+      get().addFoodEntry(TODAY, 'lunch', {
+        id: 1,
+        foodId: 'ai_1_0',
+        name: 'Egg omelette',
+        category: 'protein',
+        source: 'ai',
+        grams: 170,
+        calories: 245,
+        protein: 20,
+        carbs: 2,
+        fats: 17,
+        timestamp: '2026-01-02T12:00:00.000Z',
+      });
+      get().addFoodEntry(TODAY, 'lunch', {
+        id: 1,
+        name: 'Home soup',
+        grams: null,
+        calories: 90,
+        protein: 4,
+        carbs: 10,
+        fats: 3,
+        timestamp: '2026-01-01T12:00:00.000Z',
+      });
+    });
+    const dinner = () => get().userData.nutritionData[TODAY].dinner ?? [];
+    const dialogOf = async (name) =>
+      (await screen.findByRole('heading', { name })).closest('[role="dialog"]');
+
+    await user.click(
+      await screen.findByRole('button', { name: /^Calories today,.*Add meal$/ })
+    );
+    await user.click(await screen.findByRole('button', { name: 'Dinner' }));
+    await user.click(await screen.findByRole('button', { name: 'Recents' }));
+
+    // A weighed food opens the portion picker on its last amount.
+    await user.click(
+      await screen.findByRole('button', { name: /Egg omelette/ })
+    );
+    expect(await screen.findByText('For 170g:')).toBeInTheDocument();
+    expect(dinner()).toEqual([]);
+
+    await user.click(screen.getByRole('button', { name: 'Log entry' }));
+    await waitFor(() => expect(dinner()).toHaveLength(1));
+    expect(dinner()[0]).toMatchObject({
+      foodId: 'ai_1_0',
+      name: 'Egg omelette',
+      category: 'protein',
+      source: 'ai',
+      grams: 170,
+      calories: 245,
+    });
+    await waitFor(() => expect(screen.queryByText('For 170g:')).toBeNull());
+
+    // A weightless food opens the Manual Entry form filled in.
+    await user.click(screen.getByRole('button', { name: /Home soup/ }));
+    const form = await dialogOf('Manual Food Entry');
+    expect(within(form).getByDisplayValue('Home soup')).toBeInTheDocument();
+    expect(dinner()).toHaveLength(1);
+
+    await user.click(within(form).getByRole('button', { name: 'Log entry' }));
+    await waitFor(() => expect(dinner()).toHaveLength(2));
+    expect(dinner()[1]).toMatchObject({
+      name: 'Home soup',
+      grams: null,
+      calories: 90,
+    });
+    expect(dinner()[1].id).not.toBe(dinner()[0].id);
   });
 
   it('saves custom foods into store, surfaces them in local search, and keeps them searchable across reloads', async () => {

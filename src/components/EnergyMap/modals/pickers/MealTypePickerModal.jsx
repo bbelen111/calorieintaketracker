@@ -22,6 +22,11 @@ export const FOOD_SEARCH_DEFAULT_ENTRY_OPTIONS = [
     description: 'Open Food Search in Online mode',
   },
   {
+    id: 'recents',
+    label: 'Recents',
+    description: 'Open your recently logged foods',
+  },
+  {
     id: 'favourites',
     label: 'Favorites',
     description: 'Open your saved favorites',

@@ -25,6 +25,7 @@ import {
   Sparkles,
   Utensils,
   Pin,
+  History,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
@@ -38,6 +39,7 @@ import { BarcodeEntryModal } from '../forms/BarcodeEntryModal';
 import { FoodSearchChatPanel } from './panels/FoodSearchChatPanel';
 import { FoodSearchResultsPanel } from './panels/FoodSearchResultsPanel';
 import { FoodSearchFavouritesPanel } from './panels/FoodSearchFavouritesPanel';
+import { FoodSearchRecentsPanel } from './panels/FoodSearchRecentsPanel';
 import { FoodSearchFilterControls } from './panels/FoodSearchFilterControls';
 import { FoodSearchMealPreviewPanel } from './panels/FoodSearchMealPreviewPanel';
 import { FOOD_CATEGORIES } from '../../../../constants/food/foodDatabase';
@@ -125,6 +127,7 @@ const CHAT_REQUEST_STAGE = CHAT_PIPELINE_STAGE;
 const FOOD_SEARCH_DEFAULT_ENTRY_SET = new Set([
   'search_local',
   'search_online',
+  'recents',
   'favourites',
   'chat',
   'manual_entry',
@@ -136,6 +139,7 @@ const initialUiState = {
   viewMode: 'search',
   searchQuery: '',
   favouritesSearchQuery: '',
+  recentsSearchQuery: '',
   favouritesSortBy: 'name',
   favouritesSortOrder: 'asc',
   isFavouritesFilterOpen: false,
@@ -304,6 +308,7 @@ export const FoodSearchModal = ({
   onSelectFavourite,
   onEditFavourite,
   onDeleteFavourite,
+  onSelectRecent,
   pinnedFoods = [],
   onTogglePin,
   cachedFoods = [],
@@ -404,6 +409,7 @@ export const FoodSearchModal = ({
     viewMode,
     searchQuery,
     favouritesSearchQuery,
+    recentsSearchQuery,
     favouritesSortBy,
     favouritesSortOrder,
     isFavouritesFilterOpen,
@@ -420,6 +426,8 @@ export const FoodSearchModal = ({
   const setSearchQuery = (value) => setUiStateField('searchQuery', value);
   const setFavouritesSearchQuery = (value) =>
     setUiStateField('favouritesSearchQuery', value);
+  const setRecentsSearchQuery = (value) =>
+    setUiStateField('recentsSearchQuery', value);
   const setFavouritesSortBy = (value) =>
     setUiStateField('favouritesSortBy', value);
   const setFavouritesSortOrder = (value) =>
@@ -1412,6 +1420,11 @@ export const FoodSearchModal = ({
     if (selectedDefault === 'search_online') {
       dispatchUiState({ type: 'set', key: 'viewMode', value: 'search' });
       dispatchUiState({ type: 'set', key: 'searchMode', value: 'online' });
+      return;
+    }
+
+    if (selectedDefault === 'recents') {
+      dispatchUiState({ type: 'set', key: 'viewMode', value: 'recents' });
       return;
     }
 
@@ -3295,6 +3308,19 @@ export const FoodSearchModal = ({
                 </motion.div>
 
                 <button
+                  onClick={() => setViewMode('recents')}
+                  aria-label="Recents"
+                  className={`shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border ${
+                    viewMode === 'recents'
+                      ? 'border-[rgb(var(--action-border)/0.7)]'
+                      : 'border-transparent'
+                  }`}
+                >
+                  <History size={16} />
+                  <span>Recents</span>
+                </button>
+
+                <button
                   onClick={() => setViewMode('chat')}
                   aria-label="AI Chat"
                   className={`shrink-0 flex items-center gap-2 px-3 py-2 bg-primary md:hover:brightness-110 text-primary-foreground rounded-full text-sm font-semibold transition-all shadow-md whitespace-nowrap press-feedback focus-ring border ${
@@ -3445,6 +3471,28 @@ export const FoodSearchModal = ({
                 handleChatInputPaste={handleChatInputPaste}
                 sendChat={sendChat}
                 handleAddAttachmentFiles={handleAddAttachmentFiles}
+              />
+            </motion.div>
+          ) : viewMode === 'recents' ? (
+            <motion.div
+              key="food-panel-recents"
+              initial={prefersReducedMotion ? false : { opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={
+                prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: -14 }
+              }
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : { duration: 0.22, ease: PANEL_EASE }
+              }
+              className="flex-1 min-h-0 flex flex-col"
+            >
+              <FoodSearchRecentsPanel
+                searchQuery={recentsSearchQuery}
+                onSearchQueryChange={setRecentsSearchQuery}
+                onSelectRecent={onSelectRecent}
+                prefersReducedMotion={prefersReducedMotion}
               />
             </motion.div>
           ) : (

@@ -620,5 +620,38 @@ test('save/loadEnergyMapData persists foodSearchDefaultEntry in profile scope', 
 
     const loaded = await loadEnergyMapData();
     assert.equal(loaded.foodSearchDefaultEntry, 'barcode');
+
+    await saveEnergyMapData({ ...loaded, foodSearchDefaultEntry: 'recents' });
+    const reloaded = await loadEnergyMapData();
+    assert.equal(reloaded.foodSearchDefaultEntry, 'recents');
+  });
+});
+
+test('loading gives repeated food entry ids on one day their own ids', async () => {
+  await withWindowStorage(async () => {
+    await clearDexieHistory();
+    await Preferences.set({
+      key: PROFILE_KEY,
+      value: JSON.stringify({
+        nutritionData: {
+          '2026-03-20': {
+            lunch: [
+              { id: 1, name: 'Rice', grams: 200 },
+              { id: 1, name: 'Chicken', grams: 150 },
+            ],
+          },
+          '2026-03-21': { lunch: [{ id: 1, name: 'Oats', grams: 60 }] },
+        },
+      }),
+    });
+
+    const loaded = await loadEnergyMapData();
+
+    assert.deepEqual(
+      loaded.nutritionData['2026-03-20'].lunch.map((entry) => entry.id),
+      [1, 2]
+    );
+    // Ids only have to be unique within a day.
+    assert.equal(loaded.nutritionData['2026-03-21'].lunch[0].id, 1);
   });
 });

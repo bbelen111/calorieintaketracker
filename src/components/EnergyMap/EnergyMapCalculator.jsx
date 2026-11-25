@@ -131,7 +131,11 @@ import {
   normalizePickerValue,
 } from '../../utils/food/nutrientPicker';
 import { buildRecipeFood, getRecipeStartGrams } from '../../utils/food/recipe';
-import { buildFallbackFoodFromEntry } from '../../utils/food/loggedEntry';
+import {
+  buildFallbackFoodFromEntry,
+  pickManualRelogIdentity,
+  resolveFoodForRelog,
+} from '../../utils/food/loggedEntry';
 import { closeTopmostStackedModal } from '../../utils/visuals/modalStack';
 
 const WeightTrackerModal = lazy(() =>
@@ -795,6 +799,8 @@ export const EnergyMapCalculator = () => {
   const [editingMealType, setEditingMealType] = useState(null);
   const [editingManualFavouriteId, setEditingManualFavouriteId] =
     useState(null);
+  // The weightless recent entry a prefilled Manual Entry form was opened from.
+  const [manualRelogEntry, setManualRelogEntry] = useState(null);
   const [foodMealType, setFoodMealType] = useState('');
   const [foodName, setFoodName] = useState('');
   const [foodCalories, setFoodCalories] = useState('');
@@ -3082,7 +3088,22 @@ export const EnergyMapCalculator = () => {
     setEditingFoodEntryId(null);
     setEditingMealType(null);
     setEditingManualFavouriteId(null);
+    setManualRelogEntry(null);
     setFoodEntryMode('add');
+  }, []);
+
+  const fillFoodEntryForm = useCallback((entry) => {
+    setFoodName(entry.name || '');
+    setFoodCalories(String(entry.calories || ''));
+    setFoodProtein(String(entry.protein || ''));
+    setFoodCarbs(String(entry.carbs || ''));
+    setFoodFats(String(entry.fats || ''));
+    setFoodFiber(entry.fiber != null ? String(entry.fiber) : '');
+    setFoodSodium(entry.sodium != null ? String(entry.sodium) : '');
+    setFoodSaturatedFats(
+      entry.saturatedFats != null ? String(entry.saturatedFats) : ''
+    );
+    setFoodSugars(entry.sugars != null ? String(entry.sugars) : '');
   }, []);
 
   // Begin meal entry flow by ensuring meal type is selected, then opening search
@@ -3279,7 +3300,10 @@ export const EnergyMapCalculator = () => {
         return;
       }
 
-      addFoodEntry(trackerSelectedDate, foodMealType, foodEntry);
+      addFoodEntry(trackerSelectedDate, foodMealType, {
+        ...selectedFoodForPortion?.entryMetadata,
+        ...foodEntry,
+      });
 
       if (shouldClosePortionModal) {
         foodPortionModal.requestClose();
@@ -3295,7 +3319,7 @@ export const EnergyMapCalculator = () => {
       foodMealType,
       foodPortionModal,
       foodSearchModal,
-      selectedFoodForPortion?.id,
+      selectedFoodForPortion,
       trackerSelectedDate,
       updateFoodEntry,
     ]
@@ -3322,17 +3346,7 @@ export const EnergyMapCalculator = () => {
         setFoodMealType(mealType);
         setEditingMealType(mealType);
         setEditingFoodEntryId(existing.id);
-        setFoodName(existing.name || '');
-        setFoodCalories(String(existing.calories || ''));
-        setFoodProtein(String(existing.protein || ''));
-        setFoodCarbs(String(existing.carbs || ''));
-        setFoodFats(String(existing.fats || ''));
-        setFoodFiber(existing.fiber != null ? String(existing.fiber) : '');
-        setFoodSodium(existing.sodium != null ? String(existing.sodium) : '');
-        setFoodSaturatedFats(
-          existing.saturatedFats != null ? String(existing.saturatedFats) : ''
-        );
-        setFoodSugars(existing.sugars != null ? String(existing.sugars) : '');
+        fillFoodEntryForm(existing);
         setFoodEntryMode('edit');
         foodEntryModal.open();
         return;
@@ -3367,7 +3381,51 @@ export const EnergyMapCalculator = () => {
       trackerSelectedDate,
       foodPortionModal,
       foodEntryModal,
+      fillFoodEntryForm,
       recipes,
+    ]
+  );
+
+  // A food picked from Recents. Nothing is logged yet: the portion picker opens
+  // on the last amount or, for an entry with no weight, the Manual Entry form
+  // opens filled in with its last values.
+  const handleSelectRecentFood = useCallback(
+    async (recentEntry) => {
+      if (!recentEntry) {
+        return;
+      }
+
+      if (!(Number(recentEntry.grams) > 0)) {
+        resetFoodEntryForm();
+        fillFoodEntryForm(recentEntry);
+        setManualRelogEntry(recentEntry);
+        foodEntryModal.open();
+        return;
+      }
+
+      const food = await resolveFoodForRelog(recentEntry, {
+        recipes,
+        favourites: foodFavourites,
+        cachedFoods,
+        getCatalogFoodById: async (foodId) => {
+          const { getFoodById } = await import('../../services/foodCatalog');
+          return getFoodById(foodId);
+        },
+      });
+
+      setEditingPortionEntry(null);
+      setPortionInitialGrams(recentEntry.grams);
+      setSelectedFoodForPortion(food);
+      foodPortionModal.open();
+    },
+    [
+      cachedFoods,
+      fillFoodEntryForm,
+      foodEntryModal,
+      foodFavourites,
+      foodPortionModal,
+      recipes,
+      resetFoodEntryForm,
     ]
   );
 
@@ -3428,6 +3486,7 @@ export const EnergyMapCalculator = () => {
       }
 
       const entry = {
+        ...pickManualRelogIdentity(manualRelogEntry, foodName),
         id: editingFoodEntryId || Date.now(),
         name: foodName.trim(),
         calories: parseFloat(foodCalories) || 0,
@@ -3478,6 +3537,7 @@ export const EnergyMapCalculator = () => {
       foodSearchModal,
       foodSodium,
       foodSugars,
+      manualRelogEntry,
       trackerSelectedDate,
       updateFoodEntry,
       updateFoodFavourite,
@@ -5930,6 +5990,7 @@ export const EnergyMapCalculator = () => {
             onSelectFavourite={handleSelectFoodFavourite}
             onEditFavourite={handleEditFoodFavourite}
             onDeleteFavourite={handleDeleteFoodFavourite}
+            onSelectRecent={handleSelectRecentFood}
             pinnedFoods={pinnedFoods}
             onTogglePin={togglePinnedFood}
             cachedFoods={cachedFoods}
