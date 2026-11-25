@@ -55,12 +55,14 @@ export const PortionUnitSelect = ({ value, options, onChange }) => {
 
   if (options.length < 2) {
     return (
-      <span
-        className={`${PILL_BASE} border-border/60 bg-surface-highlight/60 text-muted`}
-      >
-        <Scale size={13} aria-hidden="true" />
-        {selected.label}
-      </span>
+      <div className="flex justify-center">
+        <span
+          className={`${PILL_BASE} border-border/60 bg-surface-highlight/60 text-muted`}
+        >
+          <Scale size={13} aria-hidden="true" />
+          {selected.label}
+        </span>
+      </div>
     );
   }
 
