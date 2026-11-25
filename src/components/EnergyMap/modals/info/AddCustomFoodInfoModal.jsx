@@ -56,13 +56,15 @@ export const AddCustomFoodInfoModal = ({ isOpen, isClosing, onClose }) => {
                 <span className="text-foreground font-semibold">
                   Nutrition per
                 </span>{' '}
-                to the weight your numbers are for (the label&apos;s serving, or
-                1 oz), then enter them.
+                to the weight your numbers are for (the label&apos;s serving, or{' '}
+                {foodUnit.basisAmountLabel}), then enter them.
               </li>
             ) : (
               <li>
                 Enter every value{' '}
-                <span className="text-foreground font-semibold">per 100 g</span>
+                <span className="text-foreground font-semibold">
+                  per {foodUnit.basisAmountLabel}
+                </span>
                 . If the label only lists a serving, use value × 100 ÷ serving
                 grams.
               </li>

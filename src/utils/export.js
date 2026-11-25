@@ -122,7 +122,7 @@ export const exportPhaseAsCSV = async (
 
   // Daily logs - reference-based system (links to weight/nutrition data, not raw values)
   csv += 'DAILY LOGS\n';
-  const energyColumn = energy.isKj ? 'Energy (kJ)' : 'Calories';
+  const energyColumn = energy.isKj ? `Energy (${energy.unit})` : 'Calories';
   csv += `Date,Weight Ref,Body Fat Ref,Nutrition Ref,${energyColumn},Protein,Carbs,Fats,Fiber,Sodium,SaturatedFat,Sugars,Completed,Notes\n`;
 
   const logs = Object.entries(phase.dailyLogs || {})

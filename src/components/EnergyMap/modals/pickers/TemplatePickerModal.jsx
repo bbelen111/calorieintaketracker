@@ -5,10 +5,8 @@ import { useUnits } from '../../../../hooks/useUnits';
 import { goals } from '../../../../constants/goals/goals';
 
 // Template targets are defined in kg; other units convert to one decimal.
-const describeTargetChange = (kg, bodyWeight) =>
-  bodyWeight.linearUnit === 'kg'
-    ? `${kg} kg`
-    : `${bodyWeight.toNumber(kg).toFixed(1)} ${bodyWeight.linearUnit}`;
+const describeTargetChange = (kg, { linearUnit, toNumber }) =>
+  `${linearUnit === 'kg' ? kg : toNumber(kg).toFixed(1)} ${linearUnit}`;
 
 export const TemplatePickerModal = ({
   isOpen,

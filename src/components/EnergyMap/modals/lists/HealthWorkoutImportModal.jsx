@@ -120,7 +120,7 @@ export const HealthWorkoutImportModal = ({
                       ` · watch says ${
                         units.energy.isKj
                           ? units.energy.format(workout.totalEnergyBurned)
-                          : `${workout.totalEnergyBurned} kcal`
+                          : `${workout.totalEnergyBurned} ${units.energy.unit}`
                       }`}
                     {workout.sourceName && ` · ${workout.sourceName}`}
                   </p>

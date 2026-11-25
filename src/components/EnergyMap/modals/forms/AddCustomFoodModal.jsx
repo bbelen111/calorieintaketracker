@@ -877,7 +877,7 @@ export const AddCustomFoodModal = ({
                       </div>
                     ) : (
                       <label className="block text-foreground text-sm font-semibold mb-2">
-                        Nutrition per 100g
+                        Nutrition {foodUnit.basisLabel}
                       </label>
                     )}
 
