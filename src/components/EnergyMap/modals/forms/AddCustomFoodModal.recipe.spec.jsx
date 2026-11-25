@@ -490,6 +490,19 @@ describe('AddCustomFoodModal - Recipe mode', () => {
       );
     });
 
+    it('keeps a fixed modal height so switching modes does not jump the frame', async () => {
+      const user = userEvent.setup();
+      renderModal();
+
+      const modalContent = document.querySelector('.modal-content');
+      expect(modalContent).toHaveClass('h-[min(88dvh,800px)]');
+      expect(modalContent).toHaveClass('overflow-hidden!');
+
+      await switchToRecipe(user);
+      expect(document.querySelector('.modal-content')).toBe(modalContent);
+      expect(modalContent).toHaveClass('h-[min(88dvh,800px)]');
+    });
+
     it('adds and removes custom portions', async () => {
       const user = userEvent.setup();
       renderModal();

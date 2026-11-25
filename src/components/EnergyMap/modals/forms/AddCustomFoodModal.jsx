@@ -568,395 +568,404 @@ export const AddCustomFoodModal = ({
         isOpen={isOpen}
         isClosing={isClosing}
         onClose={onClose}
-        contentClassName="w-full md:max-w-2xl p-6"
+        contentClassName="w-full md:max-w-2xl h-[min(88dvh,800px)] flex flex-col overflow-hidden! p-0"
       >
-        {/* Header: the icon + title swap with a short fade/rise when the mode
-            changes (re-keyed, enter-only - the same idiom as the app header's
-            stat line). Not on open, so it never doubles the modal's entrance. */}
-        <div className={isEditingExisting ? 'mb-6' : 'mb-4'}>
-          <div
-            key={`title-${mode}`}
-            className={`flex items-center gap-3 ${
-              swapDirection ? 'header-stat-in' : ''
-            }`}
-          >
-            {isRecipeMode ? (
-              <ChefHat className="text-accent-blue" size={28} />
-            ) : (
-              <Utensils className="text-accent-blue" size={28} />
-            )}
-            <h3 className="text-foreground font-bold text-2xl">
-              {isRecipeMode
-                ? editingRecipe
-                  ? 'Edit Recipe'
-                  : 'New Recipe'
-                : editingFood
-                  ? 'Edit Custom Food'
-                  : 'Add Custom Food'}
-            </h3>
-          </div>
-        </div>
-
-        {/* Food | Recipe: one door for "make my own food", two ways to fill it
-            in. A sliding pill (the Food Search Local | Online grammar). Hidden
-            while editing an existing item (its type cannot change). */}
-        {isEditingExisting ? null : (
-          <SegmentedToggle
-            ariaLabel="Food type"
-            options={MODE_OPTIONS}
-            value={mode}
-            onChange={handleSelectMode}
-            className="mb-5"
-          />
-        )}
-
-        <div className="space-y-5">
-          {/* Food Name */}
-          <div>
-            <label className="block text-foreground text-sm font-semibold mb-2">
-              {isRecipeMode ? 'Recipe Name' : 'Food Name'}
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={
-                isRecipeMode ? 'e.g., Beef bowl' : "e.g., Mom's Chicken Curry"
-              }
-              className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
-            />
-          </div>
-
-          {/* Tags */}
-          <div>
-            <label className="block text-foreground text-sm font-semibold mb-2">
-              Category
-            </label>
-            <div className="flex flex-wrap gap-2.5">
-              {CUSTOM_FOOD_TAGS.map((tag) => {
-                const isSelected = selectedTags.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => toggleTag(tag.id)}
-                    aria-pressed={isSelected}
-                    className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition-all cursor-pointer pressable focus-ring md:hover:opacity-90 ${getTagClasses(tag.id, isSelected)}`}
-                  >
-                    {tag.label}
-                  </button>
-                );
-              })}
+        <div className="shrink-0 border-b border-border/60 px-6 pb-4 pt-6">
+          {/* Header: the icon + title swap with a short fade/rise when the mode
+              changes (re-keyed, enter-only - the same idiom as the app header's
+              stat line). Not on open, so it never doubles the modal's entrance. */}
+          <div className={isEditingExisting ? '' : 'mb-4'}>
+            <div
+              key={`title-${mode}`}
+              className={`flex items-center gap-3 ${
+                swapDirection ? 'header-stat-in' : ''
+              }`}
+            >
+              {isRecipeMode ? (
+                <ChefHat className="text-accent-blue" size={28} />
+              ) : (
+                <Utensils className="text-accent-blue" size={28} />
+              )}
+              <h3 className="text-foreground font-bold text-2xl">
+                {isRecipeMode
+                  ? editingRecipe
+                    ? 'Edit Recipe'
+                    : 'New Recipe'
+                  : editingFood
+                    ? 'Edit Custom Food'
+                    : 'Add Custom Food'}
+              </h3>
             </div>
           </div>
 
-          {/* Nutrition per 100g (Food) / ingredients + servings (Recipe).
+          {/* Food | Recipe: one door for "make my own food", two ways to fill it
+              in. A sliding pill (the Food Search Local | Online grammar). Hidden
+              while editing an existing item (its type cannot change). */}
+          {isEditingExisting ? null : (
+            <SegmentedToggle
+              ariaLabel="Food type"
+              options={MODE_OPTIONS}
+              value={mode}
+              onChange={handleSelectMode}
+            />
+          )}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5 [scrollbar-gutter:stable] scrollbar-thin scrollbar-thumb-[rgb(var(--border)/0.7)] scrollbar-track-[rgb(var(--surface)/1)]">
+          <div className="space-y-5">
+            {/* Food Name */}
+            <div>
+              <label className="block text-foreground text-sm font-semibold mb-2">
+                {isRecipeMode ? 'Recipe Name' : 'Food Name'}
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={
+                  isRecipeMode ? 'e.g., Beef bowl' : "e.g., Mom's Chicken Curry"
+                }
+                className="w-full bg-surface-highlight border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted focus-ring"
+              />
+            </div>
+
+            {/* Tags */}
+            <div>
+              <label className="block text-foreground text-sm font-semibold mb-2">
+                Category
+              </label>
+              <div className="flex flex-wrap gap-2.5">
+                {CUSTOM_FOOD_TAGS.map((tag) => {
+                  const isSelected = selectedTags.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                      aria-pressed={isSelected}
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition-all cursor-pointer pressable focus-ring md:hover:opacity-90 ${getTagClasses(tag.id, isSelected)}`}
+                    >
+                      {tag.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Nutrition per 100g (Food) / ingredients + servings (Recipe).
               Re-keyed by mode so the section remounts, and - once the user has
               switched - its blocks ease in from the side they are heading to
               (the Settings page-enter idiom: staggered children, enter-only,
               reduced-motion safe). Each branch's root holds the blocks as its
               direct children, which is what that animation targets. */}
-          <div
-            key={mode}
-            className={
-              swapDirection === 'forward'
-                ? 'settings-page-enter'
-                : swapDirection === 'back'
-                  ? 'settings-page-back'
-                  : undefined
-            }
-          >
-            {isRecipeMode ? (
-              <RecipeIngredientsSection
-                ingredients={ingredients}
-                servings={servings}
-                cookedWeightGrams={cookedWeightGrams}
-                previewFood={previewFood}
-                validation={recipeValidation}
-                userFoods={userFoods}
-                onAddIngredient={ingredientPickerModal.open}
-                onEditIngredient={handleUpdateIngredient}
-                onChangeIngredientGrams={handleChangeIngredientGrams}
-                onRemoveIngredient={handleRemoveIngredient}
-                onChangeServings={handleChangeServings}
-                onChangeCookedWeight={setCookedWeightGrams}
-              />
-            ) : (
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-foreground text-sm font-semibold mb-2">
-                    Nutrition per 100g
-                  </label>
-
-                  {/* Calories */}
-                  <div className="mb-3">
-                    <label className="block text-muted text-xs mb-1.5">
-                      Calories
+            <div
+              key={mode}
+              className={
+                swapDirection === 'forward'
+                  ? 'settings-page-enter'
+                  : swapDirection === 'back'
+                    ? 'settings-page-back'
+                    : undefined
+              }
+            >
+              {isRecipeMode ? (
+                <RecipeIngredientsSection
+                  ingredients={ingredients}
+                  servings={servings}
+                  cookedWeightGrams={cookedWeightGrams}
+                  previewFood={previewFood}
+                  validation={recipeValidation}
+                  userFoods={userFoods}
+                  onAddIngredient={ingredientPickerModal.open}
+                  onEditIngredient={handleUpdateIngredient}
+                  onChangeIngredientGrams={handleChangeIngredientGrams}
+                  onRemoveIngredient={handleRemoveIngredient}
+                  onChangeServings={handleChangeServings}
+                  onChangeCookedWeight={setCookedWeightGrams}
+                />
+              ) : (
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-foreground text-sm font-semibold mb-2">
+                      Nutrition per 100g
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => openNumericPicker('calories')}
-                      className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
-                      aria-label="Open calories picker"
-                    >
-                      <span className="font-medium text-base">
-                        {formatPickerDisplayValue(calories, 'kcal')}
-                      </span>
-                      <ChevronsUpDown
-                        size={16}
-                        className="text-muted shrink-0"
-                      />
-                    </button>
-                  </div>
 
-                  {/* Macros Grid */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
+                    {/* Calories */}
+                    <div className="mb-3">
                       <label className="block text-muted text-xs mb-1.5">
-                        Protein (g)
+                        Calories
                       </label>
                       <button
                         type="button"
-                        onClick={() => openNumericPicker('protein')}
-                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                        aria-label="Open protein picker"
+                        onClick={() => openNumericPicker('calories')}
+                        className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+                        aria-label="Open calories picker"
                       >
-                        <span className="font-medium text-sm">
-                          {formatPickerDisplayValue(protein, 'g')}
+                        <span className="font-medium text-base">
+                          {formatPickerDisplayValue(calories, 'kcal')}
                         </span>
                         <ChevronsUpDown
-                          size={14}
+                          size={16}
                           className="text-muted shrink-0"
                         />
                       </button>
                     </div>
-                    <div>
-                      <label className="block text-muted text-xs mb-1.5">
-                        Carbs (g)
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => openNumericPicker('carbs')}
-                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                        aria-label="Open carbs picker"
-                      >
-                        <span className="font-medium text-sm">
-                          {formatPickerDisplayValue(carbs, 'g')}
-                        </span>
-                        <ChevronsUpDown
-                          size={14}
-                          className="text-muted shrink-0"
-                        />
-                      </button>
-                    </div>
-                    <div>
-                      <label className="block text-muted text-xs mb-1.5">
-                        Fats (g)
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => openNumericPicker('fats')}
-                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                        aria-label="Open fats picker"
-                      >
-                        <span className="font-medium text-sm">
-                          {formatPickerDisplayValue(fats, 'g')}
-                        </span>
-                        <ChevronsUpDown
-                          size={14}
-                          className="text-muted shrink-0"
-                        />
-                      </button>
-                    </div>
-                  </div>
 
-                  {/* Micros Grid (optional, nullable; empty = untracked) */}
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div>
-                      <label className="block text-muted text-xs mb-1.5">
-                        Fiber (g)
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => openNumericPicker('fiber')}
-                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                        aria-label="Open fiber picker"
-                      >
-                        <span className="font-medium text-sm">
-                          {formatPickerDisplayValue(fiber, 'g')}
-                        </span>
-                        <ChevronsUpDown
-                          size={14}
-                          className="text-muted shrink-0"
-                        />
-                      </button>
-                    </div>
-                    <div>
-                      <label className="block text-muted text-xs mb-1.5">
-                        Sodium (mg)
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => openNumericPicker('sodium')}
-                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                        aria-label="Open sodium picker"
-                      >
-                        <span className="font-medium text-sm">
-                          {formatPickerDisplayValue(sodium, 'mg')}
-                        </span>
-                        <ChevronsUpDown
-                          size={14}
-                          className="text-muted shrink-0"
-                        />
-                      </button>
-                    </div>
-                    <div>
-                      <label className="block text-muted text-xs mb-1.5">
-                        Sat. Fat (g)
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => openNumericPicker('saturatedFats')}
-                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                        aria-label="Open saturated fat picker"
-                      >
-                        <span className="font-medium text-sm">
-                          {formatPickerDisplayValue(saturatedFats, 'g')}
-                        </span>
-                        <ChevronsUpDown
-                          size={14}
-                          className="text-muted shrink-0"
-                        />
-                      </button>
-                    </div>
-                    <div>
-                      <label className="block text-muted text-xs mb-1.5">
-                        Sugars (g)
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => openNumericPicker('sugars')}
-                        className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
-                        aria-label="Open sugars picker"
-                      >
-                        <span className="font-medium text-sm">
-                          {formatPickerDisplayValue(sugars, 'g')}
-                        </span>
-                        <ChevronsUpDown
-                          size={14}
-                          className="text-muted shrink-0"
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Custom Portions */}
-          <div>
-            <label className="block text-foreground text-sm font-semibold mb-2">
-              Custom Portions{' '}
-              <span className="text-muted text-xs font-normal">(optional)</span>
-            </label>
-
-            {/* Existing portions list: rows expand in / collapse out as they
-                are added / removed, so the form below glides instead of
-                jumping by a row. Each row carries its own bottom gap (inside
-                the collapsing wrapper), so the gap collapses with it. */}
-            <div className="mb-1">
-              <AnimatePresence initial={false}>
-                {portions.map((portion) => (
-                  <motion.div
-                    key={portion.id}
-                    initial={
-                      prefersReducedMotion ? false : { height: 0, opacity: 0 }
-                    }
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={
-                      prefersReducedMotion
-                        ? undefined
-                        : { height: 0, opacity: 0 }
-                    }
-                    transition={
-                      prefersReducedMotion
-                        ? { duration: 0 }
-                        : {
-                            height: { duration: 0.24, ease: ROW_EASE },
-                            opacity: { duration: 0.18, ease: 'easeOut' },
-                          }
-                    }
-                    style={{ overflow: 'hidden' }}
-                  >
-                    <div className="pb-2">
-                      <div className="flex items-center justify-between bg-surface/60 border border-border rounded-lg px-3 py-2">
-                        <div className="flex items-center gap-3">
-                          <span className="text-foreground font-medium text-sm">
-                            {portion.label}
-                          </span>
-                          <span className="text-muted text-sm">
-                            ({portion.grams}g)
-                          </span>
-                        </div>
+                    {/* Macros Grid */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-muted text-xs mb-1.5">
+                          Protein (g)
+                        </label>
                         <button
                           type="button"
-                          onClick={() => removePortion(portion.id)}
-                          className="text-muted md:hover:text-accent-red transition-colors pressable-inline focus-ring"
-                          aria-label={`Remove ${portion.label}`}
+                          onClick={() => openNumericPicker('protein')}
+                          className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                          aria-label="Open protein picker"
                         >
-                          <Trash2 size={16} />
+                          <span className="font-medium text-sm">
+                            {formatPickerDisplayValue(protein, 'g')}
+                          </span>
+                          <ChevronsUpDown
+                            size={14}
+                            className="text-muted shrink-0"
+                          />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-muted text-xs mb-1.5">
+                          Carbs (g)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openNumericPicker('carbs')}
+                          className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                          aria-label="Open carbs picker"
+                        >
+                          <span className="font-medium text-sm">
+                            {formatPickerDisplayValue(carbs, 'g')}
+                          </span>
+                          <ChevronsUpDown
+                            size={14}
+                            className="text-muted shrink-0"
+                          />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-muted text-xs mb-1.5">
+                          Fats (g)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openNumericPicker('fats')}
+                          className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                          aria-label="Open fats picker"
+                        >
+                          <span className="font-medium text-sm">
+                            {formatPickerDisplayValue(fats, 'g')}
+                          </span>
+                          <ChevronsUpDown
+                            size={14}
+                            className="text-muted shrink-0"
+                          />
                         </button>
                       </div>
                     </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+
+                    {/* Micros Grid (optional, nullable; empty = untracked) */}
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <label className="block text-muted text-xs mb-1.5">
+                          Fiber (g)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openNumericPicker('fiber')}
+                          className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                          aria-label="Open fiber picker"
+                        >
+                          <span className="font-medium text-sm">
+                            {formatPickerDisplayValue(fiber, 'g')}
+                          </span>
+                          <ChevronsUpDown
+                            size={14}
+                            className="text-muted shrink-0"
+                          />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-muted text-xs mb-1.5">
+                          Sodium (mg)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openNumericPicker('sodium')}
+                          className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                          aria-label="Open sodium picker"
+                        >
+                          <span className="font-medium text-sm">
+                            {formatPickerDisplayValue(sodium, 'mg')}
+                          </span>
+                          <ChevronsUpDown
+                            size={14}
+                            className="text-muted shrink-0"
+                          />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-muted text-xs mb-1.5">
+                          Sat. Fat (g)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openNumericPicker('saturatedFats')}
+                          className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                          aria-label="Open saturated fat picker"
+                        >
+                          <span className="font-medium text-sm">
+                            {formatPickerDisplayValue(saturatedFats, 'g')}
+                          </span>
+                          <ChevronsUpDown
+                            size={14}
+                            className="text-muted shrink-0"
+                          />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-muted text-xs mb-1.5">
+                          Sugars (g)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openNumericPicker('sugars')}
+                          className="w-full bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                          aria-label="Open sugars picker"
+                        >
+                          <span className="font-medium text-sm">
+                            {formatPickerDisplayValue(sugars, 'g')}
+                          </span>
+                          <ChevronsUpDown
+                            size={14}
+                            className="text-muted shrink-0"
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Add new portion */}
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <label className="block text-muted text-xs mb-1.5">
-                  Portion name
-                </label>
-                <input
-                  type="text"
-                  value={newPortionLabel}
-                  onChange={(e) => setNewPortionLabel(e.target.value)}
-                  placeholder="e.g., 1 serving"
-                  className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus-ring text-sm"
-                />
+            {/* Custom Portions */}
+            <div>
+              <label className="block text-foreground text-sm font-semibold mb-2">
+                Custom Portions{' '}
+                <span className="text-muted text-xs font-normal">
+                  (optional)
+                </span>
+              </label>
+
+              {/* Existing portions list: rows expand in / collapse out as they
+                are added / removed, so the form below glides instead of
+                jumping by a row. Each row carries its own bottom gap (inside
+                the collapsing wrapper), so the gap collapses with it. */}
+              <div className="mb-1">
+                <AnimatePresence initial={false}>
+                  {portions.map((portion) => (
+                    <motion.div
+                      key={portion.id}
+                      initial={
+                        prefersReducedMotion ? false : { height: 0, opacity: 0 }
+                      }
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={
+                        prefersReducedMotion
+                          ? undefined
+                          : { height: 0, opacity: 0 }
+                      }
+                      transition={
+                        prefersReducedMotion
+                          ? { duration: 0 }
+                          : {
+                              height: { duration: 0.24, ease: ROW_EASE },
+                              opacity: { duration: 0.18, ease: 'easeOut' },
+                            }
+                      }
+                      style={{ overflow: 'hidden' }}
+                    >
+                      <div className="pb-2">
+                        <div className="flex items-center justify-between bg-surface/60 border border-border rounded-lg px-3 py-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-foreground font-medium text-sm">
+                              {portion.label}
+                            </span>
+                            <span className="text-muted text-sm">
+                              ({portion.grams}g)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removePortion(portion.id)}
+                            className="text-muted md:hover:text-accent-red transition-colors pressable-inline focus-ring"
+                            aria-label={`Remove ${portion.label}`}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
-              <div className="w-28">
-                <label className="block text-muted text-xs mb-1.5">Grams</label>
+
+              {/* Add new portion */}
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <label className="block text-muted text-xs mb-1.5">
+                    Portion name
+                  </label>
+                  <input
+                    type="text"
+                    value={newPortionLabel}
+                    onChange={(e) => setNewPortionLabel(e.target.value)}
+                    placeholder="e.g., 1 serving"
+                    className="w-full bg-surface-highlight border border-border rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted focus-ring text-sm"
+                  />
+                </div>
+                <div className="w-28">
+                  <label className="block text-muted text-xs mb-1.5">
+                    Grams
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => openNumericPicker('portionGrams')}
+                    className="w-full bg-surface-highlight text-foreground px-2.5 py-2.5 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline text-sm"
+                    aria-label="Open portion grams picker"
+                  >
+                    <span className="font-medium">
+                      {formatPickerDisplayValue(newPortionGrams, 'g')}
+                    </span>
+                    <ChevronsUpDown size={14} className="text-muted shrink-0" />
+                  </button>
+                </div>
                 <button
                   type="button"
-                  onClick={() => openNumericPicker('portionGrams')}
-                  className="w-full bg-surface-highlight text-foreground px-2.5 py-2.5 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline text-sm"
-                  aria-label="Open portion grams picker"
+                  onClick={addPortion}
+                  disabled={!newPortionLabel.trim() || !newPortionGrams}
+                  className="px-3 py-2.5 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-medium transition-all press-feedback focus-ring"
+                  aria-label="Add portion"
                 >
-                  <span className="font-medium">
-                    {formatPickerDisplayValue(newPortionGrams, 'g')}
-                  </span>
-                  <ChevronsUpDown size={14} className="text-muted shrink-0" />
+                  <Plus size={20} />
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={addPortion}
-                disabled={!newPortionLabel.trim() || !newPortionGrams}
-                className="px-3 py-2.5 bg-primary md:hover:brightness-110 disabled:bg-surface-highlight/60 disabled:cursor-not-allowed disabled:text-muted text-primary-foreground rounded-lg font-medium transition-all press-feedback focus-ring"
-                aria-label="Add portion"
-              >
-                <Plus size={20} />
-              </button>
             </div>
           </div>
+        </div>
 
-          {/* Actions - same hierarchy as the Manual Entry modal: one dominant
-              primary above two quiet secondary actions. */}
-          <div className="flex flex-col gap-1.5 pt-2">
+        {/* Actions - same hierarchy as the Manual Entry modal: one dominant
+            primary above two quiet secondary actions. */}
+        <div className="shrink-0 border-t border-border/60 px-6 pb-6 pt-3">
+          <div className="flex flex-col gap-1.5">
             <button
               type="button"
               onClick={() => handleSave()}
