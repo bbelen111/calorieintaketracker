@@ -23,6 +23,7 @@ import {
   getMealTypeById,
 } from '../../../constants/meal/mealTypes';
 import { formatOne } from '../../../utils/formatting/format';
+import { useUnits } from '../../../hooks/useUnits';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../modals/common/ConfirmActionModal';
@@ -158,6 +159,7 @@ export const TrackerScreen = memo(function TrackerScreen({
   macroHintSeen = true,
   onMacroHintSeen,
 }) {
+  const units = useUnits();
   const store = useEnergyMapStore(
     (state) => ({
       nutritionData: state.nutritionData ?? {},
@@ -616,7 +618,7 @@ export const TrackerScreen = memo(function TrackerScreen({
                         </span>
                         {entry && entry.grams != null && (
                           <span className="ml-2 text-muted text-xs align-middle">
-                            {formatOne(entry.grams)} g
+                            {units.food.format(entry.grams)}
                           </span>
                         )}
                       </p>

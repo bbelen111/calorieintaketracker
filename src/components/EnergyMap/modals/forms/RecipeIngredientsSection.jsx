@@ -11,6 +11,9 @@ import {
 } from 'lucide-react';
 import { MicroStat } from '../../common/MicroStat';
 import { NumericValuePickerModal } from '../pickers/NumericValuePickerModal';
+import { DualWheelModal } from '../pickers/DualWheelModal';
+import { buildTenthsWheel } from '../../../../utils/units/wheelConfigs';
+import { useUnits } from '../../../../hooks/useUnits';
 import { SettingsReveal } from '../fullscreen/SettingsReveal';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
@@ -20,7 +23,6 @@ import { formatFoodDisplayName } from '../../../../utils/food/foodPresentation';
 import { scaleMacrosFromPer100g } from '../../../../utils/food/portionNormalization';
 import {
   RECIPE_COOKED_WEIGHT_PICKER_FIELD,
-  formatPickerDisplayValue,
   formatPickerValueForState,
   normalizePickerValue,
 } from '../../../../utils/food/nutrientPicker';
@@ -119,6 +121,7 @@ export const RecipeIngredientsSection = ({
   onChangeServings,
   onChangeCookedWeight,
 }) => {
+  const { food: foodUnit } = useUnits();
   const reduceMotion = useReducedMotionPreference();
   const [showAdvanced, setShowAdvanced] = useState(
     () => String(cookedWeightGrams ?? '') !== ''
@@ -149,11 +152,23 @@ export const RecipeIngredientsSection = ({
     }
 
     window.setTimeout(() => {
-      setPickerState({
-        target,
-        config,
-        value: normalizePickerValue(Number.parseFloat(currentValue), config),
-      });
+      const grams = Number.parseFloat(currentValue);
+      setPickerState(
+        foodUnit.isOunce
+          ? {
+              target,
+              config,
+              wheel: buildTenthsWheel({
+                min: foodUnit.toPicker(config.min),
+                max: foodUnit.toPicker(config.max),
+              }),
+              value: foodUnit.toPicker(
+                Number.isFinite(grams) ? grams : config.min
+              ),
+              grams,
+            }
+          : { target, config, value: normalizePickerValue(grams, config) }
+      );
       pickerModal.open();
     }, 60);
   };
@@ -161,9 +176,17 @@ export const RecipeIngredientsSection = ({
   const handlePickerSave = (nextValue) => {
     const target = pickerState?.target;
     const config = pickerState?.config;
-    if (target && config) {
-      const normalized = normalizePickerValue(Number(nextValue), config);
-      if (target.kind === 'cooked') {
+    if (target?.kind === 'cooked' && config) {
+      if (pickerState.wheel) {
+        const grams = foodUnit.fromPicker(
+          nextValue,
+          Number.isFinite(pickerState.grams) ? pickerState.grams : null
+        );
+        onChangeCookedWeight?.(
+          String(Math.min(Math.max(grams, config.min), config.max))
+        );
+      } else {
+        const normalized = normalizePickerValue(Number(nextValue), config);
         onChangeCookedWeight?.(
           formatPickerValueForState(normalized, config.step)
         );
@@ -302,7 +325,7 @@ export const RecipeIngredientsSection = ({
                           </span>
                           {ingredient.grams != null ? (
                             <span className="ml-2 align-middle text-xs text-muted">
-                              {formatOne(ingredient.grams)} g
+                              {foodUnit.format(ingredient.grams)}
                             </span>
                           ) : null}
                         </p>
@@ -491,9 +514,9 @@ export const RecipeIngredientsSection = ({
               </div>
               <TickValue
                 className="mt-3 text-center text-xs text-muted"
-                text={`1 serving ≈ ${formatOne(previewFood.servingGrams)} g · ${formatOne(
+                text={`1 serving ≈ ${foodUnit.format(previewFood.servingGrams)} · ${foodUnit.format(
                   previewFood.totalGrams
-                )} g total · ${formatOne(previewFood.per100g.calories)} kcal / 100 g`}
+                )} total · ${formatOne(foodUnit.perBasis(previewFood.per100g.calories))} kcal / ${foodUnit.basisAmountLabel}`}
               />
             </>
           ) : null}
@@ -541,7 +564,7 @@ export const RecipeIngredientsSection = ({
             >
               <span className="text-base font-medium">
                 {hasCookedWeight
-                  ? formatPickerDisplayValue(cookedWeightGrams, 'g')
+                  ? foodUnit.format(Number(cookedWeightGrams))
                   : 'Use ingredient weights'}
               </span>
               <ChevronsUpDown size={16} className="shrink-0 text-muted" />
@@ -565,8 +588,19 @@ export const RecipeIngredientsSection = ({
         </SettingsReveal>
       </div>
 
+      <DualWheelModal
+        isOpen={pickerModal.isOpen && Boolean(pickerState?.wheel)}
+        isClosing={pickerModal.isClosing}
+        title={pickerConfig?.title ?? 'Select Value'}
+        unitLabel="ounces"
+        value={pickerState?.value ?? 0}
+        config={pickerState?.wheel}
+        onCancel={pickerModal.requestClose}
+        onSave={handlePickerSave}
+      />
+
       <NumericValuePickerModal
-        isOpen={pickerModal.isOpen}
+        isOpen={pickerModal.isOpen && !pickerState?.wheel}
         isClosing={pickerModal.isClosing}
         title={pickerConfig?.title ?? 'Select Value'}
         value={pickerState?.value ?? 0}

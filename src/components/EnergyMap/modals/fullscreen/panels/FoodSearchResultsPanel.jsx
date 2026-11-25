@@ -3,6 +3,7 @@ import { AlertCircle, Edit3, Globe, Search } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
 import { formatOne } from '../../../../../utils/formatting/format';
+import { useUnits } from '../../../../../hooks/useUnits';
 import { formatFoodDisplayName } from '../../../../../utils/food/foodPresentation';
 import { rememberPortionOrigin } from '../../../../../utils/visuals/portionTransition';
 
@@ -82,55 +83,63 @@ const resolveOnlineTypeBadge = (type) => {
 
 // The inside of a local result card (shared by the plain card and the recipe
 // row, so the two can never drift apart).
-const ResultCardContent = ({ food, isPinned }) => (
-  <>
-    {isPinned && (
-      <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-accent-blue rounded-full"></div>
-    )}
-    <div className="flex items-start justify-between gap-3">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <h4 className="text-foreground font-semibold text-sm truncate">
-            {formatFoodDisplayName({
-              name: food.name,
-              brand: food.brand,
-            })}
-          </h4>
+const ResultCardContent = ({ food, isPinned }) => {
+  const { food: foodUnit } = useUnits();
+  // Stored per 100 g; shown per 100 g or per ounce.
+  const basis = (value) => formatOne(foodUnit.perBasis(value));
+
+  return (
+    <>
+      {isPinned && (
+        <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-accent-blue rounded-full"></div>
+      )}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h4 className="text-foreground font-semibold text-sm truncate">
+              {formatFoodDisplayName({
+                name: food.name,
+                brand: food.brand,
+              })}
+            </h4>
+          </div>
+          <FoodTagBadges food={food} className="mt-1" />
         </div>
-        <FoodTagBadges food={food} className="mt-1" />
-      </div>
-      <div className="flex flex-col items-end gap-1">
-        <span className="text-muted text-[10px] font-medium">per 100g</span>
-        <div className="flex items-center gap-3 text-xs">
-          <div className="text-center">
-            <p className="text-accent-emerald font-bold">
-              {formatOne(food.per100g.calories)}
-            </p>
-            <p className="text-muted">cal</p>
-          </div>
-          <div className="text-center">
-            <p className="text-accent-red font-bold">
-              {formatOne(food.per100g.protein)}g
-            </p>
-            <p className="text-muted">prot</p>
-          </div>
-          <div className="text-center">
-            <p className="text-accent-amber font-bold">
-              {formatOne(food.per100g.carbs)}g
-            </p>
-            <p className="text-muted">carb</p>
-          </div>
-          <div className="text-center">
-            <p className="text-accent-yellow font-bold">
-              {formatOne(food.per100g.fats)}g
-            </p>
-            <p className="text-muted">fat</p>
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-muted text-[10px] font-medium">
+            {foodUnit.basisLabel}
+          </span>
+          <div className="flex items-center gap-3 text-xs">
+            <div className="text-center">
+              <p className="text-accent-emerald font-bold">
+                {basis(food.per100g.calories)}
+              </p>
+              <p className="text-muted">cal</p>
+            </div>
+            <div className="text-center">
+              <p className="text-accent-red font-bold">
+                {basis(food.per100g.protein)}g
+              </p>
+              <p className="text-muted">prot</p>
+            </div>
+            <div className="text-center">
+              <p className="text-accent-amber font-bold">
+                {basis(food.per100g.carbs)}g
+              </p>
+              <p className="text-muted">carb</p>
+            </div>
+            <div className="text-center">
+              <p className="text-accent-yellow font-bold">
+                {basis(food.per100g.fats)}g
+              </p>
+              <p className="text-muted">fat</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </>
-);
+    </>
+  );
+};
 
 export const FoodSearchResultsPanel = ({
   searchMode,
@@ -153,316 +162,326 @@ export const FoodSearchResultsPanel = ({
   animatedFoodIds,
   prefersReducedMotion,
   onEditRecipe,
-}) => (
-  <>
-    {searchMode === 'online' && fallbackUsed && (
-      <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg p-3">
-        <p className="text-accent-blue text-xs font-medium">
-          Showing{' '}
-          {activeSearchSource === 'cloud'
-            ? 'Online database'
-            : activeSearchSource === 'openfoodfacts'
-              ? 'OpenFoodFacts'
-              : 'online'}{' '}
-          fallback results.
-        </p>
-      </div>
-    )}
+}) => {
+  const { food: foodUnit } = useUnits();
 
-    {searchError && (
-      <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
-        <AlertCircle size={20} className="text-accent-red shrink-0 mt-0.5" />
-        <div>
-          <p className="text-accent-red font-medium text-sm">{searchError}</p>
-          <button
-            onClick={() => performOnlineSearch(searchQuery)}
-            className="mt-2 text-xs text-accent-red md:hover:text-accent-red/80 underline"
-          >
-            Try again
-          </button>
+  return (
+    <>
+      {searchMode === 'online' && fallbackUsed && (
+        <div className="bg-accent-blue/10 border border-accent-blue/30 rounded-lg p-3">
+          <p className="text-accent-blue text-xs font-medium">
+            Showing{' '}
+            {activeSearchSource === 'cloud'
+              ? 'Online database'
+              : activeSearchSource === 'openfoodfacts'
+                ? 'OpenFoodFacts'
+                : 'online'}{' '}
+            fallback results.
+          </p>
         </div>
-      </div>
-    )}
+      )}
 
-    {searchMode === 'local' && localSearchError && (
-      <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
-        <AlertCircle size={20} className="text-accent-red shrink-0 mt-0.5" />
-        <p className="text-accent-red font-medium text-sm">
-          {localSearchError}
-        </p>
-      </div>
-    )}
+      {searchError && (
+        <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle size={20} className="text-accent-red shrink-0 mt-0.5" />
+          <div>
+            <p className="text-accent-red font-medium text-sm">{searchError}</p>
+            <button
+              onClick={() => performOnlineSearch(searchQuery)}
+              className="mt-2 text-xs text-accent-red md:hover:text-accent-red/80 underline"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      )}
 
-    {searchMode === 'local' && isLocalSearching && (
-      <motion.div
-        initial={prefersReducedMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.16 }}
-        className="space-y-2 py-1"
-      >
-        {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
-          <div key={`local-skeleton-${index}`} className={SKELETON_ROW_CLASS} />
-        ))}
-      </motion.div>
-    )}
+      {searchMode === 'local' && localSearchError && (
+        <div className="bg-accent-red/10 border border-accent-red/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle size={20} className="text-accent-red shrink-0 mt-0.5" />
+          <p className="text-accent-red font-medium text-sm">
+            {localSearchError}
+          </p>
+        </div>
+      )}
 
-    {searchMode === 'online' && isSearching && (
-      <motion.div
-        initial={prefersReducedMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.16 }}
-        className="space-y-2 py-1"
-      >
-        {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
-          <div
-            key={`online-skeleton-${index}`}
-            className={SKELETON_ROW_CLASS}
-          />
-        ))}
-      </motion.div>
-    )}
+      {searchMode === 'local' && isLocalSearching && (
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.16 }}
+          className="space-y-2 py-1"
+        >
+          {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
+            <div
+              key={`local-skeleton-${index}`}
+              className={SKELETON_ROW_CLASS}
+            />
+          ))}
+        </motion.div>
+      )}
 
-    {!isSearching &&
-    !isLocalSearching &&
-    !searchError &&
-    !localSearchError &&
-    displayResults.length === 0 ? (
-      <div className="p-20 text-center">
-        {searchMode === 'online' ? (
-          <>
-            <Globe className="mx-auto text-muted mb-3" size={32} />
-            <p className="text-muted text-sm">
-              {searchQuery.length < 2
-                ? 'Enter a search term to find foods online'
-                : 'No online matches found. Try a different search term.'}
-            </p>
-            {searchQuery.length > 0 && searchQuery.length < 2 && (
-              <p className="mt-1 text-muted text-xs">
-                Type at least 2 characters to search
+      {searchMode === 'online' && isSearching && (
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.16 }}
+          className="space-y-2 py-1"
+        >
+          {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
+            <div
+              key={`online-skeleton-${index}`}
+              className={SKELETON_ROW_CLASS}
+            />
+          ))}
+        </motion.div>
+      )}
+
+      {!isSearching &&
+      !isLocalSearching &&
+      !searchError &&
+      !localSearchError &&
+      displayResults.length === 0 ? (
+        <div className="p-20 text-center">
+          {searchMode === 'online' ? (
+            <>
+              <Globe className="mx-auto text-muted mb-3" size={32} />
+              <p className="text-muted text-sm">
+                {searchQuery.length < 2
+                  ? 'Enter a search term to find foods online'
+                  : 'No online matches found. Try a different search term.'}
               </p>
-            )}
-          </>
-        ) : (
-          <>
-            <Search className="mx-auto text-muted mb-3" size={32} />
-            <p className="text-muted text-sm">No foods found</p>
-          </>
-        )}
-      </div>
-    ) : searchMode === 'online' && !isSearching ? (
-      <AnimatePresence initial={false}>
-        {displayResults.map((food, index) => {
-          const isLoading = loadingFoodId === food.id;
-          const shouldAnimate = Boolean(animatedFoodIds?.[food.id]);
-          const onlineSourceBadge = resolveOnlineSourceBadge(
-            food.source || activeSearchSource
-          );
-          const onlineTypeBadge = resolveOnlineTypeBadge(food.type);
-          const hasPreviewMacros = Boolean(food.previewMacros);
-          const macroSource = hasPreviewMacros
-            ? food.previewMacros
-            : food.per100g;
-          const servingLabel = hasPreviewMacros
-            ? food.previewMacros?.servingInfo || 'per serving'
-            : 'per 100g';
-          return (
-            <motion.button
-              key={food.id}
-              style={RESULT_CARD_STYLE}
-              initial={
-                !prefersReducedMotion && shouldAnimate
-                  ? { opacity: 0, y: 8 }
-                  : false
-              }
-              animate={{ opacity: 1, y: 0 }}
-              exit={
-                prefersReducedMotion
+              {searchQuery.length > 0 && searchQuery.length < 2 && (
+                <p className="mt-1 text-muted text-xs">
+                  Type at least 2 characters to search
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <Search className="mx-auto text-muted mb-3" size={32} />
+              <p className="text-muted text-sm">No foods found</p>
+            </>
+          )}
+        </div>
+      ) : searchMode === 'online' && !isSearching ? (
+        <AnimatePresence initial={false}>
+          {displayResults.map((food, index) => {
+            const isLoading = loadingFoodId === food.id;
+            const shouldAnimate = Boolean(animatedFoodIds?.[food.id]);
+            const onlineSourceBadge = resolveOnlineSourceBadge(
+              food.source || activeSearchSource
+            );
+            const onlineTypeBadge = resolveOnlineTypeBadge(food.type);
+            const hasPreviewMacros = Boolean(food.previewMacros);
+            const macroSource = hasPreviewMacros
+              ? food.previewMacros
+              : food.per100g;
+            const servingLabel = hasPreviewMacros
+              ? food.previewMacros?.servingInfo || 'per serving'
+              : foodUnit.basisLabel;
+            // A serving preview is shown as it is; per-100g data follows the unit.
+            const shown = (value) =>
+              hasPreviewMacros ? value : foodUnit.perBasis(value);
+            return (
+              <motion.button
+                key={food.id}
+                style={RESULT_CARD_STYLE}
+                initial={
+                  !prefersReducedMotion && shouldAnimate
+                    ? { opacity: 0, y: 8 }
+                    : false
+                }
+                animate={{ opacity: 1, y: 0 }}
+                exit={
+                  prefersReducedMotion
+                    ? { opacity: 1 }
+                    : { opacity: 0, y: -4, transition: { duration: 0.12 } }
+                }
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : {
+                        duration: 0.2,
+                        ease: STAGGER_EASE,
+                        delay: shouldAnimate ? getRowDelay(index) : 0,
+                      }
+                }
+                onClick={(event) => {
+                  if (isLoading) return;
+                  rememberPortionOrigin(event.currentTarget);
+                  handleOnlineFoodSelect(food);
+                }}
+                disabled={isLoading}
+                className={`relative w-full bg-surface-highlight border border-border rounded-xl p-3 text-left transition-all ${
+                  isLoading
+                    ? 'opacity-70 cursor-wait'
+                    : 'active:scale-[0.99] md:hover:border-accent-emerald/50'
+                }`}
+              >
+                {isLoading && (
+                  <div className="absolute inset-0 bg-surface-highlight rounded-lg flex items-center justify-center z-10">
+                    <div className="relative w-6 h-6">
+                      <div className="absolute inset-0 border-3 border-border rounded-full" />
+                      <div className="absolute inset-0 border-3 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-foreground font-semibold text-sm truncate">
+                        {formatFoodDisplayName({
+                          name: food.name,
+                          brand: food.brand,
+                        })}
+                      </h4>
+                    </div>
+                    {(onlineSourceBadge || onlineTypeBadge) && (
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
+                        {onlineSourceBadge && (
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-sm ${onlineSourceBadge.className}`}
+                          >
+                            {onlineSourceBadge.label}
+                          </span>
+                        )}
+                        {onlineTypeBadge && (
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-sm ${onlineTypeBadge.className}`}
+                          >
+                            {onlineTypeBadge.label}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {macroSource && (
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-muted text-[10px] font-medium">
+                        {servingLabel}
+                      </span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <div className="text-center">
+                          <p className="text-accent-emerald font-bold">
+                            {Math.round(shown(macroSource.calories) || 0)}
+                          </p>
+                          <p className="text-muted">cal</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-accent-red font-bold">
+                            {formatOne(shown(macroSource.protein))}g
+                          </p>
+                          <p className="text-muted">prot</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-accent-amber font-bold">
+                            {formatOne(shown(macroSource.carbs))}g
+                          </p>
+                          <p className="text-muted">carb</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-accent-yellow font-bold">
+                            {formatOne(shown(macroSource.fats))}g
+                          </p>
+                          <p className="text-muted">fat</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.button>
+            );
+          })}
+        </AnimatePresence>
+      ) : (
+        !isSearching && (
+          <AnimatePresence initial={false}>
+            {displayResults.map((food, index) => {
+              const isPinned = resolvedPinnedFoods.includes(food.id);
+              const isLongPressing = longPressingId === food.id;
+              const shouldAnimate = Boolean(animatedFoodIds?.[food.id]);
+              const borderClass = isPinned
+                ? 'border-accent-blue'
+                : 'border-border';
+              const rowMotionProps = {
+                style: RESULT_CARD_STYLE,
+                initial:
+                  !prefersReducedMotion && shouldAnimate
+                    ? { opacity: 0, y: 8 }
+                    : false,
+                animate: { opacity: 1, y: 0 },
+                exit: prefersReducedMotion
                   ? { opacity: 1 }
-                  : { opacity: 0, y: -4, transition: { duration: 0.12 } }
-              }
-              transition={
-                prefersReducedMotion
+                  : { opacity: 0, y: -4, transition: { duration: 0.12 } },
+                transition: prefersReducedMotion
                   ? { duration: 0 }
                   : {
                       duration: 0.2,
                       ease: STAGGER_EASE,
                       delay: shouldAnimate ? getRowDelay(index) : 0,
-                    }
-              }
-              onClick={(event) => {
-                if (isLoading) return;
-                rememberPortionOrigin(event.currentTarget);
-                handleOnlineFoodSelect(food);
-              }}
-              disabled={isLoading}
-              className={`relative w-full bg-surface-highlight border border-border rounded-xl p-3 text-left transition-all ${
-                isLoading
-                  ? 'opacity-70 cursor-wait'
-                  : 'active:scale-[0.99] md:hover:border-accent-emerald/50'
-              }`}
-            >
-              {isLoading && (
-                <div className="absolute inset-0 bg-surface-highlight rounded-lg flex items-center justify-center z-10">
-                  <div className="relative w-6 h-6">
-                    <div className="absolute inset-0 border-3 border-border rounded-full" />
-                    <div className="absolute inset-0 border-3 border-transparent border-t-accent-blue rounded-full animate-spin-fast" />
-                  </div>
-                </div>
-              )}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-foreground font-semibold text-sm truncate">
-                      {formatFoodDisplayName({
-                        name: food.name,
-                        brand: food.brand,
-                      })}
-                    </h4>
-                  </div>
-                  {(onlineSourceBadge || onlineTypeBadge) && (
-                    <div className="mt-1 flex items-center gap-2 flex-wrap">
-                      {onlineSourceBadge && (
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-sm ${onlineSourceBadge.className}`}
-                        >
-                          {onlineSourceBadge.label}
-                        </span>
-                      )}
-                      {onlineTypeBadge && (
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-sm ${onlineTypeBadge.className}`}
-                        >
-                          {onlineTypeBadge.label}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {macroSource && (
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-muted text-[10px] font-medium">
-                      {servingLabel}
-                    </span>
-                    <div className="flex items-center gap-2 text-xs">
-                      <div className="text-center">
-                        <p className="text-accent-emerald font-bold">
-                          {Math.round(macroSource.calories || 0)}
-                        </p>
-                        <p className="text-muted">cal</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-accent-red font-bold">
-                          {formatOne(macroSource.protein)}g
-                        </p>
-                        <p className="text-muted">prot</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-accent-amber font-bold">
-                          {formatOne(macroSource.carbs)}g
-                        </p>
-                        <p className="text-muted">carb</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-accent-yellow font-bold">
-                          {formatOne(macroSource.fats)}g
-                        </p>
-                        <p className="text-muted">fat</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.button>
-          );
-        })}
-      </AnimatePresence>
-    ) : (
-      !isSearching && (
-        <AnimatePresence initial={false}>
-          {displayResults.map((food, index) => {
-            const isPinned = resolvedPinnedFoods.includes(food.id);
-            const isLongPressing = longPressingId === food.id;
-            const shouldAnimate = Boolean(animatedFoodIds?.[food.id]);
-            const borderClass = isPinned
-              ? 'border-accent-blue'
-              : 'border-border';
-            const rowMotionProps = {
-              style: RESULT_CARD_STYLE,
-              initial:
-                !prefersReducedMotion && shouldAnimate
-                  ? { opacity: 0, y: 8 }
-                  : false,
-              animate: { opacity: 1, y: 0 },
-              exit: prefersReducedMotion
-                ? { opacity: 1 }
-                : { opacity: 0, y: -4, transition: { duration: 0.12 } },
-              transition: prefersReducedMotion
-                ? { duration: 0 }
-                : {
-                    duration: 0.2,
-                    ease: STAGGER_EASE,
-                    delay: shouldAnimate ? getRowDelay(index) : 0,
-                  },
-            };
-            const pressProps = {
-              onClick: (event) => {
-                rememberPortionOrigin(event.currentTarget);
-                handleFoodClick(food);
-              },
-              onPointerDown: (event) => handlePressStart(food.id, event),
-              onPointerUp: () => handlePressEnd(false),
-              onPointerLeave: () => handlePressEnd(true),
-              onPointerCancel: () => handlePressEnd(true),
-              onContextMenu: (event) => event.preventDefault(),
-            };
-            const cardClassName = `relative bg-surface-highlight border rounded-xl p-3 text-left transition-all ${
-              isLongPressing
-                ? 'border-accent-blue scale-[0.98]'
-                : `${borderClass} active:scale-[0.99]`
-            }`;
+                    },
+              };
+              const pressProps = {
+                onClick: (event) => {
+                  rememberPortionOrigin(event.currentTarget);
+                  handleFoodClick(food);
+                },
+                onPointerDown: (event) => handlePressStart(food.id, event),
+                onPointerUp: () => handlePressEnd(false),
+                onPointerLeave: () => handlePressEnd(true),
+                onPointerCancel: () => handlePressEnd(true),
+                onContextMenu: (event) => event.preventDefault(),
+              };
+              const cardClassName = `relative bg-surface-highlight border rounded-xl p-3 text-left transition-all ${
+                isLongPressing
+                  ? 'border-accent-blue scale-[0.98]'
+                  : `${borderClass} active:scale-[0.99]`
+              }`;
 
-            // A recipe row also carries an edit button. It sits beside the card
-            // rather than inside it: the card is itself a button, and nesting
-            // buttons is invalid (and would fire the card's tap + long-press).
-            if (food.isRecipe && typeof onEditRecipe === 'function') {
+              // A recipe row also carries an edit button. It sits beside the card
+              // rather than inside it: the card is itself a button, and nesting
+              // buttons is invalid (and would fire the card's tap + long-press).
+              if (food.isRecipe && typeof onEditRecipe === 'function') {
+                return (
+                  <motion.div
+                    key={food.id}
+                    {...rowMotionProps}
+                    className="flex items-stretch gap-2"
+                  >
+                    <button
+                      type="button"
+                      {...pressProps}
+                      className={`${cardClassName} min-w-0 flex-1`}
+                    >
+                      <ResultCardContent food={food} isPinned={isPinned} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onEditRecipe(food)}
+                      aria-label={`Edit recipe ${food.name}`}
+                      className="flex w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-highlight text-muted transition-colors press-feedback focus-ring md:hover:text-foreground"
+                    >
+                      <Edit3 size={16} aria-hidden="true" />
+                    </button>
+                  </motion.div>
+                );
+              }
+
               return (
-                <motion.div
+                <motion.button
                   key={food.id}
                   {...rowMotionProps}
-                  className="flex items-stretch gap-2"
+                  {...pressProps}
+                  className={`${cardClassName} w-full`}
                 >
-                  <button
-                    type="button"
-                    {...pressProps}
-                    className={`${cardClassName} min-w-0 flex-1`}
-                  >
-                    <ResultCardContent food={food} isPinned={isPinned} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onEditRecipe(food)}
-                    aria-label={`Edit recipe ${food.name}`}
-                    className="flex w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-highlight text-muted transition-colors press-feedback focus-ring md:hover:text-foreground"
-                  >
-                    <Edit3 size={16} aria-hidden="true" />
-                  </button>
-                </motion.div>
+                  <ResultCardContent food={food} isPinned={isPinned} />
+                </motion.button>
               );
-            }
-
-            return (
-              <motion.button
-                key={food.id}
-                {...rowMotionProps}
-                {...pressProps}
-                className={`${cardClassName} w-full`}
-              >
-                <ResultCardContent food={food} isPinned={isPinned} />
-              </motion.button>
-            );
-          })}
-        </AnimatePresence>
-      )
-    )}
-  </>
-);
+            })}
+          </AnimatePresence>
+        )
+      )}
+    </>
+  );
+};

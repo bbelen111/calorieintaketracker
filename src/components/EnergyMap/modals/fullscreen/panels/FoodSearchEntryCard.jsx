@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, Flame, Info } from 'lucide-react';
 import { formatOne } from '../../../../../utils/formatting/format';
+import { useUnits } from '../../../../../hooks/useUnits';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
 import { buildFinalizedEntryCardState } from '../../../../../utils/food/aiFinalizedEntryState';
 import { resolveAiEntryCategory } from '../../../../../utils/food/aiCategory';
@@ -120,6 +121,7 @@ export const FoodSearchEntryCard = ({
   handleSaveAiFavourite,
   getFoodSearchSourceLabel,
 }) => {
+  const { food: foodUnit } = useUnits();
   const isExpanded = expandedAiEntryKeys[entryKey] === true;
   const isTraceExpanded = expandedTraceKeys[entryKey] === true;
   const isTechnicalTraceExpanded =
@@ -186,7 +188,7 @@ export const FoodSearchEntryCard = ({
           </p>
           {Number.isFinite(Number(entry.grams)) && (
             <span className="shrink-0 text-[11px] font-medium text-muted bg-surface-highlight rounded-full px-2 py-0.5">
-              {formatOne(entry.grams)}g
+              {foodUnit.format(entry.grams, { space: false })}
             </span>
           )}
         </div>

@@ -5,6 +5,7 @@ import { FoodTagBadges } from '../../../common/FoodTagBadges';
 import { getMealTypeById } from '../../../../../constants/meal/mealTypes';
 import { useEnergyMapStore } from '../../../../../store/useEnergyMapStore';
 import { formatOne } from '../../../../../utils/formatting/format';
+import { useUnits } from '../../../../../hooks/useUnits';
 import { formatFoodDisplayName } from '../../../../../utils/food/foodPresentation';
 import {
   buildRecentFoods,
@@ -16,9 +17,9 @@ import {
 const STAGGER_EASE = [0.32, 0.72, 0, 1];
 const getRowDelay = (index) => Math.min(index * 0.018, 0.12);
 
-const describeLastLog = ({ entry, mealType, dateKey }) =>
+const describeLastLog = ({ entry, mealType, dateKey }, foodUnit) =>
   [
-    entry.grams > 0 ? `${formatOne(entry.grams)}g` : null,
+    entry.grams > 0 ? foodUnit.format(entry.grams, { space: false }) : null,
     getMealTypeById(mealType).label,
     formatRecentDayLabel(dateKey),
   ]
@@ -31,6 +32,7 @@ export const FoodSearchRecentsPanel = ({
   onSelectRecent,
   prefersReducedMotion,
 }) => {
+  const { food: foodUnit } = useUnits();
   const nutritionData = useEnergyMapStore(
     (state) => state.userData?.nutritionData
   );
@@ -128,7 +130,7 @@ export const FoodSearchRecentsPanel = ({
                   <FoodTagBadges
                     food={toRecentDisplayFood(entry)}
                     className="mt-1"
-                    portionText={describeLastLog(recent)}
+                    portionText={describeLastLog(recent, foodUnit)}
                   />
 
                   <div className="flex items-center gap-3 mt-2 text-xs">

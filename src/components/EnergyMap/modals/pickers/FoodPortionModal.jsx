@@ -532,6 +532,9 @@ export const FoodPortionModal = ({
 
   if (!selectedFood) return null;
 
+  // The item card shows nutrition per 100 g or per ounce.
+  const perBasis = (value) => formatOne(foodUnit.perBasis(value));
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -558,29 +561,31 @@ export const FoodPortionModal = ({
             <FoodTagBadges food={selectedFood} className="mt-1" />
           </div>
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-medium text-muted">per 100g</span>
+            <span className="text-[10px] font-medium text-muted">
+              {foodUnit.basisLabel}
+            </span>
             <div className="flex items-center gap-3 text-xs">
               <div className="text-center">
                 <p className="font-bold text-accent-emerald">
-                  {formatOne(selectedFood.per100g.calories)}
+                  {perBasis(selectedFood.per100g.calories)}
                 </p>
                 <p className="text-muted">cal</p>
               </div>
               <div className="text-center">
                 <p className="font-bold text-accent-red">
-                  {formatOne(selectedFood.per100g.protein)}g
+                  {perBasis(selectedFood.per100g.protein)}g
                 </p>
                 <p className="text-muted">prot</p>
               </div>
               <div className="text-center">
                 <p className="font-bold text-accent-amber">
-                  {formatOne(selectedFood.per100g.carbs)}g
+                  {perBasis(selectedFood.per100g.carbs)}g
                 </p>
                 <p className="text-muted">carb</p>
               </div>
               <div className="text-center">
                 <p className="font-bold text-accent-yellow">
-                  {formatOne(selectedFood.per100g.fats)}g
+                  {perBasis(selectedFood.per100g.fats)}g
                 </p>
                 <p className="text-muted">fat</p>
               </div>
@@ -718,7 +723,7 @@ export const FoodPortionModal = ({
       {nutrition && (
         <div className="bg-surface-highlight/75 border border-border rounded-lg p-4 mb-6 shadow-lg">
           <p className="text-muted text-xs mb-3 text-center">
-            For {formatOne(grams)}g:
+            For {foodUnit.format(grams, { space: false })}:
           </p>
           <div className="grid grid-cols-4 gap-3 text-center">
             <div>
