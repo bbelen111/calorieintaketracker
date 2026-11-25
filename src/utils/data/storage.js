@@ -605,6 +605,7 @@ const MAX_ADAPTIVE_SMOOTHING_WINDOW_DAYS = 14;
 const FOOD_SEARCH_DEFAULT_ENTRIES = new Set([
   'search_local',
   'search_online',
+  'recents',
   'favourites',
   'chat',
   'manual_entry',

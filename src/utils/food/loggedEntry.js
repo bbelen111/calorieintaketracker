@@ -5,10 +5,25 @@ import {
   NUTRIENT_KEYS,
   normalizeNutrientValue,
 } from '../../constants/nutrients/nutrients.js';
+import { buildRecipeFood, favouriteToIngredientFood } from './recipe.js';
 
 const DEFAULT_PORTION_GRAMS = 100;
 // Fine enough that scaling back to the logged grams reproduces the entry.
 const PER_100G_PRECISION = 1000;
+// What an entry records about itself that the portion picker can't rebuild.
+const ENTRY_METADATA_KEYS = [
+  'source',
+  'subcategory',
+  'aiLookupUsed',
+  'aiLookupSource',
+];
+// What carries over when a weightless entry is logged again by hand.
+const MANUAL_RELOG_KEYS = ['foodId', 'brand', 'category', 'source'];
+
+const pickDefined = (value, keys) =>
+  Object.fromEntries(
+    keys.filter((key) => value?.[key] != null).map((key) => [key, value[key]])
+  );
 
 const toNonNegativeNumber = (value) => {
   const parsed = Number(value);
@@ -79,3 +94,69 @@ export const buildFallbackFoodFromEntry = (entry) => {
     portions: [],
   };
 };
+
+const isSavedCustomFood = (favourite) =>
+  (favourite?.source === 'user' || favourite?.isCustom === true) &&
+  favourite.source !== 'manual' &&
+  favourite.category !== 'manual';
+
+/**
+ * The food to open the portion picker on when logging an entry again. A food
+ * that can still be looked up is used as it is now (so its portions are offered);
+ * otherwise it is rebuilt from the entry, carrying `entryMetadata` for the new log.
+ */
+export const resolveFoodForRelog = async (
+  entry,
+  { recipes, favourites, cachedFoods, getCatalogFoodById } = {}
+) => {
+  const foodId = entry?.foodId;
+
+  if (foodId) {
+    const recipeFood = buildRecipeFood(
+      (recipes ?? []).find((recipe) => recipe?.id === foodId)
+    );
+    if (recipeFood) {
+      return recipeFood;
+    }
+
+    const customFood = favouriteToIngredientFood(
+      (favourites ?? []).find(
+        (favourite) =>
+          favourite?.foodId === foodId && isSavedCustomFood(favourite)
+      )
+    );
+    if (customFood) {
+      return customFood;
+    }
+
+    try {
+      const catalogFood = await getCatalogFoodById?.(foodId);
+      if (catalogFood) {
+        return catalogFood;
+      }
+    } catch (error) {
+      console.warn('Food catalog lookup failed for a recent food', error);
+    }
+
+    const cachedFood = (cachedFoods ?? []).find(
+      (food) => food?.id === foodId && food.per100g
+    );
+    if (cachedFood) {
+      return cachedFood;
+    }
+  }
+
+  return {
+    ...buildFallbackFoodFromEntry(entry),
+    entryMetadata: pickDefined(entry, ENTRY_METADATA_KEYS),
+  };
+};
+
+/**
+ * Identity a hand-logged repeat of `entry` keeps. A renamed food is a different
+ * food, so it keeps nothing.
+ */
+export const pickManualRelogIdentity = (entry, name) =>
+  entry && String(entry.name ?? '').trim() === String(name ?? '').trim()
+    ? pickDefined(entry, MANUAL_RELOG_KEYS)
+    : {};

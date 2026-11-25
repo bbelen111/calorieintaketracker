@@ -620,6 +620,10 @@ test('save/loadEnergyMapData persists foodSearchDefaultEntry in profile scope', 
 
     const loaded = await loadEnergyMapData();
     assert.equal(loaded.foodSearchDefaultEntry, 'barcode');
+
+    await saveEnergyMapData({ ...loaded, foodSearchDefaultEntry: 'recents' });
+    const reloaded = await loadEnergyMapData();
+    assert.equal(reloaded.foodSearchDefaultEntry, 'recents');
   });
 });
 
