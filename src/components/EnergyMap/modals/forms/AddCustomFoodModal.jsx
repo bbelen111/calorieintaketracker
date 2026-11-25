@@ -1,10 +1,18 @@
 import React, { Suspense, useState, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChefHat, ChevronsUpDown, Plus, Trash2, Utensils } from 'lucide-react';
+import {
+  ChefHat,
+  ChevronsUpDown,
+  HelpCircle,
+  Plus,
+  Trash2,
+  Utensils,
+} from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { SegmentedToggle } from '../../common/SegmentedToggle';
 import { NumericValuePickerModal } from '../pickers/NumericValuePickerModal';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
+import { AddCustomFoodInfoModal } from '../info/AddCustomFoodInfoModal';
 import { RecipeIngredientsSection } from './RecipeIngredientsSection';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
@@ -174,6 +182,7 @@ export const AddCustomFoodModal = ({
   const [cookedWeightGrams, setCookedWeightGrams] = useState('');
   const ingredientPickerModal = useAnimatedModal(false);
   const deleteConfirmModal = useAnimatedModal(false);
+  const infoModal = useAnimatedModal(false);
   const [name, setName] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [calories, setCalories] = useState('');
@@ -335,6 +344,12 @@ export const AddCustomFoodModal = ({
       });
       numericPickerModal.open();
     }, 60);
+  };
+
+  // Same blur as above, so an open keyboard cannot sit over the info sheet.
+  const openInfoModal = () => {
+    document.activeElement?.blur?.();
+    infoModal.open();
   };
 
   const handleNumericPickerSave = (nextValue) => {
@@ -574,7 +589,11 @@ export const AddCustomFoodModal = ({
           {/* Header: the icon + title swap with a short fade/rise when the mode
               changes (re-keyed, enter-only - the same idiom as the app header's
               stat line). Not on open, so it never doubles the modal's entrance. */}
-          <div className={isEditingExisting ? '' : 'mb-4'}>
+          <div
+            className={`flex items-center justify-between gap-3 ${
+              isEditingExisting ? '' : 'mb-4'
+            }`}
+          >
             <div
               key={`title-${mode}`}
               className={`flex items-center gap-3 ${
@@ -596,6 +615,16 @@ export const AddCustomFoodModal = ({
                     : 'Add Custom Food'}
               </h3>
             </div>
+            {/* Outside the re-keyed title so it stays put on a mode switch. The
+                padding / negative margin widens the tap target only. */}
+            <button
+              type="button"
+              onClick={openInfoModal}
+              aria-label="Custom food info"
+              className="-m-2 shrink-0 rounded-full p-2 text-muted transition-all pressable-inline focus-ring md:hover:text-foreground"
+            >
+              <HelpCircle size={20} />
+            </button>
           </div>
 
           {/* Food | Recipe: one door for "make my own food", two ways to fill it
@@ -1028,6 +1057,12 @@ export const AddCustomFoodModal = ({
           </div>
         </div>
       </ModalShell>
+
+      <AddCustomFoodInfoModal
+        isOpen={infoModal.isOpen}
+        isClosing={infoModal.isClosing}
+        onClose={infoModal.requestClose}
+      />
 
       <NumericValuePickerModal
         isOpen={numericPickerModal.isOpen}

@@ -1,9 +1,10 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AddCustomFoodModal } from './AddCustomFoodModal';
+import { closeTopmostStackedModal } from '../../../../utils/visuals/modalStack';
 
 const renderModal = (props = {}) =>
   render(
@@ -139,6 +140,44 @@ describe('AddCustomFoodModal', () => {
 
     expect(screen.getByText('1 bowl')).toBeInTheDocument();
     expect(screen.getByText('(30g)')).toBeInTheDocument();
+  });
+
+  it('opens the info sheet from the header and closes only that sheet', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderModal({ onClose });
+    const infoHeading = { name: 'Custom Foods & Recipes' };
+
+    expect(screen.queryByRole('heading', infoHeading)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Custom food info' }));
+    expect(screen.getByRole('heading', infoHeading)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^got it$/i }));
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', infoHeading)).toBeNull()
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('dismisses the info sheet, not the form, on hardware back', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderModal({ onClose });
+    const infoHeading = { name: 'Custom Foods & Recipes' };
+
+    await user.click(screen.getByRole('button', { name: 'Custom food info' }));
+
+    let consumed = false;
+    act(() => {
+      consumed = closeTopmostStackedModal();
+    });
+
+    expect(consumed).toBe(true);
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', infoHeading)).toBeNull()
+    );
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('cancels without saving', async () => {
