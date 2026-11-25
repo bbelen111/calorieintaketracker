@@ -25,10 +25,21 @@ import {
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import { SessionHeartRatePanel } from '../../common/SessionHeartRatePanel';
 import { ImportWorkoutButton } from '../../common/ImportWorkoutButton';
+import { SegmentedToggle } from '../../common/SegmentedToggle';
+import { SmoothHeight } from '../../common/SmoothHeight';
 
 const DEFAULT_TRAINING_TYPE_CATALOG =
   getDefaultEnergyMapData().trainingType ?? {};
 const FALLBACK_TRAINING_TYPE = 'trainingtype_1';
+const EFFORT_TYPE_OPTIONS = [
+  { id: 'intensity', label: 'Intensity' },
+  { id: 'heartRate', label: 'Average Heart Rate' },
+];
+const INTENSITY_OPTIONS = [
+  { id: 'light', label: 'Light' },
+  { id: 'moderate', label: 'Moderate' },
+  { id: 'vigorous', label: 'Vigorous' },
+];
 
 export const TrainingModal = ({
   isOpen,
@@ -195,20 +206,6 @@ export const TrainingModal = ({
       ? `${Math.round(selectedCalories)} kcal/hr`
       : '-- kcal/hr'
     : 'Browse the full training library to find the best match.';
-
-  const effortButtonClass = (type) =>
-    `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
-      effortType === type
-        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-        : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
-    }`;
-
-  const intensityButtonClass = (level) =>
-    `w-full rounded-lg border px-3 py-2 text-sm transition-all focus-ring pressable-inline ${
-      intensityValue === level
-        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-        : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
-    }`;
 
   const {
     isOpen: isTypePickerOpen,
@@ -468,86 +465,62 @@ export const TrainingModal = ({
             <label className="text-foreground text-sm block mb-2">
               Effort Tracking
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                className={effortButtonClass('intensity')}
-                onClick={() => handleEffortTypeChange('intensity')}
-              >
-                Intensity
-              </button>
-              <button
-                type="button"
-                className={effortButtonClass('heartRate')}
-                onClick={() => handleEffortTypeChange('heartRate')}
-              >
-                Average Heart Rate
-              </button>
-            </div>
+            <SegmentedToggle
+              ariaLabel="Effort tracking"
+              options={EFFORT_TYPE_OPTIONS}
+              value={effortType}
+              onChange={handleEffortTypeChange}
+            />
             <p className="text-xs text-muted mt-2">
               Use heart rate for wearable-based estimates or intensity for quick
               selections.
             </p>
           </div>
 
-          {effortType === 'intensity' ? (
-            <div>
-              <label className="text-foreground text-sm block mb-2">
-                Intensity
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  className={intensityButtonClass('light')}
-                  onClick={() => handleIntensityChange('light')}
-                >
-                  Light
-                </button>
-                <button
-                  type="button"
-                  className={intensityButtonClass('moderate')}
-                  onClick={() => handleIntensityChange('moderate')}
-                >
-                  Moderate
-                </button>
-                <button
-                  type="button"
-                  className={intensityButtonClass('vigorous')}
-                  onClick={() => handleIntensityChange('vigorous')}
-                >
-                  Vigorous
-                </button>
+          <SmoothHeight swapKey={effortType}>
+            {effortType === 'intensity' ? (
+              <div>
+                <label className="text-foreground text-sm block mb-2">
+                  Intensity
+                </label>
+                <SegmentedToggle
+                  ariaLabel="Intensity"
+                  options={INTENSITY_OPTIONS}
+                  value={intensityValue}
+                  onChange={handleIntensityChange}
+                />
+                <p className="text-xs text-muted mt-2">
+                  Pick the perceived exertion level that best matches the
+                  session.
+                </p>
               </div>
-              <p className="text-xs text-muted mt-2">
-                Pick the perceived exertion level that best matches the session.
-              </p>
-            </div>
-          ) : (
-            <div>
-              <label className="text-foreground text-sm block mb-2">
-                Average Heart Rate (bpm)
-              </label>
-              <button
-                onClick={openHeartRatePicker}
-                type="button"
-                className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-primary text-primary-foreground transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
-              >
-                <span className="font-semibold text-sm md:text-base">
-                  {formattedHeartRate}
-                </span>
-                <span className="text-[11px] opacity-75">Tap to change</span>
-              </button>
-              <p className="text-xs text-muted mt-2">
-                {hrBurnModel === 'keytel'
-                  ? 'Classic heart-rate formula (this session was logged before heart rate set the intensity).'
-                  : 'Heart rate sets the intensity; your training type keeps its kcal per hour.'}
-              </p>
-              <SessionHeartRatePanel
-                session={session}
-                dateKey={sessionDateKey}
-              />
-            </div>
-          )}
+            ) : (
+              <div>
+                <label className="text-foreground text-sm block mb-2">
+                  Average Heart Rate (bpm)
+                </label>
+                <button
+                  onClick={openHeartRatePicker}
+                  type="button"
+                  className="w-full px-3 py-2 rounded-lg border-2 bg-primary border-primary text-primary-foreground transition-all active:scale-[0.98] flex items-center justify-between focus-ring press-feedback"
+                >
+                  <span className="font-semibold text-sm md:text-base">
+                    {formattedHeartRate}
+                  </span>
+                  <span className="text-[11px] opacity-75">Tap to change</span>
+                </button>
+                <p className="text-xs text-muted mt-2">
+                  {hrBurnModel === 'keytel'
+                    ? 'Classic heart-rate formula (this session was logged before heart rate set the intensity).'
+                    : 'Heart rate sets the intensity; your training type keeps its kcal per hour.'}
+                </p>
+                <SessionHeartRatePanel
+                  session={session}
+                  dateKey={sessionDateKey}
+                />
+              </div>
+            )}
+          </SmoothHeight>
 
           <div className="bg-surface-highlight rounded-lg p-3">
             <p className="text-foreground/80 text-xs text-center mb-1">

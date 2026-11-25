@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronsUpDown, Star } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { DateInput } from '../../common/DateInput';
+import { SegmentedToggle } from '../../common/SegmentedToggle';
+import { SmoothHeight } from '../../common/SmoothHeight';
 import { GoalModal } from './GoalModal';
 import { WeightPickerModal } from './WeightEntryModal';
 import { BodyFatPickerModal } from './BodyFatEntryModal';
@@ -34,12 +36,10 @@ const getGoalClasses = (key, selected) => {
   return `${goal.color} text-primary-foreground`;
 };
 
-const getModeButtonClass = (mode, activeMode) =>
-  `w-full rounded-lg border px-3 py-1.5 text-sm transition-all focus-ring pressable-inline ${
-    activeMode === mode
-      ? 'bg-primary border-primary text-primary-foreground shadow-xs'
-      : 'bg-surface-highlight text-muted border-border md:hover:border-accent-blue'
-  }`;
+const PHASE_TYPE_OPTIONS = [
+  { id: 'goal', label: 'Goal' },
+  { id: 'target', label: 'Target' },
+];
 
 const GOAL_PRESET_WINDOWS = [
   { weeks: 4, days: 28 },
@@ -337,114 +337,109 @@ export const PhaseCreationModal = ({
           <label className="block text-foreground text-sm font-semibold mb-2">
             Phase Type
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => onCreationModeChange('goal')}
-              className={getModeButtonClass('goal', normalizedMode)}
-            >
-              Goal
-            </button>
-            <button
-              type="button"
-              onClick={() => onCreationModeChange('target')}
-              className={getModeButtonClass('target', normalizedMode)}
-            >
-              Target
-            </button>
-          </div>
+          <SegmentedToggle
+            ariaLabel="Phase type"
+            options={PHASE_TYPE_OPTIONS}
+            value={normalizedMode}
+            onChange={onCreationModeChange}
+          />
           <p className="text-muted text-xs mt-2">
             Goal mode keeps your selected direction. Target mode computes a
             smart daily surplus/deficit to hit a date-bound outcome.
           </p>
         </div>
 
-        {normalizedMode === 'goal' ? (
-          <div>
-            <label className="block text-foreground text-sm font-semibold mb-2">
-              Goal <span className="text-accent-red">*</span>
-            </label>
-            <button
-              type="button"
-              onClick={() => {
-                setTempGoalSelection(goalType ?? 'maintenance');
-                goalPickerModal.open();
-              }}
-              className={`w-full px-4 py-3 rounded-lg transition-all press-feedback focus-ring flex items-start justify-between gap-3 ${getGoalClasses(goalType, true)}`}
-            >
-              <span className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
-                <GoalIcon size={18} className="mt-0.5 shrink-0" />
-                <span className="min-w-0">
-                  <span className="font-semibold text-sm md:text-base block truncate">
-                    {selectedGoalConfig.label}
-                  </span>
-                  <span className="text-[11px] md:text-xs opacity-90 block truncate whitespace-nowrap leading-tight">
-                    {selectedGoalConfig.desc}
+        <SmoothHeight swapKey={normalizedMode}>
+          {normalizedMode === 'goal' ? (
+            <div>
+              <label className="block text-foreground text-sm font-semibold mb-2">
+                Goal <span className="text-accent-red">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempGoalSelection(goalType ?? 'maintenance');
+                  goalPickerModal.open();
+                }}
+                className={`w-full px-4 py-3 rounded-lg transition-all press-feedback focus-ring flex items-start justify-between gap-3 ${getGoalClasses(goalType, true)}`}
+              >
+                <span className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
+                  <GoalIcon size={18} className="mt-0.5 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="font-semibold text-sm md:text-base block truncate">
+                      {selectedGoalConfig.label}
+                    </span>
+                    <span className="text-[11px] md:text-xs opacity-90 block truncate whitespace-nowrap leading-tight">
+                      {selectedGoalConfig.desc}
+                    </span>
                   </span>
                 </span>
-              </span>
-              <span className="text-[11px] opacity-75 whitespace-nowrap">
-                Tap to change
-              </span>
-            </button>
-          </div>
-        ) : null}
+                <span className="text-[11px] opacity-75 whitespace-nowrap">
+                  Tap to change
+                </span>
+              </button>
+            </div>
+          ) : null}
 
-        {/* Target Mode Inputs */}
-        {normalizedMode === 'target' ? (
-          <div className="space-y-3">
-            <div
-              className={`grid grid-cols-1 gap-3 ${isBodyFatTrackingEnabled ? 'md:grid-cols-2' : ''}`}
-            >
-              <div>
-                <label className="block text-foreground text-sm font-semibold mb-2">
-                  Target Weight (kg)
-                </label>
-                <button
-                  type="button"
-                  onClick={targetWeightPickerModal.open}
-                  className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
-                >
-                  <span className="font-medium text-base">
-                    {hasTargetWeight
-                      ? `${parsedTargetWeight.toFixed(1)} kg`
-                      : parsedCurrentWeight != null
-                        ? `Current: ${parsedCurrentWeight.toFixed(1)} kg`
-                        : 'Tap to set target weight'}
-                  </span>
-                  <ChevronsUpDown size={16} className="text-muted shrink-0" />
-                </button>
-              </div>
-              {isBodyFatTrackingEnabled && (
+          {/* Target Mode Inputs */}
+          {normalizedMode === 'target' ? (
+            <div className="space-y-3">
+              <div
+                className={`grid grid-cols-1 gap-3 ${isBodyFatTrackingEnabled ? 'md:grid-cols-2' : ''}`}
+              >
                 <div>
                   <label className="block text-foreground text-sm font-semibold mb-2">
-                    Target Body Fat (%)
+                    Target Weight (kg)
                   </label>
                   <button
                     type="button"
-                    onClick={targetBodyFatPickerModal.open}
+                    onClick={targetWeightPickerModal.open}
                     className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
                   >
                     <span className="font-medium text-base">
-                      {hasTargetBodyFat
-                        ? `${parsedTargetBodyFat.toFixed(1)}%`
-                        : parsedCurrentBodyFat != null
-                          ? `Current: ${parsedCurrentBodyFat.toFixed(1)}%`
-                          : 'Tap to set target body fat'}
+                      {hasTargetWeight
+                        ? `${parsedTargetWeight.toFixed(1)} kg`
+                        : parsedCurrentWeight != null
+                          ? `Current: ${parsedCurrentWeight.toFixed(1)} kg`
+                          : 'Tap to set target weight'}
                     </span>
                     <ChevronsUpDown size={16} className="text-muted shrink-0" />
                   </button>
                 </div>
-              )}
-            </div>
+                {isBodyFatTrackingEnabled && (
+                  <div>
+                    <label className="block text-foreground text-sm font-semibold mb-2">
+                      Target Body Fat (%)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={targetBodyFatPickerModal.open}
+                      className="w-full bg-surface-highlight text-foreground px-4 py-3 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-3 pressable-inline"
+                    >
+                      <span className="font-medium text-base">
+                        {hasTargetBodyFat
+                          ? `${parsedTargetBodyFat.toFixed(1)}%`
+                          : parsedCurrentBodyFat != null
+                            ? `Current: ${parsedCurrentBodyFat.toFixed(1)}%`
+                            : 'Tap to set target body fat'}
+                      </span>
+                      <ChevronsUpDown
+                        size={16}
+                        className="text-muted shrink-0"
+                      />
+                    </button>
+                  </div>
+                )}
+              </div>
 
-            <p className="text-muted text-xs">
-              {isBodyFatTrackingEnabled
-                ? 'At least one target metric is required (weight or body fat). End date must be feasible.'
-                : 'Target weight is required. End date must be feasible.'}
-            </p>
-          </div>
-        ) : null}
+              <p className="text-muted text-xs">
+                {isBodyFatTrackingEnabled
+                  ? 'At least one target metric is required (weight or body fat). End date must be feasible.'
+                  : 'Target weight is required. End date must be feasible.'}
+              </p>
+            </div>
+          ) : null}
+        </SmoothHeight>
 
         {/* End Date (always last) */}
         <div>
@@ -472,115 +467,118 @@ export const PhaseCreationModal = ({
         </div>
 
         {/* Mode-specific summary cards (bottom section) */}
-        {normalizedMode === 'goal' && (
-          <div className="rounded-lg border border-border bg-surface-highlight p-3">
-            <p className="text-foreground text-sm font-semibold mb-1">
-              {isBodyFatTrackingEnabled
-                ? 'Predicted weight change'
-                : 'Predicted weight change'}
-            </p>
-            {goalPrediction ? (
-              <>
-                <p className="text-xs text-muted">
-                  {goalPrediction.daySpan} days •{' '}
-                  {goalPrediction.dailyDelta > 0 ? '+' : ''}
-                  {goalPrediction.dailyDelta} kcal/day
+        <SmoothHeight swapKey={normalizedMode}>
+          {normalizedMode === 'goal' && (
+            <div className="rounded-lg border border-border bg-surface-highlight p-3">
+              <p className="text-foreground text-sm font-semibold mb-1">
+                {isBodyFatTrackingEnabled
+                  ? 'Predicted weight change'
+                  : 'Predicted weight change'}
+              </p>
+              {goalPrediction ? (
+                <>
+                  <p className="text-xs text-muted">
+                    {goalPrediction.daySpan} days •{' '}
+                    {goalPrediction.dailyDelta > 0 ? '+' : ''}
+                    {goalPrediction.dailyDelta} kcal/day
+                  </p>
+                  <p className="text-xs mt-2 font-semibold text-foreground">
+                    Weight:{' '}
+                    {goalPrediction.predictedWeightDeltaKg > 0 ? '+' : ''}
+                    {goalPrediction.predictedWeightDeltaKg.toFixed(1)} kg
+                  </p>
+                  {isBodyFatTrackingEnabled &&
+                    Number.isFinite(
+                      goalPrediction.predictedWeightDeltaPercent
+                    ) && (
+                      <p className="text-xs mt-1 font-semibold text-foreground">
+                        Weight %:{' '}
+                        {goalPrediction.predictedWeightDeltaPercent > 0
+                          ? '+'
+                          : ''}
+                        {goalPrediction.predictedWeightDeltaPercent.toFixed(1)}%
+                      </p>
+                    )}
+                </>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {goalPresetProjections.map((window) => (
+                    <div
+                      key={window.weeks}
+                      className="rounded-md border border-border"
+                    >
+                      <p className="text-[11px] leading-tight text-muted">
+                        {window.weeks}w ({window.days}d)
+                      </p>
+                      <p className="text-[11px] mt-2 font-semibold leading-tight text-foreground">
+                        Wt: {window.predictedWeightDeltaKg > 0 ? '+' : ''}
+                        {window.predictedWeightDeltaKg.toFixed(1)} kg
+                      </p>
+                      {isBodyFatTrackingEnabled &&
+                        Number.isFinite(window.predictedWeightDeltaPercent) && (
+                          <p className="text-[11px] mt-0.5 font-semibold leading-tight text-foreground">
+                            Wt%:{' '}
+                            {window.predictedWeightDeltaPercent > 0 ? '+' : ''}
+                            {window.predictedWeightDeltaPercent.toFixed(1)}%
+                          </p>
+                        )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[11px] text-muted mt-2">
+                {goalPrediction
+                  ? 'Approximation based on goal calorie delta and selected date span.'
+                  : 'Approximation based on goal calorie delta and preset time windows.'}
+              </p>
+            </div>
+          )}
+
+          {normalizedMode === 'target' && (
+            <div className="rounded-lg border border-border bg-surface-highlight p-3">
+              <p className="text-foreground text-sm font-semibold mb-1">
+                Feasible pace windows
+              </p>
+              <p className="text-xs text-muted">
+                Optimal:{' '}
+                <span className="font-medium text-foreground">
+                  {canEvaluateTarget ? `${strictCount} days` : '—'}
+                </span>{' '}
+                • Extended:{' '}
+                <span className="font-medium text-foreground">
+                  {canEvaluateTarget ? `${lenientCount} days` : '—'}
+                </span>
+              </p>
+
+              {targetPlan && (
+                <p className={`text-xs mt-2 font-semibold ${currentBandClass}`}>
+                  Smart target:{' '}
+                  {targetPlan.requiredDailyDeltaCalories > 0 ? '+' : ''}
+                  {targetPlan.requiredDailyDeltaCalories} kcal/day (
+                  {getAggressivenessBandDisplayLabel({
+                    aggressivenessBand: targetPlan.aggressivenessBand,
+                    requiredDailyDeltaCalories:
+                      targetPlan.requiredDailyDeltaCalories,
+                  })}
+                  )
                 </p>
-                <p className="text-xs mt-2 font-semibold text-foreground">
-                  Weight: {goalPrediction.predictedWeightDeltaKg > 0 ? '+' : ''}
-                  {goalPrediction.predictedWeightDeltaKg.toFixed(1)} kg
+              )}
+
+              {!canEvaluateTarget && (
+                <p className="text-xs text-muted mt-2">
+                  Set target metrics to evaluate feasible end dates.
                 </p>
-                {isBodyFatTrackingEnabled &&
-                  Number.isFinite(
-                    goalPrediction.predictedWeightDeltaPercent
-                  ) && (
-                    <p className="text-xs mt-1 font-semibold text-foreground">
-                      Weight %:{' '}
-                      {goalPrediction.predictedWeightDeltaPercent > 0
-                        ? '+'
-                        : ''}
-                      {goalPrediction.predictedWeightDeltaPercent.toFixed(1)}%
-                    </p>
-                  )}
-              </>
-            ) : (
-              <div className="grid grid-cols-3 gap-1.5">
-                {goalPresetProjections.map((window) => (
-                  <div
-                    key={window.weeks}
-                    className="rounded-md border border-border"
-                  >
-                    <p className="text-[11px] leading-tight text-muted">
-                      {window.weeks}w ({window.days}d)
-                    </p>
-                    <p className="text-[11px] mt-2 font-semibold leading-tight text-foreground">
-                      Wt: {window.predictedWeightDeltaKg > 0 ? '+' : ''}
-                      {window.predictedWeightDeltaKg.toFixed(1)} kg
-                    </p>
-                    {isBodyFatTrackingEnabled &&
-                      Number.isFinite(window.predictedWeightDeltaPercent) && (
-                        <p className="text-[11px] mt-0.5 font-semibold leading-tight text-foreground">
-                          Wt%:{' '}
-                          {window.predictedWeightDeltaPercent > 0 ? '+' : ''}
-                          {window.predictedWeightDeltaPercent.toFixed(1)}%
-                        </p>
-                      )}
-                  </div>
-                ))}
-              </div>
-            )}
-            <p className="text-[11px] text-muted mt-2">
-              {goalPrediction
-                ? 'Approximation based on goal calorie delta and selected date span.'
-                : 'Approximation based on goal calorie delta and preset time windows.'}
-            </p>
-          </div>
-        )}
+              )}
 
-        {normalizedMode === 'target' && (
-          <div className="rounded-lg border border-border bg-surface-highlight p-3">
-            <p className="text-foreground text-sm font-semibold mb-1">
-              Feasible pace windows
-            </p>
-            <p className="text-xs text-muted">
-              Optimal:{' '}
-              <span className="font-medium text-foreground">
-                {canEvaluateTarget ? `${strictCount} days` : '—'}
-              </span>{' '}
-              • Extended:{' '}
-              <span className="font-medium text-foreground">
-                {canEvaluateTarget ? `${lenientCount} days` : '—'}
-              </span>
-            </p>
-
-            {targetPlan && (
-              <p className={`text-xs mt-2 font-semibold ${currentBandClass}`}>
-                Smart target:{' '}
-                {targetPlan.requiredDailyDeltaCalories > 0 ? '+' : ''}
-                {targetPlan.requiredDailyDeltaCalories} kcal/day (
-                {getAggressivenessBandDisplayLabel({
-                  aggressivenessBand: targetPlan.aggressivenessBand,
-                  requiredDailyDeltaCalories:
-                    targetPlan.requiredDailyDeltaCalories,
-                })}
-                )
-              </p>
-            )}
-
-            {!canEvaluateTarget && (
-              <p className="text-xs text-muted mt-2">
-                Set target metrics to evaluate feasible end dates.
-              </p>
-            )}
-
-            {!isEndDateFeasible && endDate && (
-              <p className="text-xs text-accent-red mt-2">
-                Selected end date is outside the feasible window for this
-                target.
-              </p>
-            )}
-          </div>
-        )}
+              {!isEndDateFeasible && endDate && (
+                <p className="text-xs text-accent-red mt-2">
+                  Selected end date is outside the feasible window for this
+                  target.
+                </p>
+              )}
+            </div>
+          )}
+        </SmoothHeight>
 
         {/* Error Message */}
         {error && (
