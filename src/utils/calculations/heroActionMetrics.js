@@ -21,6 +21,7 @@ import { HERO_ACTION_METRICS } from '../../constants/appearance/heroAction.js';
 import { normalizeOnTargetTolerance } from '../../constants/goals/onTarget.js';
 import { calculateRollingEnergyBalance } from './rollingEnergyBalance.js';
 import { buildDayLedgerCardSummary } from './dayLedgerPresentation.js';
+import { createUnitFormatter } from '../units/unitFormatter.js';
 import {
   calculateMacroRecommendations,
   normalizeMacroLocks,
@@ -460,6 +461,8 @@ export const buildHeroActionModel = ({
   weight = null,
   bodyFat = null,
 } = {}) => {
+  const units = createUnitFormatter(userData?.unitPreferences);
+
   switch (metric) {
     case HERO_ACTION_METRICS.WEIGHT:
       return buildMeasurementModel({
@@ -467,8 +470,9 @@ export const buildHeroActionModel = ({
         iconKey: 'scale',
         label: 'Weight',
         shortLabel: 'Weight',
-        unit: 'kg',
-        tileSuffix: ' kg',
+        // The caller's reading is the value in this unit ("11 st 10.2" + "lb").
+        unit: units.bodyWeight.linearUnit,
+        tileSuffix: ` ${units.bodyWeight.linearUnit}`,
         reading: weight,
         action: 'Open weight tracker',
       });

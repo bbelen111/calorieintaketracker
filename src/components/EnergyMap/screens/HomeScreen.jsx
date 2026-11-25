@@ -14,6 +14,7 @@ import {
 import { shallow } from 'zustand/shallow';
 import { goals as baseGoals } from '../../../constants/goals/goals';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
+import { useUnits } from '../../../hooks/useUnits';
 import {
   buildDisplayTefContext,
   calculateTrainingSessionCalories,
@@ -24,10 +25,7 @@ import {
   resolveCardioSessionEpoc,
   resolveTrainingSessionEpoc,
 } from '../../../utils/calculations/epoc';
-import {
-  sortWeightEntries,
-  formatWeight,
-} from '../../../utils/measurements/weight';
+import { sortWeightEntries } from '../../../utils/measurements/weight';
 import { getTodayDateKey } from '../../../utils/data/dateKeys';
 import {
   sortBodyFatEntries,
@@ -95,6 +93,7 @@ export const HomeScreen = memo(function HomeScreen({
   calorieTargetCalories,
   heroActionOpeners,
 }) {
+  const units = useUnits();
   const store = useEnergyMapStore(
     (state) => ({
       userData: state.userData,
@@ -170,9 +169,9 @@ export const HomeScreen = memo(function HomeScreen({
         : null,
     [sortedWeightEntries]
   );
-  const currentWeight = formatWeight(
+  const currentWeight = units.bodyWeight.parts(
     weightLatest?.weight ?? resolvedUserData.weight
-  );
+  )?.value;
   const weightDateLabel = weightLatest?.date
     ? formatPanelDate(weightLatest.date)
     : 'No entries yet';

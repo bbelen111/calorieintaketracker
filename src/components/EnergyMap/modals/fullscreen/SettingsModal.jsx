@@ -41,6 +41,7 @@ import {
   Ruler,
 } from 'lucide-react';
 import { UnitsSettingsSection } from './UnitsSettingsSection';
+import { useUnits } from '../../../../hooks/useUnits';
 import { NotificationsSettingsSection } from './NotificationsSettingsSection';
 import {
   HeroMetricPickerPage,
@@ -60,7 +61,6 @@ import {
 import { ModalShell } from '../../common/ModalShell';
 import {
   formatDateLabel,
-  formatWeight,
   normalizeDateKey,
 } from '../../../../utils/measurements/weight';
 import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
@@ -478,11 +478,15 @@ export const SettingsModal = ({
     [resolvedWeightEntries]
   );
 
-  const displayedWeight = useMemo(() => {
-    const resolved = latestWeightEntry?.weight ?? resolvedUserData.weight;
-    const formatted = formatWeight(resolved);
-    return formatted ?? '—';
-  }, [latestWeightEntry?.weight, resolvedUserData.weight]);
+  const units = useUnits();
+  const displayedWeight = useMemo(
+    () =>
+      units.bodyWeight.format(
+        latestWeightEntry?.weight ?? resolvedUserData.weight,
+        { space: false }
+      ),
+    [latestWeightEntry?.weight, resolvedUserData.weight, units]
+  );
 
   const lastLoggedLabel = useMemo(() => {
     if (!latestWeightEntry?.date) {
@@ -691,6 +695,7 @@ const SettingsPageContent = ({
   stepSync,
 }) => {
   const activeSlotPicker = parseHomeSlotPickerPage(page);
+  const units = useUnits();
   // Keep one wrapper key across Shortcut / Left tile / Right tile tabs inside
   // the picker so switching slots doesn't replay the whole-page enter motion.
   const pageKey = activeSlotPicker ? `${HOME_LAYOUT_PAGE}:picker` : page;
@@ -706,6 +711,7 @@ const SettingsPageContent = ({
     >
       {page === 'profile' && (
         <ProfileSection
+          units={units}
           userData={userData}
           displayedWeight={displayedWeight}
           lastLoggedLabel={lastLoggedLabel}
@@ -1018,6 +1024,7 @@ const ProfileSection = ({
   onOpenHeightPicker,
   onOpenWeightManager,
   onOpenBodyFatManager,
+  units,
 }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
     <div>
@@ -1053,14 +1060,14 @@ const ProfileSection = ({
     </div>
 
     <div>
-      <SettingLabel>Weight (kg)</SettingLabel>
+      <SettingLabel>Weight ({units.bodyWeight.unit})</SettingLabel>
       <button
         type="button"
         onClick={() => onOpenWeightManager?.()}
         className="w-full px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 border-primary/70 bg-primary text-primary-foreground transition-all press-feedback flex flex-wrap items-center gap-x-3 gap-y-1 text-left focus-ring md:hover:brightness-110 font-semibold"
       >
         <span className="font-semibold text-sm md:text-base">
-          {displayedWeight !== '—' ? `${displayedWeight}kg` : '—'}
+          {displayedWeight}
         </span>
         <span className="text-xs md:text-sm opacity-90">{lastLoggedLabel}</span>
         <span className="text-[11px] opacity-80 ml-auto whitespace-nowrap">
@@ -1103,12 +1110,12 @@ const ProfileSection = ({
     </div>
 
     <div>
-      <SettingLabel>Height (cm)</SettingLabel>
+      <SettingLabel>Height ({units.height.unit})</SettingLabel>
       <PickerButton
         onClick={() => onOpenHeightPicker?.()}
         ariaLabel="Open height picker"
       >
-        {sanitizeHeight(userData.height)} cm
+        {units.height.format(sanitizeHeight(userData.height))}
       </PickerButton>
     </div>
   </div>

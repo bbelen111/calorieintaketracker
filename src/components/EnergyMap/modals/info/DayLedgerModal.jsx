@@ -29,8 +29,8 @@ import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import {
   formatDateLabel,
   formatSignedDelta,
-  formatWeight,
 } from '../../../../utils/measurements/weight';
+import { useUnits } from '../../../../hooks/useUnits';
 import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import {
   buildDayLedgerDetailModel,
@@ -93,6 +93,7 @@ export const DayLedgerModal = ({
   onSelectDate,
   onOpenBreakdown,
 }) => {
+  const units = useUnits();
   const todayStr = useMemo(() => getTodayDateKey(), []);
   const adjacent = useMemo(
     () => getAdjacentTrackedDates(dailySnapshots, dateKey),
@@ -490,7 +491,7 @@ export const DayLedgerModal = ({
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-foreground font-bold text-base">
                     {model.measurements.weight.value != null
-                      ? `${formatWeight(model.measurements.weight.value)} kg`
+                      ? units.bodyWeight.format(model.measurements.weight.value)
                       : '\u2014'}
                   </span>
                   {model.measurements.weight.delta &&
@@ -501,9 +502,8 @@ export const DayLedgerModal = ({
                             ? `vs prev (${model.measurements.weight.delta.spanDays}d)`
                             : 'vs prev'
                         }
-                        value={formatSignedDelta(
-                          model.measurements.weight.delta.delta,
-                          'kg'
+                        value={units.bodyWeight.formatDelta(
+                          model.measurements.weight.delta.delta
                         )}
                       />
                     )}

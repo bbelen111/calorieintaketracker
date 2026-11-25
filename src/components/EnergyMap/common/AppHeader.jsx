@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { getNutritionTotalsForDate } from '../../../utils/phases/phases';
 import { useCarouselDragVarSink } from '../../../hooks/useCarouselDragVarSink';
+import { useUnits } from '../../../hooks/useUnits';
 import {
   calculateWeightTrend,
   sortWeightEntries,
@@ -113,6 +114,7 @@ export const AppHeader = ({
   onOpenLiveHeartRate,
 }) => {
   const [now, setNow] = useState(() => new Date());
+  const units = useUnits();
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), MINUTE_MS);
@@ -212,7 +214,7 @@ export const AppHeader = ({
           icon: direction,
           iconClass: directionClass,
           text: hasRate
-            ? `${weightTrend.label} · ${formatOne(Math.abs(rate))} kg/wk`
+            ? `${weightTrend.label} · ${formatOne(units.bodyWeight.toNumber(Math.abs(rate)))} ${units.bodyWeight.linearUnit}/wk`
             : (weightTrend?.label ?? 'No data yet'),
         };
       }
@@ -225,6 +227,7 @@ export const AppHeader = ({
     phases,
     todaySnapshot,
     trackerTotals.calories,
+    units,
     weightTrend,
   ]);
 

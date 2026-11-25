@@ -2,14 +2,13 @@ import React from 'react';
 import { Info, X } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
-import {
-  formatDateLabel,
-  formatWeight,
-} from '../../../../utils/measurements/weight';
+import { formatDateLabel } from '../../../../utils/measurements/weight';
 import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+import { useUnits } from '../../../../hooks/useUnits';
 
 export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
+  const units = useUnits();
   const { storeUserData, storeBmr } = useEnergyMapStore(
     (state) => ({
       storeUserData: state.userData,
@@ -41,7 +40,7 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
     ? [...weightEntries].sort((a, b) => a.date.localeCompare(b.date)).at(-1)
     : null;
   const latestWeightLabel = latestWeightEntry
-    ? `${formatWeight(latestWeightEntry.weight) ?? latestWeightEntry.weight} kg • ${formatDateLabel(
+    ? `${units.bodyWeight.format(latestWeightEntry.weight)} • ${formatDateLabel(
         latestWeightEntry.date,
         {
           month: 'short',
@@ -144,7 +143,7 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
             <p>
               Height:{' '}
               <span className="text-foreground font-semibold">
-                {resolvedUserData?.height} cm
+                {units.height.format(resolvedUserData?.height)}
               </span>
             </p>
             <p>

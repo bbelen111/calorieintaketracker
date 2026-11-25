@@ -4,6 +4,10 @@ import { ModalShell } from '../../common/ModalShell';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import { formatDateLabel } from '../../../../utils/measurements/weight';
+import { useUnits } from '../../../../hooks/useUnits';
+import { KM_PER_MILE } from '../../../../utils/units/unitFormatter';
+
+const FEET_PER_METRE = 3.28084;
 
 export const CalorieBreakdownModal = ({
   isOpen,
@@ -23,6 +27,7 @@ export const CalorieBreakdownModal = ({
   onClose,
 }) => {
   const [expandedItem, setExpandedItem] = useState(null);
+  const units = useUnits();
   const resolvedGoals = goals ?? baseGoals;
   const showDateChip = Boolean(dateKey) && dateKey !== getTodayDateKey();
   const dateLabel = showDateChip
@@ -58,6 +63,26 @@ export const CalorieBreakdownModal = ({
       : `${percent.toFixed(1)}%`;
   };
   const stepDetails = breakdown.stepDetails ?? {};
+  // Step math is linear, so it converts whole into the chosen distance unit.
+  const { distance, bodyWeight } = units;
+  const milesToUnit = KM_PER_MILE / distance.kmPerUnit;
+  const stepDistance = stepDetails.distanceMiles * milesToUnit;
+  const stepsPerUnit = stepDetails.stepsPerMile / milesToUnit;
+  const caloriesPerUnit = stepDetails.caloriesPerMile / milesToUnit;
+  const strideText =
+    distance.unit === 'mi'
+      ? `${formatNumber(stepDetails.strideLengthMeters * FEET_PER_METRE, 2)} ft`
+      : `${formatNumber(stepDetails.strideLengthMeters, 2)} m`;
+  // The BMR and MET equations are defined in kg and cm; say what those are in
+  // the user's units when they differ.
+  const convertedWeight = (kg) =>
+    bodyWeight.unit === 'kg' ? null : bodyWeight.format(kg, { fixed: 1 });
+  const convertedBmrInputs = [
+    convertedWeight(bmrDetails.weight),
+    !usesBodyFat && units.height.isFeet
+      ? units.height.format(bmrDetails.height)
+      : null,
+  ].filter(Boolean);
   const originalEstimatedSteps =
     breakdown.originalEstimatedSteps ?? stepDetails.originalEstimatedSteps;
   const deductedSteps = breakdown.deductedSteps ?? stepDetails.deductedSteps;
@@ -242,6 +267,8 @@ export const CalorieBreakdownModal = ({
                 Lean mass = {formatNumber(bmrDetails.weight, 1)} × (1 −{' '}
                 {formatNumber(bmrDetails.bodyFat, 1)}%) ={' '}
                 {formatNumber(bmrDetails.leanMass, 1)} kg
+                {convertedWeight(bmrDetails.leanMass) &&
+                  ` (${convertedWeight(bmrDetails.leanMass)})`}
                 <br />
                 BMR = 370 + 21.6 × {formatNumber(bmrDetails.leanMass, 1)} ={' '}
                 {breakdown.bmr.toLocaleString()} kcal
@@ -255,6 +282,12 @@ export const CalorieBreakdownModal = ({
                 {formatWhole(bmrDetails.age)}){' '}
                 {bmrDetails.gender === 'male' ? '+ 5' : '- 161'} ={' '}
                 {breakdown.bmr.toLocaleString()} kcal
+              </p>
+            )}
+            {convertedBmrInputs.length > 0 && (
+              <p className="text-muted text-xs mt-2">
+                The formula uses metric inputs. Yours:{' '}
+                {convertedBmrInputs.join(', ')}.
               </p>
             )}
             {typeof onOpenBmrInfo === 'function' && (
@@ -304,16 +337,16 @@ export const CalorieBreakdownModal = ({
               <strong>Calculation:</strong>
               <br />
               {breakdown.estimatedSteps.toLocaleString()} steps ÷{' '}
-              {formatWhole(stepDetails.stepsPerMile)} steps/mi ={' '}
-              {formatNumber(stepDetails.distanceMiles, 2)} mi
+              {formatWhole(stepsPerUnit)} steps/{distance.unit} ={' '}
+              {formatNumber(stepDistance, 2)} {distance.unit}
               <br />
-              {formatNumber(stepDetails.distanceMiles, 2)} mi ×{' '}
-              {formatNumber(stepDetails.caloriesPerMile, 1)} kcal/mi ={' '}
+              {formatNumber(stepDistance, 2)} {distance.unit} ×{' '}
+              {formatNumber(caloriesPerUnit, 1)} kcal/{distance.unit} ={' '}
               {breakdown.stepCalories.toLocaleString()} kcal
             </p>
             <p className="text-muted text-xs mt-2">
-              Stride length: {formatNumber(stepDetails.strideLengthMeters, 2)} m
-              • Weight used: {formatNumber(stepDetails.weightKg, 1)} kg
+              Stride length: {strideText} • Weight used:{' '}
+              {bodyWeight.format(stepDetails.weightKg, { fixed: 1 })}
             </p>
             {hasStepOverlapDeduction && (
               <p className="text-muted text-xs mt-2">
@@ -411,8 +444,10 @@ export const CalorieBreakdownModal = ({
                     <p key={`${detail.typeKey}-${index}`}>
                       <strong>{detail.typeLabel}</strong> ({detail.intensityKey}
                       ) MET {formatNumber(detail.met, 1)} ×{' '}
-                      {formatNumber(detail.weightKg, 1)} kg ×{' '}
-                      {formatNumber(detail.hours, 2)} hr ={' '}
+                      {formatNumber(detail.weightKg, 1)} kg
+                      {convertedWeight(detail.weightKg) &&
+                        ` (${convertedWeight(detail.weightKg)})`}{' '}
+                      × {formatNumber(detail.hours, 2)} hr ={' '}
                       {detail.calories.toLocaleString()} kcal
                     </p>
                   )

@@ -1,7 +1,14 @@
 import React from 'react';
 import { ModalShell } from '../../common/ModalShell';
 import { PHASE_TEMPLATES } from '../../../../constants/phases/phaseTemplates';
+import { useUnits } from '../../../../hooks/useUnits';
 import { goals } from '../../../../constants/goals/goals';
+
+// Template targets are defined in kg; other units convert to one decimal.
+const describeTargetChange = (kg, bodyWeight) =>
+  bodyWeight.linearUnit === 'kg'
+    ? `${kg} kg`
+    : `${bodyWeight.toNumber(kg).toFixed(1)} ${bodyWeight.linearUnit}`;
 
 export const TemplatePickerModal = ({
   isOpen,
@@ -9,6 +16,8 @@ export const TemplatePickerModal = ({
   onSelectTemplate,
   onClose,
 }) => {
+  const units = useUnits();
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -82,7 +91,10 @@ export const TemplatePickerModal = ({
                       }`}
                     >
                       {template.targetWeightChange > 0 ? '+' : ''}
-                      {template.targetWeightChange} kg
+                      {describeTargetChange(
+                        template.targetWeightChange,
+                        units.bodyWeight
+                      )}
                     </div>
                     <p className="text-[11px] text-primary-foreground/75 mt-1">
                       weight target

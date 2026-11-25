@@ -43,6 +43,7 @@ import {
 } from '../../../../utils/measurements/weight';
 import { sortBodyFatEntries } from '../../../../utils/measurements/bodyFat';
 import { formatWeeklyRate } from '../../../../utils/visuals/trackerHelpers';
+import { useUnits } from '../../../../hooks/useUnits';
 
 const WINDOW_LABELS = {
   3: '3D',
@@ -130,11 +131,11 @@ const formatAverage = (value) => {
   return `${sign}${numeric.toFixed(1)} kcal/day`;
 };
 
-const formatEstimateKg = (value) => {
-  if (value == null || !Number.isFinite(Number(value))) return '\u2014';
-  const numeric = Number(value);
+const formatEstimateWeight = (kg, bodyWeight) => {
+  if (kg == null || !Number.isFinite(Number(kg))) return '\u2014';
+  const numeric = Number(kg);
   const sign = numeric > 0 ? '+' : numeric < 0 ? '-' : '+';
-  return `${sign}${Math.abs(numeric).toFixed(2)} kg`;
+  return `${sign}${bodyWeight.formatAmount(numeric, { digits: 2 })}`;
 };
 
 const formatEstimatePercent = (value) => {
@@ -272,6 +273,7 @@ export const RollingEnergyBalanceModal = ({
     DEFAULT_ROLLING_BALANCE_WINDOW_DAYS
   );
 
+  const units = useUnits();
   const store = useEnergyMapStore(
     (state) => ({
       dailySnapshots: state.userData?.dailySnapshots,
@@ -1091,7 +1093,10 @@ export const RollingEnergyBalanceModal = ({
                 </Stat>
                 <Stat label="Estimated Change">
                   <p className="text-foreground text-3xl font-bold">
-                    {formatEstimateKg(-data.estimatedWeightChangeKg)}
+                    {formatEstimateWeight(
+                      -data.estimatedWeightChangeKg,
+                      units.bodyWeight
+                    )}
                   </p>
                   <p className="text-foreground text-[11px] mt-1">
                     {estimatedBodyFatChangePercent == null
@@ -1135,7 +1140,11 @@ export const RollingEnergyBalanceModal = ({
                   </p>
                   <p className="text-foreground text-lg font-semibold">
                     {hasWeightTrend
-                      ? formatWeeklyRate(weightTrend.weeklyRate, 'weight')
+                      ? formatWeeklyRate(
+                          weightTrend.weeklyRate,
+                          'weight',
+                          units
+                        )
                       : 'Insufficient data'}
                   </p>
                   <p className="text-muted text-[11px] mt-1">comparison only</p>

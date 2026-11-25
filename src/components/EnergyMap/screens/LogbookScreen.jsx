@@ -12,10 +12,7 @@ import {
   Flame,
 } from 'lucide-react';
 import { goals } from '../../../constants/goals/goals';
-import {
-  formatSignedDelta,
-  formatWeight,
-} from '../../../utils/measurements/weight';
+import { useUnits } from '../../../hooks/useUnits';
 import { calculatePhaseMetrics } from '../../../utils/phases/phases';
 import {
   buildDayLedgerCardSummary,
@@ -82,6 +79,7 @@ const calculateCurrentDay = (startDate) => {
 };
 
 const PhaseCard = ({ phase, onPhaseClick }) => {
+  const { bodyWeight } = useUnits();
   const goal = goals[phase.goalType] || goals.maintenance;
   // Helper for goal badge color classes
   const getGoalBadgeClass = () => {
@@ -97,9 +95,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
 
   const weightChange = phase.metrics?.weightChange || 0;
   const weightChangeDisplay =
-    weightChange === 0
-      ? '—'
-      : formatSignedDelta(weightChange, 'kg');
+    weightChange === 0 ? '—' : bodyWeight.formatDelta(weightChange);
 
   return (
     <button
@@ -153,9 +149,9 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
         <div className="flex items-center gap-2 text-sm text-muted">
           <TrendingUp size={14} className="text-muted" />
           <span>
-            {formatWeight(phase.startingWeight)} kg → {weightChangeDisplay}
+            {bodyWeight.format(phase.startingWeight)} → {weightChangeDisplay}
             {phase.targetWeight &&
-              ` (Target: ${formatWeight(phase.targetWeight)} kg)`}
+              ` (Target: ${bodyWeight.format(phase.targetWeight)})`}
           </span>
         </div>
 

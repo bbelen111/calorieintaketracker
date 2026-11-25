@@ -4,7 +4,6 @@ import {
   calculateWeightTrend,
   createSparklinePoints,
   sortWeightEntries,
-  formatWeight,
 } from '../../../utils/measurements/weight';
 import {
   calculateBodyFatTrend,
@@ -44,8 +43,19 @@ import {
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { RestingHeartRateCard } from '../common/RestingHeartRateCard';
 import { InsightHeadline, InsightStatus } from '../common/InsightHeadline';
+import { useUnits } from '../../../hooks/useUnits';
+
+// The smart mode's observed rate is a plain kg figure; other units convert it.
+const describeObservedRate = (kgPerWeek, bodyWeight) => {
+  const shown =
+    bodyWeight.linearUnit === 'kg'
+      ? kgPerWeek
+      : Number(bodyWeight.toNumber(kgPerWeek)).toFixed(2);
+  return `${shown} ${bodyWeight.linearUnit}/wk`;
+};
 
 function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
+  const units = useUnits();
   const insufficientData = Boolean(result?.insufficientData);
   const correction = Number(result?.correction ?? 0);
   const active = Boolean(result?.active);
@@ -138,7 +148,10 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
       { label: 'Days on goal', value: `${goalDurationDays ?? 0} days` },
       {
         label: 'Observed rate',
-        value: `${result?.details?.observedRateKgPerWeek ?? 0} kg/wk`,
+        value: describeObservedRate(
+          result?.details?.observedRateKgPerWeek ?? 0,
+          units.bodyWeight
+        ),
       }
     );
   } else {
@@ -486,7 +499,8 @@ export const InsightsScreen = memo(function InsightsScreen({
     [ffmiData, resolvedUserData.gender]
   );
 
-  const currentWeight = formatWeight(latestEntry?.weight);
+  const units = useUnits();
+  const currentWeight = units.bodyWeight.parts(latestEntry?.weight);
   const weightOldDataWarning = useMemo(
     () => getOldDataWarningText(latestEntry?.date),
     [latestEntry?.date]
@@ -629,7 +643,9 @@ export const InsightsScreen = memo(function InsightsScreen({
                   </p>
                   <p className="text-muted text-sm mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                     <span className="font-bold text-foreground whitespace-nowrap">
-                      {currentWeight ? `${currentWeight} kg` : '—'}
+                      {currentWeight
+                        ? `${currentWeight.value} ${currentWeight.unit}`
+                        : '—'}
                     </span>
                     <span className="whitespace-nowrap">
                       • {formatSnapshotDate(latestEntry.date)}
@@ -643,7 +659,7 @@ export const InsightsScreen = memo(function InsightsScreen({
                   </p>
                   <p className="text-muted text-sm mt-2">
                     <span className="font-bold text-foreground">
-                      {formatWeeklyRate(trend.weeklyRate, 'weight')}
+                      {formatWeeklyRate(trend.weeklyRate, 'weight', units)}
                     </span>{' '}
                     over last 7 days
                   </p>
@@ -738,7 +754,7 @@ export const InsightsScreen = memo(function InsightsScreen({
               <div>
                 <p className="text-muted text-sm flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                   <span className="font-bold text-foreground whitespace-nowrap">
-                    {currentWeight} kg
+                    {currentWeight.value} {currentWeight.unit}
                   </span>
                   <span className="whitespace-nowrap">
                     • {formatSnapshotDate(latestEntry.date)}

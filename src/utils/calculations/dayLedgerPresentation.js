@@ -2,6 +2,7 @@ import {
   getDailyBalanceKind,
   ESTIMATED_ENERGY_PER_KG,
 } from './rollingEnergyBalance.js';
+import { createUnitFormatter } from '../units/unitFormatter.js';
 import { resolveSnapshotGoalTarget } from './dailySnapshots.js';
 import { DEFAULT_ON_TARGET_TOLERANCE_KCAL } from '../../constants/goals/onTarget.js';
 import {
@@ -732,7 +733,12 @@ const sortEntriesByDate = (entries) =>
  * delta object (carries `spanDays` so the UI can label irregular sampling).
  * Both nullable — never zero-filled.
  */
-const buildMeasurementWithDelta = (entries, dateKey, valueField) => {
+const buildMeasurementWithDelta = (
+  entries,
+  dateKey,
+  valueField,
+  precision = 1
+) => {
   const value = getMeasurementForDate(entries, dateKey, valueField);
   if (value == null) {
     return { value: null, delta: null };
@@ -742,7 +748,8 @@ const buildMeasurementWithDelta = (entries, dateKey, valueField) => {
     delta: getPreviousEntryDelta(
       sortEntriesByDate(entries),
       dateKey,
-      valueField
+      valueField,
+      precision
     ),
   };
 };
@@ -1103,7 +1110,12 @@ export const buildDayLedgerDetailModel = (params) => {
     sessionsTotal,
     nutrition,
     measurements: {
-      weight: buildMeasurementWithDelta(weightEntries, dayDate, 'weight'),
+      weight: buildMeasurementWithDelta(
+        weightEntries,
+        dayDate,
+        'weight',
+        createUnitFormatter(userData?.unitPreferences).bodyWeight.mathPrecision
+      ),
       bodyFat:
         bodyFatTrackingEnabled === false
           ? { value: null, delta: null }

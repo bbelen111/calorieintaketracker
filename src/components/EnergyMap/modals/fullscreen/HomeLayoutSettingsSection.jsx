@@ -22,13 +22,11 @@ import {
 import { HeroActionPill } from '../../common/HeroActionPill';
 import { HeroActionTile } from '../../common/HeroActionTile';
 import { buildHeroActionModel } from '../../../../utils/calculations/heroActionMetrics';
+import { useUnits } from '../../../../hooks/useUnits';
 import { buildDisplayTefContext } from '../../../../utils/calculations/calculations';
 import { getNutritionTotalsForDate } from '../../../../utils/phases/phases';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
-import {
-  formatWeight,
-  sortWeightEntries,
-} from '../../../../utils/measurements/weight';
+import { sortWeightEntries } from '../../../../utils/measurements/weight';
 import {
   formatBodyFat,
   sortBodyFatEntries,
@@ -98,6 +96,7 @@ const useLiveHeroModels = ({
   );
 
   const todayDateKey = getTodayDateKey();
+  const units = useUnits();
 
   const sortedWeightEntries = useMemo(
     () => sortWeightEntries(weightEntries ?? []),
@@ -108,7 +107,9 @@ const useLiveHeroModels = ({
     : null;
   const weightReading = useMemo(
     () => ({
-      display: formatWeight(weightLatest?.weight ?? userData?.weight) || null,
+      display:
+        units.bodyWeight.parts(weightLatest?.weight ?? userData?.weight)
+          ?.value ?? null,
       dateLabel: weightLatest?.date
         ? formatPanelDate(weightLatest.date)
         : 'No entries yet',
@@ -116,7 +117,7 @@ const useLiveHeroModels = ({
         ? getOldDataWarningText(weightLatest.date)
         : null,
     }),
-    [userData?.weight, weightLatest]
+    [units, userData?.weight, weightLatest]
   );
 
   const sortedBodyFatEntries = useMemo(

@@ -11,7 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { goals } from '../../../constants/goals/goals';
-import { formatSignedDelta } from '../../../utils/measurements/weight';
+import { useUnits } from '../../../hooks/useUnits';
 import {
   calculatePhaseMetrics,
   getNutritionTotalsForDate,
@@ -267,6 +267,8 @@ export const PhaseDetailScreen = ({
     shallow
   );
 
+  const units = useUnits();
+
   const resolvedWeightEntries = weightEntries ?? store.weightEntries;
   const resolvedNutritionData = nutritionData ?? store.nutritionData;
 
@@ -332,12 +334,9 @@ export const PhaseDetailScreen = ({
   const weightChangeDisplay =
     metrics.weightChange === 0
       ? '—'
-      : formatSignedDelta(metrics.weightChange, 'kg');
+      : units.bodyWeight.formatDelta(metrics.weightChange);
 
-  const weeklyRateDisplay =
-    metrics.avgWeeklyRate === 0
-      ? '0.0 kg/wk'
-      : `${metrics.avgWeeklyRate > 0 ? '+' : ''}${metrics.avgWeeklyRate.toFixed(2)} kg/wk`;
+  const weeklyRateDisplay = units.bodyWeight.formatRate(metrics.avgWeeklyRate);
 
   return (
     <div className="space-y-6 pb-10">

@@ -20,10 +20,8 @@ import {
   formatDateKeyUtc,
   getTodayDateKey,
 } from '../../../../utils/data/dateKeys';
-import {
-  formatDateLabel,
-  formatWeight,
-} from '../../../../utils/measurements/weight';
+import { formatDateLabel } from '../../../../utils/measurements/weight';
+import { useUnits } from '../../../../hooks/useUnits';
 import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import {
   buildDaySnapshotPreview,
@@ -95,6 +93,7 @@ export const DayLedgerListModal = ({
   const [slideDirection, setSlideDirection] = useState(0);
 
   const todayStr = useMemo(() => getTodayDateKey(), []);
+  const units = useUnits();
 
   const yearRange = useMemo(() => {
     const years = [];
@@ -150,6 +149,7 @@ export const DayLedgerListModal = ({
         weightEntries,
         bodyFatEntries,
         tolerance: onTargetTolerance,
+        weightPrecision: units.bodyWeight.mathPrecision,
       }),
     [
       bodyFatEntries,
@@ -157,6 +157,7 @@ export const DayLedgerListModal = ({
       currentYear,
       dailySnapshots,
       onTargetTolerance,
+      units,
       weightEntries,
     ]
   );
@@ -737,7 +738,7 @@ export const DayLedgerListModal = ({
                   <SummaryTile icon={Scale} label="Weight">
                     <p className="text-foreground font-bold text-base leading-tight">
                       {previewMeasurements.weight != null
-                        ? `${formatWeight(previewMeasurements.weight)} kg`
+                        ? units.bodyWeight.format(previewMeasurements.weight)
                         : '\u2014'}
                     </p>
                   </SummaryTile>
@@ -922,7 +923,7 @@ export const DayLedgerListModal = ({
                     <SummaryTile icon={Scale} label="Avg Weight">
                       <p className="text-foreground font-bold text-sm leading-tight">
                         {monthSummary.avgWeightKg != null
-                          ? `${monthSummary.avgWeightKg} kg`
+                          ? units.bodyWeight.format(monthSummary.avgWeightKg)
                           : '\u2014'}
                       </p>
                       {showBodyFat &&
@@ -955,9 +956,8 @@ export const DayLedgerListModal = ({
                     <span className="ml-auto font-medium text-foreground/80">
                       Est. change {'\u2248'}{' '}
                       {monthSummary.estimatedWeightChangeKg === 0
-                        ? '\u00B10'
-                        : `${monthSummary.estimatedWeightChangeKg > 0 ? '-' : '+'}${Math.abs(monthSummary.estimatedWeightChangeKg).toFixed(2)}`}
-                      {' kg'}
+                        ? `\u00B10 ${units.bodyWeight.linearUnit}`
+                        : `${monthSummary.estimatedWeightChangeKg > 0 ? '-' : '+'}${units.bodyWeight.formatAmount(monthSummary.estimatedWeightChangeKg, { digits: 2 })}`}
                     </span>
                   </div>
                 </motion.div>

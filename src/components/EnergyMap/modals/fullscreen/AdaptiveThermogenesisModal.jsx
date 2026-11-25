@@ -19,6 +19,7 @@ import { formatSignedBpm } from '../../../../utils/formatting/heartRate';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+import { useUnits } from '../../../../hooks/useUnits';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import {
   computeAdaptiveThermogenesis,
@@ -45,6 +46,17 @@ const signed = (value, unit = '') => {
   const number = Number(value) || 0;
   return (number > 0 ? '+' : '') + number + unit;
 };
+// Kg figures print as they come; other units convert and keep two decimals.
+const signedWeight = (kg, bodyWeight, suffix = '') => {
+  const value =
+    bodyWeight.linearUnit === 'kg'
+      ? kg
+      : Number(bodyWeight.toNumber(Number(kg) || 0)).toFixed(2);
+  return signed(value, ` ${bodyWeight.linearUnit}${suffix}`);
+};
+const NOISE_FLOOR_KG = 0.15;
+const formatNoiseFloor = (bodyWeight) =>
+  `±${bodyWeight.formatAmount(NOISE_FLOOR_KG, { digits: 2 })}`;
 const goalLabel = (goal) =>
   goal ? goal.charAt(0).toUpperCase() + goal.slice(1) : 'No goal';
 
@@ -325,9 +337,9 @@ function Metric({ label, value, detail, tone = 'text-foreground' }) {
   );
 }
 
-function getDivergenceExplanation(signal) {
+function getDivergenceExplanation(signal, bodyWeight) {
   if (signal?.noiseSuppressed) {
-    return 'Divergence is within the ±0.15 kg noise floor, so no correction is needed.';
+    return `Divergence is within the ${formatNoiseFloor(bodyWeight)} noise floor, so no correction is needed.`;
   }
   const divergence = Number(signal?.divergenceKg) || 0;
   if (divergence > 0) {
@@ -340,6 +352,7 @@ function getDivergenceExplanation(signal) {
 }
 
 function SmartView({ result, physiology, onOpenRollingBalance }) {
+  const { bodyWeight } = useUnits();
   if (!result)
     return <EmptyState message="No smart-mode result was provided." />;
   if (result.details?.reason === 'maintenance-goal') {
@@ -381,14 +394,14 @@ function SmartView({ result, physiology, onOpenRollingBalance }) {
             }
           >
             <Direction size={14} />
-            {signed(signal.divergenceKg, ' kg')}
+            {signedWeight(signal.divergenceKg, bodyWeight)}
           </span>
         </div>
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-2 gap-2.5">
             <Comparison
               label="Expected"
-              value={signed(signal.expectedWeightDeltaKg, ' kg')}
+              value={signedWeight(signal.expectedWeightDeltaKg, bodyWeight)}
               caption="from energy balance"
               onClick={
                 typeof onOpenRollingBalance === 'function'
@@ -398,7 +411,7 @@ function SmartView({ result, physiology, onOpenRollingBalance }) {
             />
             <Comparison
               label="Observed"
-              value={signed(signal.observedWeightDeltaKg, ' kg')}
+              value={signedWeight(signal.observedWeightDeltaKg, bodyWeight)}
               caption="from weight trend"
               onClick={
                 typeof onOpenRollingBalance === 'function'
@@ -408,7 +421,7 @@ function SmartView({ result, physiology, onOpenRollingBalance }) {
             />
           </div>
           <p className="text-sm text-muted leading-relaxed">
-            {getDivergenceExplanation(signal)}
+            {getDivergenceExplanation(signal, bodyWeight)}
           </p>
         </div>
       </div>
@@ -428,11 +441,19 @@ function SmartView({ result, physiology, onOpenRollingBalance }) {
           <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-border/60">
             <MiniFact
               label="Expected rate"
-              value={signed(details.expectedRateKgPerWeek, ' kg/wk')}
+              value={signedWeight(
+                details.expectedRateKgPerWeek,
+                bodyWeight,
+                '/wk'
+              )}
             />
             <MiniFact
               label="Observed rate"
-              value={signed(details.observedRateKgPerWeek, ' kg/wk')}
+              value={signedWeight(
+                details.observedRateKgPerWeek,
+                bodyWeight,
+                '/wk'
+              )}
             />
           </div>
         </div>
@@ -466,6 +487,7 @@ function SmartView({ result, physiology, onOpenRollingBalance }) {
 }
 
 function SmartMaintenanceView({ onOpenRollingBalance }) {
+  const { bodyWeight } = useUnits();
   return (
     <div className="space-y-4">
       <InfoCallout
@@ -491,7 +513,7 @@ function SmartMaintenanceView({ onOpenRollingBalance }) {
             icon={Gauge}
             iconClass="text-accent-emerald"
             title="Noise floor & freshness"
-            range="±0.15 kg floor"
+            range={`${formatNoiseFloor(bodyWeight)} floor`}
             description="Ignores minor scale fluctuations and requires recent weigh-ins plus consistent food logs before applying a change."
           />
           <GoalBehaviorRow
