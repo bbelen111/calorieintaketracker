@@ -208,6 +208,7 @@ export const buildDayLedgerRows = (snapshot) => {
  * @param {Array<{date:string,weight:number}>} [options.weightEntries]
  * @param {Array<{date:string,bodyFat:number}>} [options.bodyFatEntries]
  * @param {number} [options.tolerance] – on-target band (kcal) for `onTargetDays`
+ * @param {number} [options.weightPrecision=1] – decimals kept on `avgWeightKg`
  */
 export const summarizeMonthSnapshots = (
   snapshots,
@@ -326,7 +327,7 @@ export const summarizeMonthSnapshots = (
   // Measurement averages come from canonical tracker entries dated within
   // this month (≤ today), never from snapshots and never borrowed across
   // months. Absent/garbage input stays null with a zero sample count.
-  const averageEntriesInMonth = (entries, field) => {
+  const averageEntriesInMonth = (entries, field, precision = 1) => {
     if (!Array.isArray(entries)) {
       return { avg: null, count: 0 };
     }
@@ -358,10 +359,15 @@ export const summarizeMonthSnapshots = (
     if (count === 0) {
       return { avg: null, count: 0 };
     }
-    return { avg: Math.round((total / count) * 10) / 10, count };
+    const factor = 10 ** precision;
+    return { avg: Math.round((total / count) * factor) / factor, count };
   };
 
-  const weightStats = averageEntriesInMonth(options?.weightEntries, 'weight');
+  const weightStats = averageEntriesInMonth(
+    options?.weightEntries,
+    'weight',
+    options?.weightPrecision
+  );
   summary.avgWeightKg = weightStats.avg;
   summary.weightSampleCount = weightStats.count;
 

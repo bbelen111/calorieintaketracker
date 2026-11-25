@@ -38,7 +38,9 @@ import {
   Upload,
   Share2,
   Bell,
+  Ruler,
 } from 'lucide-react';
+import { UnitsSettingsSection } from './UnitsSettingsSection';
 import { NotificationsSettingsSection } from './NotificationsSettingsSection';
 import {
   HeroMetricPickerPage,
@@ -156,6 +158,11 @@ const SETTINGS_PAGES = [
     id: 'profile',
     title: 'Profile & Health',
     icon: UserRound,
+  },
+  {
+    id: 'units',
+    title: 'Units',
+    icon: Ruler,
   },
   {
     id: 'appearance',
@@ -718,6 +725,16 @@ const SettingsPageContent = ({
           userData={userData}
           onFieldChange={onFieldChange}
           openers={heartRateOpeners}
+        />
+      )}
+
+      {page === 'units' && (
+        <UnitsSettingsSection
+          userData={userData}
+          onFieldChange={onFieldChange}
+          SegmentedButton={SegmentedButton}
+          SettingLabel={SettingLabel}
+          activeClassName={BUTTON_ACTIVE_PRIMARY_CLASS}
         />
       )}
 

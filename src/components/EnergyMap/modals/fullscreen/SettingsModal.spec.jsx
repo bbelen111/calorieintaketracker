@@ -120,6 +120,7 @@ describe('SettingsModal segmented navigation', () => {
 
     const pages = [
       ['Open Profile & Health', 'Profile & Health', /^Age$/],
+      ['Open Units', 'Units', 'Body weight'],
       ['Open Appearance', 'Appearance', 'Color theme'],
       ['Open Home & Tips', 'Home & Tips', 'Live preview'],
       ['Open Activity & Steps', 'Activity & Steps', /Daily NEAT/],

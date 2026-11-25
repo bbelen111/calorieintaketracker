@@ -818,6 +818,7 @@ export const deriveTargetCreationModePayload = ({
  *  dailyDelta: number,
  *  totalDeltaCalories: number,
  *  predictedWeightDeltaKg: number,
+ *  predictedWeightDeltaKgExact: number,
  *  predictedWeightDeltaPercent: number | null,
  *  predictedBodyFatDeltaPercent: number | null,
  * }}
@@ -864,6 +865,8 @@ export const estimateGoalModeProjection = ({
     dailyDelta,
     totalDeltaCalories: Math.round(totalDeltaCalories),
     predictedWeightDeltaKg: roundedWeightDelta,
+    // Unrounded, for converting into other display units before rounding.
+    predictedWeightDeltaKgExact: predictedWeightDeltaKg,
     predictedWeightDeltaPercent,
     // Deprecated alias retained for backward compatibility.
     predictedBodyFatDeltaPercent: predictedWeightDeltaPercent,

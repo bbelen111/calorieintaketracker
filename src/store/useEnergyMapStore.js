@@ -59,6 +59,10 @@ import {
 } from '../constants/health/heartRate.js';
 
 import { normalizeOnTargetTolerance } from '../constants/goals/onTarget.js';
+import {
+  areUnitPreferencesEqual,
+  normalizeUnitPreferences,
+} from '../constants/units/units.js';
 import { normalizeRecipe } from '../utils/food/recipe.js';
 import { collectDayEntryIds, resolveEntryId } from '../utils/food/entryIds.js';
 import {
@@ -789,6 +793,12 @@ export const useEnergyMapStore = createWithEqualityFn(
           return next === prev.onTargetToleranceKcal
             ? prev
             : { ...prev, onTargetToleranceKcal: next };
+        }
+
+        if (field === 'unitPreferences') {
+          return areUnitPreferencesEqual(value, prev.unitPreferences)
+            ? prev
+            : { ...prev, unitPreferences: normalizeUnitPreferences(value) };
         }
 
         return { ...prev, [field]: value };
