@@ -15,6 +15,7 @@ import { shallow } from 'zustand/shallow';
 import { goals as baseGoals } from '../../../constants/goals/goals';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { useUnits } from '../../../hooks/useUnits';
+import { describeGoal } from '../../../utils/units/goalDescription';
 import {
   buildDisplayTefContext,
   calculateTrainingSessionCalories,
@@ -420,6 +421,7 @@ export const HomeScreen = memo(function HomeScreen({
       key: 'steps',
       label: 'Steps',
       kcal: Math.round(Number(todayStepCalories) || 0),
+      exact: Number(todayStepCalories) || 0,
       colorClass: 'bg-accent-green',
       textClass: 'text-accent-green',
       icon: Footprints,
@@ -428,6 +430,7 @@ export const HomeScreen = memo(function HomeScreen({
       key: 'training',
       label: 'Training',
       kcal: Math.round(Number(resolvedTrainingCalories) || 0),
+      exact: Number(resolvedTrainingCalories) || 0,
       colorClass: 'bg-accent-blue',
       textClass: 'text-accent-blue',
       icon: Dumbbell,
@@ -436,6 +439,7 @@ export const HomeScreen = memo(function HomeScreen({
       key: 'cardio',
       label: 'Cardio',
       kcal: Math.round(Number(resolvedTotalCardioBurn) || 0),
+      exact: Number(resolvedTotalCardioBurn) || 0,
       colorClass: 'bg-accent-red',
       textClass: 'text-accent-red',
       icon: Heart,
@@ -444,6 +448,7 @@ export const HomeScreen = memo(function HomeScreen({
       key: 'neat',
       label: 'NEAT',
       kcal: Math.round(Number(todayBreakdown?.baseActivity) || 0),
+      exact: Number(todayBreakdown?.baseActivity) || 0,
       colorClass: 'bg-accent-purple',
       textClass: 'text-accent-purple',
       icon: Activity,
@@ -531,12 +536,16 @@ export const HomeScreen = memo(function HomeScreen({
                   {effortDisplay}
                   {renderHeartRateExtras(session)}
                   {' • '}
-                  <span className="text-foreground/70">~{calories} kcal</span>
+                  <span className="text-foreground/70">
+                    ~{units.energy.value(calories, { grouping: false })}{' '}
+                    {units.energy.unit}
+                  </span>
                   {epocEnabled && (
                     <>
                       {' + '}
                       <span className="text-foreground/70">
-                        ~{Math.round(epocCalories)} EPOC
+                        ~{units.energy.value(epocCalories, { grouping: false })}{' '}
+                        EPOC
                       </span>
                     </>
                   )}
@@ -663,12 +672,16 @@ export const HomeScreen = memo(function HomeScreen({
                   {effortDisplay}
                   {renderHeartRateExtras(session)}
                   {' • '}
-                  <span className="text-foreground/70">~{calories} kcal</span>
+                  <span className="text-foreground/70">
+                    ~{units.energy.value(calories, { grouping: false })}{' '}
+                    {units.energy.unit}
+                  </span>
                   {epocEnabled && (
                     <>
                       {' + '}
                       <span className="text-foreground/70">
-                        ~{Math.round(epocCalories)} EPOC
+                        ~{units.energy.value(epocCalories, { grouping: false })}{' '}
+                        EPOC
                       </span>
                     </>
                   )}
@@ -775,12 +788,15 @@ export const HomeScreen = memo(function HomeScreen({
             </div>
             <div className="text-right">
               <p className="text-2xl md:text-3xl font-bold text-foreground leading-none">
-                {Math.round(activeBurnTotal)}
-                <span className="text-lg text-muted ml-1">kcal</span>
+                {units.energy.value(activeBurnTotal, { grouping: false })}
+                <span className="text-lg text-muted ml-1">
+                  {units.energy.unit}
+                </span>
               </p>
               {totalEpoc > 0 && (
                 <p className="text-muted text-xs mt-1">
-                  +{totalEpoc} kcal EPOC
+                  +{units.energy.value(totalEpoc, { grouping: false })}{' '}
+                  {units.energy.unit} EPOC
                 </p>
               )}
             </div>
@@ -825,7 +841,7 @@ export const HomeScreen = memo(function HomeScreen({
                     <span className="text-muted">{segment.label}</span>
                     <span className={`font-semibold ${neatTextClass}`}>
                       {' '}
-                      {segment.kcal}
+                      {units.energy.value(segment.exact, { grouping: false })}
                     </span>
                   </span>
                   {isNeat && (
@@ -888,7 +904,9 @@ export const HomeScreen = memo(function HomeScreen({
             return <Icon className="mx-auto mb-2" size={32} />;
           })()}
           <p className="font-bold text-xl">{goalConfig.label}</p>
-          <p className="text-sm opacity-90 mt-1">{goalConfig.desc}</p>
+          <p className="text-sm opacity-90 mt-1">
+            {describeGoal(selectedGoal, goalConfig, units)}
+          </p>
           <p className="text-xs opacity-75 mt-2">
             {isGoalLocked
               ? `Locked by active phase${goalLockPhaseName ? `: ${goalLockPhaseName}` : ''}`

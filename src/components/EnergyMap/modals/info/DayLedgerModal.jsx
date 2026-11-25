@@ -381,15 +381,15 @@ export const DayLedgerModal = ({
                   {kindMeta.label}
                 </p>
                 <p className="text-foreground text-3xl font-black leading-tight mt-0.5">
-                  {preview.tdee.toLocaleString()}
+                  {units.energy.value(preview.tdee)}
                   <span className="text-muted text-sm font-medium ml-1">
-                    kcal
+                    {units.energy.unit}
                   </span>
                 </p>
                 <p
                   className={`text-right text-lg font-black leading-none mt-0.5 ${kindMeta.textClass}`}
                 >
-                  {formatSignedKcal(preview.deficit)}
+                  {formatSignedKcal(preview.deficit, units)}
                 </p>
               </div>
 
@@ -398,13 +398,13 @@ export const DayLedgerModal = ({
                   the target but no verdict. Wraps only if both cannot fit. */}
               <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
                 <p className="text-muted">
-                  Eaten {preview.intake.toLocaleString()} kcal
+                  Eaten {units.energy.value(preview.intake)} {units.energy.unit}
                 </p>
                 {preview.goalTarget !== null && (
                   <p className="flex items-center gap-1">
                     <Target size={12} className="shrink-0 text-muted" />
                     <span className="text-muted">
-                      Target {describeGoalTarget(preview.goalTarget)}
+                      Target {describeGoalTarget(preview.goalTarget, units)}
                     </span>
                     {preview.targetDeviation !== null && (
                       <span
@@ -417,7 +417,7 @@ export const DayLedgerModal = ({
                         {' · '}
                         {targetOnTarget
                           ? 'on target'
-                          : `${formatSignedKcal(preview.targetDeviation)} vs target`}
+                          : `${formatSignedKcal(preview.targetDeviation, units)} vs target`}
                       </span>
                     )}
                   </p>
@@ -461,14 +461,15 @@ export const DayLedgerModal = ({
                 {hasEpoc && (
                   <div className="min-w-0">
                     <p className="text-foreground text-sm font-semibold">
-                      +{model.epoc.total.toLocaleString()} kcal EPOC
+                      +{units.energy.value(model.epoc.total)}{' '}
+                      {units.energy.unit} EPOC
                     </p>
                     <p className="text-muted text-[11px] truncate">
                       {model.epoc.carryIn > 0 && model.epoc.fromToday > 0
-                        ? `${model.epoc.carryIn.toLocaleString()} carried in \u00B7 ${model.epoc.fromToday.toLocaleString()} today`
+                        ? `${units.energy.value(model.epoc.carryIn)} carried in \u00B7 ${units.energy.value(model.epoc.fromToday)} today`
                         : model.epoc.carryIn > 0
-                          ? `carried in: ${model.epoc.carryIn.toLocaleString()}`
-                          : `today's sessions: ${model.epoc.fromToday.toLocaleString()}`}
+                          ? `carried in: ${units.energy.value(model.epoc.carryIn)}`
+                          : `today's sessions: ${units.energy.value(model.epoc.fromToday)}`}
                     </p>
                   </div>
                 )}
@@ -551,7 +552,7 @@ export const DayLedgerModal = ({
                   </div>
                   <span className="text-foreground font-bold text-base shrink-0">
                     {model.sessionsTotal > 0
-                      ? `${model.sessionsTotal.toLocaleString()} kcal`
+                      ? `${units.energy.value(model.sessionsTotal)} ${units.energy.unit}`
                       : '\u2014'}
                   </span>
                 </div>
@@ -655,9 +656,9 @@ export const DayLedgerModal = ({
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-foreground font-bold text-sm leading-none">
-                              ~{row.calories.toLocaleString()}
+                              ~{units.energy.value(row.calories)}
                               <span className="text-[10px] font-medium text-muted ml-0.5">
-                                kcal
+                                {units.energy.unit}
                               </span>
                             </p>
                           </div>
@@ -796,7 +797,8 @@ export const DayLedgerModal = ({
                               </span>
                             </p>
                             <p className="text-foreground font-bold text-sm shrink-0">
-                              {meal.calories.toLocaleString()} kcal
+                              {units.energy.value(meal.calories)}{' '}
+                              {units.energy.unit}
                             </p>
                           </div>
                         );

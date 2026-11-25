@@ -7,6 +7,12 @@ const REFERENCE_WEIGHT_KG = 75;
 
 export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => {
   const units = useUnits();
+  const { energy } = units;
+  // Typical ranges are known in kcal per hour.
+  const ladder = (low, high) =>
+    `~${energy.value(low, { grouping: false })}-${energy.value(high, {
+      grouping: false,
+    })} ${energy.unit}`;
 
   return (
     <ModalShell
@@ -18,7 +24,7 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => {
       <div className="flex items-center gap-3 mb-4">
         <Info size={28} className="text-accent-blue" />
         <h3 className="text-foreground font-bold text-xl">
-          Choosing Calories Per Hour
+          Choosing {energy.noun} Per Hour
         </h3>
       </div>
 
@@ -37,19 +43,19 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => {
             <div className="flex justify-between text-xs md:text-sm">
               <span className="text-muted">Heavy strength, long rest</span>
               <span className="text-foreground font-semibold">
-                ~180-240 kcal
+                {ladder(180, 240)}
               </span>
             </div>
             <div className="flex justify-between text-xs md:text-sm">
               <span className="text-muted">Hypertrophy / accessories</span>
               <span className="text-foreground font-semibold">
-                ~240-320 kcal
+                {ladder(240, 320)}
               </span>
             </div>
             <div className="flex justify-between text-xs md:text-sm">
               <span className="text-muted">CrossFit / metcon density</span>
               <span className="text-foreground font-semibold">
-                ~320-420 kcal
+                {ladder(320, 420)}
               </span>
             </div>
             <div className="flex justify-between text-xs md:text-sm">
@@ -57,7 +63,7 @@ export const CaloriesPerHourGuideModal = ({ isOpen, isClosing, onClose }) => {
                 Olympic lifting + accessory work
               </span>
               <span className="text-foreground font-semibold">
-                ~260-360 kcal
+                {ladder(260, 360)}
               </span>
             </div>
           </div>

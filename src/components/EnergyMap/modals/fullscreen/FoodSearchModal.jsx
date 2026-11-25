@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
+import { useUnits } from '../../../../hooks/useUnits';
 import { resolveScrollBehavior } from '../../../../utils/visuals/motionPreference';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
@@ -322,6 +323,7 @@ export const FoodSearchModal = ({
   onDeleteMealEntry,
 }) => {
   const prefersReducedMotion = useReducedMotionPreference();
+  const units = useUnits();
   const {
     foodFavourites,
     pinnedFoods: storePinnedFoods,
@@ -2103,7 +2105,7 @@ export const FoodSearchModal = ({
   const getFavouritesSortLabel = () => {
     const labels = {
       name: 'Name',
-      calories: 'Calories',
+      calories: units.energy.noun,
       protein: 'Protein',
       carbs: 'Carbs',
       fats: 'Fats',
@@ -2112,7 +2114,8 @@ export const FoodSearchModal = ({
     return `${labels[favouritesSortBy]} ${orderLabel}`;
   };
 
-  const getSortLabel = () => formatSortLabel(sortBy, sortOrder);
+  const getSortLabel = () =>
+    formatSortLabel(sortBy, sortOrder, units.energy.noun);
 
   const isSearchAddExpanded =
     viewMode === 'search' || viewMode === 'favourites';

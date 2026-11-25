@@ -425,6 +425,9 @@ const createEnergy = (unit) => {
     unit,
     isKj,
     noun: isKj ? 'Energy' : 'Calories',
+    // The word some cards print after a bare number.
+    shortUnit: isKj ? 'kJ' : 'cal',
+    longUnit: isKj ? 'kJ' : 'calories',
     toNumber,
     value,
     format,

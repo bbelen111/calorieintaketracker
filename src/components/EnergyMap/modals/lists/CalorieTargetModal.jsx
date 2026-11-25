@@ -4,6 +4,7 @@ import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+import { useUnits } from '../../../../hooks/useUnits';
 
 const LONG_PRESS_DURATION = 650;
 
@@ -13,16 +14,15 @@ const formatStepsLabel = (value) => {
   return `${value} steps`;
 };
 
-const formatTdeeLabel = (tdee, difference) => {
-  const resolvedTdee = Math.round(Number(tdee) || 0);
-  const resolvedDifference = Math.round(Number(difference) || 0);
+const formatTdeeLabel = (tdee, difference, energy) => {
+  const total = energy.value(Number(tdee) || 0);
 
-  if (resolvedDifference === 0) {
-    return `TDEE: ${resolvedTdee.toLocaleString()}`;
+  if (Math.round(Number(difference) || 0) === 0) {
+    return `TDEE: ${total}`;
   }
 
-  const differencePrefix = resolvedDifference > 0 ? '+' : '';
-  return `TDEE: ${resolvedTdee.toLocaleString()} (${differencePrefix}${resolvedDifference.toLocaleString()} cal)`;
+  const change = energy.value(difference, { signed: true });
+  return `TDEE: ${total} (${change} ${energy.shortUnit})`;
 };
 
 export const CalorieTargetModal = ({
@@ -38,6 +38,7 @@ export const CalorieTargetModal = ({
   pinnedCalorieTargets,
   onTogglePinnedCalorieTarget,
 }) => {
+  const units = useUnits();
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [longPressingId, setLongPressingId] = useState(null);
   const longPressTimerRef = useRef(null);
@@ -281,12 +282,16 @@ export const CalorieTargetModal = ({
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
                     <p className="text-lg font-bold text-foreground">
-                      {Math.round(option.targetCalories || 0).toLocaleString()}
+                      {units.energy.value(option.targetCalories || 0)}
                     </p>
                     <p
                       className={`text-xs mt-0.5 ${isSelected ? 'text-primary-foreground' : 'text-muted'}`}
                     >
-                      {formatTdeeLabel(option.tdee, option.difference)}
+                      {formatTdeeLabel(
+                        option.tdee,
+                        option.difference,
+                        units.energy
+                      )}
                     </p>
                   </div>
                 </div>

@@ -26,7 +26,7 @@ export const FoodSearchFavouritesPanel = ({
   openDeleteConfirm,
   prefersReducedMotion,
 }) => {
-  const { food: foodUnit } = useUnits();
+  const { food: foodUnit, energy } = useUnits();
 
   if (!hasFavourites) {
     return (
@@ -133,7 +133,7 @@ export const FoodSearchFavouritesPanel = ({
 
                 <div className="flex items-center gap-3 mt-2 text-xs">
                   <span className="text-accent-green font-medium">
-                    {formatOne(rowValue('calories'))} kcal
+                    {energy.compact(rowValue('calories'))} {energy.unit}
                   </span>
                   <span className="text-accent-red font-medium">
                     {formatOne(rowValue('protein'))}g P

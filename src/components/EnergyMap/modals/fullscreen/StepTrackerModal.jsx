@@ -1789,7 +1789,7 @@ export const StepTrackerModal = ({
                   </p>
                   <p className="text-muted text-[11px] mt-1">
                     {todayStepDetails.calories > 0
-                      ? `${Math.round(todayStepDetails.calories)} cal burned`
+                      ? `${units.energy.value(todayStepDetails.calories, { grouping: false })} ${units.energy.shortUnit} burned`
                       : 'from steps'}
                   </p>
                 </div>
@@ -1829,7 +1829,7 @@ export const StepTrackerModal = ({
                   </p>
                   <p className="text-muted text-[11px] mt-1">
                     {pageStepDetails.calories > 0
-                      ? `${Math.round(pageStepDetails.calories)} kcal`
+                      ? `${units.energy.value(pageStepDetails.calories, { grouping: false })} ${units.energy.unit}`
                       : 'from steps'}
                   </p>
                 </div>
@@ -1994,7 +1994,7 @@ export const StepTrackerModal = ({
                       />
                       <TrackerCardMetric
                         label="Burned"
-                        value={`${Math.round(panelStepDetails.calories)} kcal`}
+                        value={`${units.energy.value(panelStepDetails.calories, { grouping: false })} ${units.energy.unit}`}
                       />
                     </>
                   )}

@@ -13,6 +13,7 @@ import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { HeartRateZoneBars } from '../../common/HeartRateBadges';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+import { useUnits } from '../../../../hooks/useUnits';
 import {
   getHeartRateZone,
   resolveHeartRateZones,
@@ -53,6 +54,7 @@ export const LiveHeartRateSessionModal = ({
   onFinish,
   onOpenPairing,
 }) => {
+  const { energy } = useUnits();
   const { userData, heartRateProfile } = useEnergyMapStore(
     (state) => ({
       userData: state.userData,
@@ -257,10 +259,12 @@ export const LiveHeartRateSessionModal = ({
                 </div>
                 <div>
                   <p className="text-muted text-[11px] uppercase tracking-wide">
-                    {liveKcal != null ? 'kcal' : 'Peak'}
+                    {liveKcal != null ? energy.unit : 'Peak'}
                   </p>
                   <p className="text-foreground text-xl font-bold">
-                    {liveKcal != null ? liveKcal : (recording.maxBpm ?? '—')}
+                    {liveKcal != null
+                      ? energy.value(liveKcal, { grouping: false })
+                      : (recording.maxBpm ?? '—')}
                   </p>
                 </div>
               </div>

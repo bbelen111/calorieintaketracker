@@ -4,6 +4,7 @@ import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { CaloriesPerHourGuideModal } from '../info/CaloriesPerHourGuideModal';
 import { CaloriesPerHourPickerModal } from '../pickers/CaloriesPerHourPickerModal';
+import { useUnits } from '../../../../hooks/useUnits';
 
 export const TrainingTypeEditorModal = ({
   isOpen,
@@ -20,10 +21,11 @@ export const TrainingTypeEditorModal = ({
   const caloriesPickerModal = useAnimatedModal(false, 220);
 
   const safeCalories = Number.isFinite(Number(calories)) ? Number(calories) : 0;
+  const units = useUnits();
 
   const formattedCalories = Number.isFinite(Number(safeCalories))
-    ? `${Math.round(Number(safeCalories)).toLocaleString()} kcal/hr`
-    : 'Select calories per hour';
+    ? `${units.energy.value(safeCalories)} ${units.energy.unit}/hr`
+    : `Select ${units.energy.noun.toLowerCase()} per hour`;
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -59,7 +61,7 @@ export const TrainingTypeEditorModal = ({
 
         <div>
           <label className="text-foreground text-sm block mb-2">
-            Calories Per Hour
+            {units.energy.noun} Per Hour
           </label>
           <button
             type="button"

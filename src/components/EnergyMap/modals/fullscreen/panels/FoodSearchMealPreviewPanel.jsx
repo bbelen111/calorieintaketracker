@@ -29,7 +29,7 @@ export const FoodSearchMealPreviewPanel = ({
   icon: Icon = Utensils,
 }) => {
   const prefersReducedMotion = useReducedMotionPreference();
-  const { food: foodUnit } = useUnits();
+  const { food: foodUnit, energy } = useUnits();
 
   if (!isOpen) {
     return null;
@@ -141,7 +141,7 @@ export const FoodSearchMealPreviewPanel = ({
                     </p>
                     <p className="text-muted text-xs">
                       <span className="text-accent-emerald">
-                        {formatOne(entry?.calories || 0)} kcal
+                        {energy.compact(entry?.calories || 0)} {energy.unit}
                       </span>
                       {' - '}
                       <span className="text-accent-red">

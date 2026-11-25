@@ -162,7 +162,8 @@ export const BmrInfoModal = ({ isOpen, isClosing, userData, bmr, onClose }) => {
               <p className="text-lg">
                 Your BMR:{' '}
                 <span className="text-foreground font-bold">
-                  {resolvedBmr} calories/day
+                  {units.energy.value(resolvedBmr, { grouping: false })}{' '}
+                  {units.energy.longUnit}/day
                 </span>
               </p>
             </div>

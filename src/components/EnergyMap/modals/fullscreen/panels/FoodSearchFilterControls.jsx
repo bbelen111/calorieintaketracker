@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SlidersHorizontal, X } from 'lucide-react';
+import { useUnits } from '../../../../../hooks/useUnits';
 
 export const FoodSearchFilterControls = ({
   viewMode,
@@ -41,6 +42,8 @@ export const FoodSearchFilterControls = ({
   getFilterActiveClass,
   getSortLabel,
 }) => {
+  const { energy } = useUnits();
+
   if (viewMode === 'chat') {
     return null;
   }
@@ -127,7 +130,7 @@ export const FoodSearchFilterControls = ({
                     <div className="space-y-1.5">
                       {[
                         { value: 'name', label: 'Name (A-Z)' },
-                        { value: 'calories', label: 'Calories' },
+                        { value: 'calories', label: energy.noun },
                         { value: 'protein', label: 'Protein' },
                         { value: 'carbs', label: 'Carbs' },
                         { value: 'fats', label: 'Fats' },
@@ -312,7 +315,7 @@ export const FoodSearchFilterControls = ({
                     <div className="space-y-1.5">
                       {[
                         { value: 'name', label: 'Name (A-Z)' },
-                        { value: 'calories', label: 'Calories' },
+                        { value: 'calories', label: energy.noun },
                         { value: 'protein', label: 'Protein' },
                         { value: 'carbs', label: 'Carbs' },
                         { value: 'fats', label: 'Fats' },

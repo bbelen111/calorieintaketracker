@@ -32,7 +32,7 @@ export const FoodSearchRecentsPanel = ({
   onSelectRecent,
   prefersReducedMotion,
 }) => {
-  const { food: foodUnit } = useUnits();
+  const { food: foodUnit, energy } = useUnits();
   const nutritionData = useEnergyMapStore(
     (state) => state.userData?.nutritionData
   );
@@ -135,7 +135,7 @@ export const FoodSearchRecentsPanel = ({
 
                   <div className="flex items-center gap-3 mt-2 text-xs">
                     <span className="text-accent-green font-medium">
-                      {formatOne(entry.calories || 0)} kcal
+                      {energy.compact(entry.calories || 0)} {energy.unit}
                     </span>
                     <span className="text-accent-red font-medium">
                       {formatOne(entry.protein || 0)}g P

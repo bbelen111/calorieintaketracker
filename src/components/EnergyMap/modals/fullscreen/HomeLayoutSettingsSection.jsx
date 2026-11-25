@@ -69,6 +69,10 @@ const toDateKey = (value) => {
   return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
 };
 
+// Energy metrics are named for the unit: "Energy" in kJ mode.
+const metricLabel = (label, energy) =>
+  energy.isKj ? label?.replace(/^Calories/, energy.noun) : label;
+
 const SettingLabel = ({ children }) => (
   <label className="text-foreground/80 text-sm block mb-2">{children}</label>
 );
@@ -264,6 +268,7 @@ export const HomeLayoutSettingsSection = ({
   onFieldChange,
   onOpenSlotPicker,
 }) => {
+  const units = useUnits();
   const resolvedBodyFatEnabled = bodyFatTrackingEnabled !== false;
   const heroSlots = readHeroSlots(userData, {
     bodyFatTrackingEnabled: resolvedBodyFatEnabled,
@@ -308,7 +313,7 @@ export const HomeLayoutSettingsSection = ({
             <HeroActionPill
               model={heroModels.pill}
               onPress={() => onOpenSlotPicker?.(HERO_SLOTS.PILL)}
-              ariaLabel={`Edit shortcut: ${OPTION_BY_KEY[heroSlots.pill]?.label ?? heroModels.pill.shortLabel}`}
+              ariaLabel={`Edit shortcut: ${metricLabel(OPTION_BY_KEY[heroSlots.pill]?.label, units.energy) ?? heroModels.pill.shortLabel}`}
               className={PREVIEW_SLOT_OUTLINE_CLASS}
             />
           </div>
@@ -317,13 +322,13 @@ export const HomeLayoutSettingsSection = ({
             <HeroActionTile
               model={heroModels.left}
               onPress={() => onOpenSlotPicker?.(HERO_SLOTS.LEFT)}
-              ariaLabel={`Edit left tile: ${OPTION_BY_KEY[heroSlots.left]?.label ?? heroModels.left.shortLabel}`}
+              ariaLabel={`Edit left tile: ${metricLabel(OPTION_BY_KEY[heroSlots.left]?.label, units.energy) ?? heroModels.left.shortLabel}`}
               className={PREVIEW_SLOT_OUTLINE_CLASS}
             />
             <HeroActionTile
               model={heroModels.right}
               onPress={() => onOpenSlotPicker?.(HERO_SLOTS.RIGHT)}
-              ariaLabel={`Edit right tile: ${OPTION_BY_KEY[heroSlots.right]?.label ?? heroModels.right.shortLabel}`}
+              ariaLabel={`Edit right tile: ${metricLabel(OPTION_BY_KEY[heroSlots.right]?.label, units.energy) ?? heroModels.right.shortLabel}`}
               className={PREVIEW_SLOT_OUTLINE_CLASS}
             />
           </div>
@@ -348,7 +353,7 @@ export const HomeLayoutSettingsSection = ({
                 key={slot}
                 type="button"
                 onClick={() => onOpenSlotPicker?.(slot)}
-                aria-label={`${label}: ${option.label}`}
+                aria-label={`${label}: ${metricLabel(option.label, units.energy)}`}
                 className="group flex min-h-14 w-full items-center gap-3 rounded-xl border border-border bg-surface-highlight/40 px-3 py-2.5 text-left shadow-sm transition-all pressable-card focus-ring md:hover:border-muted/50 md:hover:bg-surface-highlight/70"
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-blue/10 ring-1 ring-accent-blue/20 transition-transform duration-200 group-active:scale-90 md:group-hover:scale-105">
@@ -369,7 +374,7 @@ export const HomeLayoutSettingsSection = ({
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent-blue">
-                  <span>{option.label}</span>
+                  <span>{metricLabel(option.label, units.energy)}</span>
                   <ChevronRight
                     size={18}
                     aria-hidden="true"
@@ -505,6 +510,7 @@ export const HeroMetricPickerPage = ({
   );
   const activeSlotMeta = HERO_SLOT_META[activeSlotIndex] ?? HERO_SLOT_META[0];
   const groups = getHeroOptionGroupsForSlot(activeSlot);
+  const { energy } = useUnits();
 
   return (
     <div className="space-y-6">
@@ -573,7 +579,7 @@ export const HeroMetricPickerPage = ({
                 <MetricChoiceCard
                   key={`${activeSlot}:${key}`}
                   icon={Icon}
-                  label={label}
+                  label={metricLabel(label, energy)}
                   description={description}
                   active={active}
                   unavailable={unavailable}

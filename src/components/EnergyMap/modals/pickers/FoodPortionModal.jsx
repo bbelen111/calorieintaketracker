@@ -122,7 +122,7 @@ export const FoodPortionModal = ({
   onConfirmIngredient,
 }) => {
   const roundToTenth = (value) => Math.round(value * 10) / 10;
-  const { food: foodUnit } = useUnits();
+  const { food: foodUnit, energy } = useUnits();
   const preferredUnitId = foodUnit.isOunce ? OUNCES_UNIT_ID : GRAMS_UNIT_ID;
 
   const initialGramsValue = useMemo(() => {
@@ -567,9 +567,11 @@ export const FoodPortionModal = ({
             <div className="flex items-center gap-3 text-xs">
               <div className="text-center">
                 <p className="font-bold text-accent-emerald">
-                  {perBasis(selectedFood.per100g.calories)}
+                  {energy.compact(
+                    foodUnit.perBasis(selectedFood.per100g.calories)
+                  )}
                 </p>
-                <p className="text-muted">cal</p>
+                <p className="text-muted">{energy.shortUnit}</p>
               </div>
               <div className="text-center">
                 <p className="font-bold text-accent-red">
@@ -728,9 +730,9 @@ export const FoodPortionModal = ({
           <div className="grid grid-cols-4 gap-3 text-center">
             <div>
               <p className="text-accent-emerald font-bold text-2xl">
-                {formatOne(nutrition.calories)}
+                {energy.compact(nutrition.calories)}
               </p>
-              <p className="text-muted text-xs">kcal</p>
+              <p className="text-muted text-xs">{energy.unit}</p>
             </div>
             <div>
               <p className="text-accent-red font-bold text-2xl">

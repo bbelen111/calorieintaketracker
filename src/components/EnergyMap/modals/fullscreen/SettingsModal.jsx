@@ -2090,6 +2090,7 @@ const NeatDayCard = ({
   isToday,
   todayOverride,
   onClick,
+  energy,
 }) => (
   <button
     onClick={onClick}
@@ -2114,7 +2115,7 @@ const NeatDayCard = ({
       </span>
       {baseline !== null && (
         <span className="block text-xs opacity-75">
-          ~{baseline.toLocaleString()} cal baseline (BMR + NEAT)
+          ~{energy.value(baseline)} {energy.shortUnit} baseline (BMR + NEAT)
         </span>
       )}
       {todayOverride && (
@@ -2139,6 +2140,7 @@ const DailyActivitySection = ({
   onOpenStepGoalPicker,
   onOpenStepRanges,
 }) => {
+  const { energy } = useUnits();
   const stepGoal = Number(userData.stepGoal);
   const stepRanges = Array.isArray(userData.stepRanges)
     ? userData.stepRanges
@@ -2173,6 +2175,7 @@ const DailyActivitySection = ({
             return (
               <NeatDayCard
                 key={day}
+                energy={energy}
                 title={title}
                 icon={icon}
                 className={className}
@@ -2228,6 +2231,7 @@ const FoodNutritionSection = ({
   onOpenMacroPicker,
   onClearCachedFoods,
 }) => {
+  const { energy } = useUnits();
   const defaultEntry = normalizeFoodSearchDefaultEntry(
     userData.foodSearchDefaultEntry
   );
@@ -2324,14 +2328,14 @@ const FoodNutritionSection = ({
               aria-pressed={onTargetTolerance === value}
               onClick={() => onFieldChange?.('onTargetToleranceKcal', value)}
             >
-              <span className="text-sm">±{value}</span>
+              <span className="text-sm">±{energy.value(value)}</span>
             </SegmentedButton>
           ))}
         </div>
         <p className="mt-2 text-xs text-muted">
           {onTargetOption.label}: a day counts as on target when its balance
-          lands within {onTargetOption.value} kcal of your goal&apos;s daily
-          target. Used by the Daily Ledger.
+          lands within {energy.format(onTargetOption.value)} of your goal&apos;s
+          daily target. Used by the Daily Ledger.
         </p>
       </div>
 

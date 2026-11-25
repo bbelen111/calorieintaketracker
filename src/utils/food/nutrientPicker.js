@@ -61,6 +61,18 @@ export const NUTRIENT_PICKER_FIELDS = {
   },
 };
 
+/**
+ * A form's energy text (kcal) as its trigger button shows it: `250 kcal`, or
+ * the same energy in kJ.
+ */
+export const formatEnergyFieldValue = (text, energy) => {
+  if (!energy?.isKj) {
+    return formatPickerDisplayValue(text, 'kcal');
+  }
+  const kcal = Number.parseFloat(text);
+  return energy.format(Number.isFinite(kcal) ? kcal : 0);
+};
+
 // Custom-portion weight in grams (Add Custom Food only).
 export const PORTION_GRAMS_PICKER_FIELD = {
   title: 'Portion Grams',

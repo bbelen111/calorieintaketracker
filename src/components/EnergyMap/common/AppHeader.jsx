@@ -164,24 +164,24 @@ export const AppHeader = ({
       }
       case 1: {
         // Tracker
-        const intake = Math.round(trackerTotals.calories);
-        const target = Math.round(calorieTargetCalories ?? 0);
+        const intake = units.energy.value(trackerTotals.calories);
+        const target = units.energy.value(calorieTargetCalories ?? 0);
         return {
           key: 'tracker',
           icon: Flame,
           iconClass: 'text-accent-amber',
-          text: `${intake.toLocaleString()} / ${target.toLocaleString()} kcal`,
+          text: `${intake} / ${target} ${units.energy.unit}`,
         };
       }
       case 2: {
         // Home
         const isTrainingDay = todaySnapshot?.isTrainingDay === true;
-        const tdee = Math.round(todaySnapshot?.tdee ?? 0);
+        const tdee = units.energy.value(todaySnapshot?.tdee ?? 0);
         return {
           key: 'home',
           icon: isTrainingDay ? Dumbbell : BedDouble,
           iconClass: isTrainingDay ? 'text-accent-blue' : 'text-accent-indigo',
-          text: `${isTrainingDay ? 'Training day' : 'Rest day'} · ≈${tdee.toLocaleString()} kcal TDEE`,
+          text: `${isTrainingDay ? 'Training day' : 'Rest day'} · ≈${tdee} ${units.energy.unit} TDEE`,
         };
       }
       case 3: {

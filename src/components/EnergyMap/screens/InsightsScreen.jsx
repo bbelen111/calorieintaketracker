@@ -78,7 +78,7 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
         ? 'No data'
         : !active
           ? 'Inactive'
-          : `${correction > 0 ? '+' : ''}${correction}`;
+          : units.energy.value(correction, { signed: true, grouping: false });
 
   const formatPressure = (value) => {
     const number = Number(value) || 0;
@@ -116,7 +116,7 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
       {
         label: 'Active stage',
         value: milestone
-          ? `${milestone.kcal > 0 ? '+' : ''}${milestone.kcal} kcal`
+          ? `${units.energy.value(milestone.kcal, { signed: true, grouping: false })} ${units.energy.unit}`
           : isCrudeMaintenanceIdle
             ? 'None at maintenance'
             : 'Not reached yet',
@@ -182,7 +182,7 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
             {hasCorrection ? (
               <InsightHeadline
                 value={headline}
-                unit="kcal/day"
+                unit={`${units.energy.unit}/day`}
                 valueClass={accent}
               />
             ) : (
@@ -221,6 +221,7 @@ function AdaptiveCorrectionCard({ result, mode, goalDurationDays, onOpen }) {
   );
 }
 function RollingBalancePreviewCard({ summary, onOpen }) {
+  const units = useUnits();
   const hasData = Boolean(summary?.hasData);
   const rolling = summary?.rollingBalance ?? 0;
   const kind = hasData ? getDailyBalanceKind(rolling) : null;
@@ -231,7 +232,7 @@ function RollingBalancePreviewCard({ summary, onOpen }) {
       : 'text-accent-green';
 
   const displayRolling = -rolling;
-  const headline = `${displayRolling > 0 ? '+' : ''}${Math.round(displayRolling).toLocaleString()} kcal`;
+  const headline = `${units.energy.value(displayRolling, { signed: true })} ${units.energy.unit}`;
 
   const subtitle = !hasData
     ? 'Log calories to track a rolling balance'
@@ -264,7 +265,11 @@ function RollingBalancePreviewCard({ summary, onOpen }) {
             )}
             {hasData && (
               <span className="text-[11px] text-muted">
-                avg {Number(-summary?.averageDailyBalance).toFixed(0)} kcal/day
+                avg{' '}
+                {units.energy.value(-summary?.averageDailyBalance, {
+                  grouping: false,
+                })}{' '}
+                {units.energy.unit}/day
               </span>
             )}
           </div>

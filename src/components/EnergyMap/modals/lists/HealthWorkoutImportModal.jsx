@@ -6,6 +6,7 @@ import { formatWorkoutTypeLabel } from '../../../../constants/health/workoutType
 import { isStrengthWorkout } from '../../../../utils/calculations/sessionHeartRate';
 import { getHealthSourceName } from '../../../../constants/health/healthSources';
 import { formatDateLabel } from '../../../../utils/measurements/weight';
+import { useUnits } from '../../../../hooks/useUnits';
 
 const formatClock = (epochMs) =>
   new Date(epochMs).toLocaleTimeString(undefined, {
@@ -28,6 +29,7 @@ export const HealthWorkoutImportModal = ({
   onSelect,
   onClose,
 }) => {
+  const units = useUnits();
   const [state, setState] = useState({ status: 'loading', workouts: [] });
 
   useEffect(() => {
@@ -115,7 +117,11 @@ export const HealthWorkoutImportModal = ({
                     {formatClock(workout.startMs)} · {workout.durationMinutes}{' '}
                     min
                     {workout.totalEnergyBurned != null &&
-                      ` · watch says ${workout.totalEnergyBurned} kcal`}
+                      ` · watch says ${
+                        units.energy.isKj
+                          ? units.energy.format(workout.totalEnergyBurned)
+                          : `${workout.totalEnergyBurned} kcal`
+                      }`}
                     {workout.sourceName && ` · ${workout.sourceName}`}
                   </p>
                   {mismatch && !alreadyImported && (

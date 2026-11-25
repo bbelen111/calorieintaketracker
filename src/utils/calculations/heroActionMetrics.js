@@ -46,6 +46,11 @@ const toPositive = (value) => {
 
 const formatInt = (value) => Math.round(Number(value) || 0).toLocaleString();
 
+// kcal differences are taken between whole numbers (as they always were);
+// other energy units convert the exact figure.
+const energyAmount = (energy, rounded, exact) =>
+  energy.isKj ? exact : rounded;
+
 /**
  * Share of `goal` already reached, clamped to 0-100. A missing or non-positive
  * goal (or value) means "no progress", never a division artifact.
@@ -130,40 +135,45 @@ const makeModel = ({
   };
 };
 
-const buildCaloriesModel = ({ consumed, calorieTarget }) => {
-  const eaten = Math.max(0, Math.round(Number(consumed) || 0));
+const buildCaloriesModel = ({ consumed, calorieTarget, energy }) => {
+  const exactEaten = Math.max(0, Number(consumed) || 0);
+  const eaten = Math.round(exactEaten);
   const target = toPositive(calorieTarget);
   const targetValue = target != null ? Math.round(target) : null;
+  const plain = (kcal) => energy.value(kcal, { grouping: false });
   return makeModel({
     metric: HERO_ACTION_METRICS.CALORIES,
     iconKey: 'utensils',
-    label: 'Calories today',
-    shortLabel: 'Calories',
-    current: formatInt(eaten),
-    goal: targetValue != null ? formatInt(targetValue) : DASH,
-    unit: 'kcal',
+    label: `${energy.noun} today`,
+    shortLabel: energy.noun,
+    current: energy.value(exactEaten),
+    goal: target != null ? energy.value(target) : DASH,
+    unit: energy.unit,
     progress: targetValue != null ? getProgressPercent(eaten, targetValue) : 0,
     action: 'Add meal',
     ariaDetail:
-      targetValue != null ? `${eaten} of ${targetValue} kcal` : `${eaten} kcal`,
+      target != null
+        ? `${plain(exactEaten)} of ${plain(target)} ${energy.unit}`
+        : `${plain(exactEaten)} ${energy.unit}`,
   });
 };
 
-const buildCaloriesLeftModel = ({ consumed, calorieTarget }) => {
-  const eaten = Math.max(0, Math.round(Number(consumed) || 0));
+const buildCaloriesLeftModel = ({ consumed, calorieTarget, energy }) => {
+  const exactEaten = Math.max(0, Number(consumed) || 0);
+  const eaten = Math.round(exactEaten);
   const target = toPositive(calorieTarget);
   const base = {
     metric: HERO_ACTION_METRICS.CALORIES_LEFT,
     iconKey: 'utensils',
-    label: 'Calories left',
-    shortLabel: 'Calories left',
+    label: `${energy.noun} left`,
+    shortLabel: `${energy.noun} left`,
     action: 'Add meal',
   };
   if (target == null) {
     return makeModel({
       ...base,
       current: DASH,
-      unit: 'kcal left',
+      unit: `${energy.unit} left`,
       progress: 0,
     });
   }
@@ -171,8 +181,10 @@ const buildCaloriesLeftModel = ({ consumed, calorieTarget }) => {
   const remaining = targetValue - eaten;
   return makeModel({
     ...base,
-    current: formatInt(Math.abs(remaining)),
-    unit: remaining >= 0 ? 'kcal left' : 'kcal over',
+    current: energy.value(
+      Math.abs(energyAmount(energy, remaining, target - exactEaten))
+    ),
+    unit: remaining >= 0 ? `${energy.unit} left` : `${energy.unit} over`,
     progress: getProgressPercent(eaten, targetValue),
   });
 };
@@ -230,7 +242,12 @@ const buildStepsModel = ({ steps, stepGoal }) => {
 // Deficit-positive (the app's convention): balance = TDEE - intake.
 const describeBalanceKind = (balance) => (balance >= 0 ? 'deficit' : 'surplus');
 
-const buildTodayBalanceModel = ({ tdee, consumed, goalDailyBalanceTarget }) => {
+const buildTodayBalanceModel = ({
+  tdee,
+  consumed,
+  goalDailyBalanceTarget,
+  energy,
+}) => {
   const intake = Math.max(0, Number(consumed) || 0);
   const dayTdee = toPositive(tdee);
   const base = {
@@ -244,13 +261,20 @@ const buildTodayBalanceModel = ({ tdee, consumed, goalDailyBalanceTarget }) => {
   // Nothing eaten yet means the "balance" is the whole day's TDEE, not a
   // verdict - the ledger shows the same day as unjudged.
   if (dayTdee == null || intake <= 0) {
-    return makeModel({ ...base, current: DASH, unit: 'kcal', progress: null });
+    return makeModel({
+      ...base,
+      current: DASH,
+      unit: energy.unit,
+      progress: null,
+    });
   }
 
   const balance = Math.round(dayTdee - intake);
   const target = toFinite(goalDailyBalanceTarget);
-  const unit = `kcal ${describeBalanceKind(balance)}`;
-  const magnitude = formatInt(Math.abs(balance));
+  const unit = `${energy.unit} ${describeBalanceKind(balance)}`;
+  const magnitude = energy.value(
+    Math.abs(energyAmount(energy, balance, dayTdee - intake))
+  );
 
   if (target == null || target === 0) {
     return makeModel({ ...base, current: magnitude, unit, progress: null });
@@ -262,7 +286,7 @@ const buildTodayBalanceModel = ({ tdee, consumed, goalDailyBalanceTarget }) => {
   return makeModel({
     ...base,
     current: magnitude,
-    goal: formatInt(Math.abs(target)),
+    goal: energy.value(Math.abs(target)),
     unit,
     progress: ratio > 0 ? Math.min(100, ratio * 100) : 0,
   });
@@ -272,6 +296,7 @@ const buildRollingBalanceModel = ({
   snapshots,
   goalDailyBalanceTarget,
   todayKey,
+  energy,
 }) => {
   const base = {
     metric: HERO_ACTION_METRICS.BALANCE_7D,
@@ -288,13 +313,21 @@ const buildRollingBalanceModel = ({
   });
   const total = toFinite(rolling?.rollingBalance);
   if (!rolling?.hasData || total == null) {
-    return makeModel({ ...base, current: DASH, unit: 'kcal', progress: null });
+    return makeModel({
+      ...base,
+      current: DASH,
+      unit: energy.unit,
+      progress: null,
+    });
   }
   const rounded = Math.round(total);
   return makeModel({
     ...base,
-    current: formatInt(Math.abs(rounded)),
-    unit: rounded === 0 ? 'kcal' : `kcal ${describeBalanceKind(rounded)}`,
+    current: energy.value(Math.abs(energyAmount(energy, rounded, total))),
+    unit:
+      rounded === 0
+        ? energy.unit
+        : `${energy.unit} ${describeBalanceKind(rounded)}`,
     progress: null,
   });
 };
@@ -383,14 +416,14 @@ const buildRestingHrModel = ({ restingHr }) => {
   });
 };
 
-const buildBurnModel = ({ exerciseBurn }) =>
+const buildBurnModel = ({ exerciseBurn, energy }) =>
   makeModel({
     metric: HERO_ACTION_METRICS.BURN,
     iconKey: 'zap',
     label: 'Exercise burn',
     shortLabel: 'Exercise',
-    current: formatInt(Math.max(0, Number(exerciseBurn) || 0)),
-    unit: 'kcal burned',
+    current: energy.value(Math.max(0, Number(exerciseBurn) || 0)),
+    unit: `${energy.unit} burned`,
     progress: null,
     action: 'Open today’s breakdown',
   });
@@ -488,7 +521,11 @@ export const buildHeroActionModel = ({
         action: 'Open body fat tracker',
       });
     case HERO_ACTION_METRICS.CALORIES_LEFT:
-      return buildCaloriesLeftModel({ consumed, calorieTarget });
+      return buildCaloriesLeftModel({
+        consumed,
+        calorieTarget,
+        energy: units.energy,
+      });
     case HERO_ACTION_METRICS.PROTEIN:
       return buildProteinModel({ proteinGrams, calorieTarget, userData });
     case HERO_ACTION_METRICS.STEPS:
@@ -498,12 +535,14 @@ export const buildHeroActionModel = ({
         tdee,
         consumed,
         goalDailyBalanceTarget,
+        energy: units.energy,
       });
     case HERO_ACTION_METRICS.BALANCE_7D:
       return buildRollingBalanceModel({
         snapshots: userData?.dailySnapshots,
         goalDailyBalanceTarget,
         todayKey,
+        energy: units.energy,
       });
     case HERO_ACTION_METRICS.PHASE:
       return buildPhaseModel({ activePhase, todayKey });
@@ -517,9 +556,13 @@ export const buildHeroActionModel = ({
     case HERO_ACTION_METRICS.RESTING_HR:
       return buildRestingHrModel({ restingHr });
     case HERO_ACTION_METRICS.BURN:
-      return buildBurnModel({ exerciseBurn });
+      return buildBurnModel({ exerciseBurn, energy: units.energy });
     case HERO_ACTION_METRICS.CALORIES:
     default:
-      return buildCaloriesModel({ consumed, calorieTarget });
+      return buildCaloriesModel({
+        consumed,
+        calorieTarget,
+        energy: units.energy,
+      });
   }
 };

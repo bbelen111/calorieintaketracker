@@ -121,7 +121,7 @@ export const RecipeIngredientsSection = ({
   onChangeServings,
   onChangeCookedWeight,
 }) => {
-  const { food: foodUnit } = useUnits();
+  const { food: foodUnit, energy } = useUnits();
   const reduceMotion = useReducedMotionPreference();
   const [showAdvanced, setShowAdvanced] = useState(
     () => String(cookedWeightGrams ?? '') !== ''
@@ -331,7 +331,7 @@ export const RecipeIngredientsSection = ({
                         </p>
                         <p className="text-xs text-muted">
                           <span className="text-accent-emerald">
-                            {formatOne(scaled.calories || 0)} kcal
+                            {energy.compact(scaled.calories || 0)} {energy.unit}
                           </span>
                           {' - '}
                           <span className="text-accent-red">
@@ -460,9 +460,9 @@ export const RecipeIngredientsSection = ({
                 <div>
                   <TickValue
                     className="text-2xl font-bold text-accent-emerald"
-                    text={formatOne(perServing.calories)}
+                    text={energy.compact(perServing.calories)}
                   />
-                  <p className="text-xs text-muted">kcal</p>
+                  <p className="text-xs text-muted">{energy.unit}</p>
                 </div>
                 <div>
                   <TickValue
@@ -516,7 +516,7 @@ export const RecipeIngredientsSection = ({
                 className="mt-3 text-center text-xs text-muted"
                 text={`1 serving ≈ ${foodUnit.format(previewFood.servingGrams)} · ${foodUnit.format(
                   previewFood.totalGrams
-                )} total · ${formatOne(foodUnit.perBasis(previewFood.per100g.calories))} kcal / ${foodUnit.basisAmountLabel}`}
+                )} total · ${energy.compact(foodUnit.perBasis(previewFood.per100g.calories))} ${energy.unit} / ${foodUnit.basisAmountLabel}`}
               />
             </>
           ) : null}

@@ -121,7 +121,7 @@ export const FoodSearchEntryCard = ({
   handleSaveAiFavourite,
   getFoodSearchSourceLabel,
 }) => {
-  const { food: foodUnit } = useUnits();
+  const { food: foodUnit, energy } = useUnits();
   const isExpanded = expandedAiEntryKeys[entryKey] === true;
   const isTraceExpanded = expandedTraceKeys[entryKey] === true;
   const isTechnicalTraceExpanded =
@@ -210,9 +210,11 @@ export const FoodSearchEntryCard = ({
           <div className="flex items-center gap-1 pr-2.5 border-r border-border/60">
             <Flame size={13} className="text-accent-emerald" />
             <span className="text-[14px] font-bold text-foreground tabular-nums">
-              {formatOne(entry.calories)}
+              {energy.compact(entry.calories)}
             </span>
-            <span className="text-[9.5px] text-muted font-medium">kcal</span>
+            <span className="text-[9.5px] text-muted font-medium">
+              {energy.unit}
+            </span>
           </div>
           <div className="flex flex-1 items-center pl-2.5">
             <MacroChip

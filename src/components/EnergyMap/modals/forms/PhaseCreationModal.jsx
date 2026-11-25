@@ -7,6 +7,7 @@ import { SmoothHeight } from '../../common/SmoothHeight';
 import { GoalModal } from './GoalModal';
 import { WeightPickerModal } from './WeightEntryModal';
 import { useUnits } from '../../../../hooks/useUnits';
+import { describeGoal } from '../../../../utils/units/goalDescription';
 import { BodyFatPickerModal } from './BodyFatEntryModal';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { goals } from '../../../../constants/goals/goals';
@@ -383,7 +384,7 @@ export const PhaseCreationModal = ({
                       {selectedGoalConfig.label}
                     </span>
                     <span className="text-[11px] md:text-xs opacity-90 block truncate whitespace-nowrap leading-tight">
-                      {selectedGoalConfig.desc}
+                      {describeGoal(goalType, selectedGoalConfig, units)}
                     </span>
                   </span>
                 </span>
@@ -492,8 +493,11 @@ export const PhaseCreationModal = ({
                 <>
                   <p className="text-xs text-muted">
                     {goalPrediction.daySpan} days •{' '}
-                    {goalPrediction.dailyDelta > 0 ? '+' : ''}
-                    {goalPrediction.dailyDelta} kcal/day
+                    {units.energy.value(goalPrediction.dailyDelta, {
+                      signed: true,
+                      grouping: false,
+                    })}{' '}
+                    {units.energy.unit}/day
                   </p>
                   <p className="text-xs mt-2 font-semibold text-foreground">
                     Weight:{' '}
@@ -564,8 +568,11 @@ export const PhaseCreationModal = ({
               {targetPlan && (
                 <p className={`text-xs mt-2 font-semibold ${currentBandClass}`}>
                   Smart target:{' '}
-                  {targetPlan.requiredDailyDeltaCalories > 0 ? '+' : ''}
-                  {targetPlan.requiredDailyDeltaCalories} kcal/day (
+                  {units.energy.value(targetPlan.requiredDailyDeltaCalories, {
+                    signed: true,
+                    grouping: false,
+                  })}{' '}
+                  {units.energy.unit}/day (
                   {getAggressivenessBandDisplayLabel({
                     aggressivenessBand: targetPlan.aggressivenessBand,
                     requiredDailyDeltaCalories:

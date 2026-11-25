@@ -24,6 +24,7 @@ import {
   normalizeMacroLocks,
   normalizeMacroRecommendationSplit,
 } from '../../../../utils/calculations/macroRecommendations';
+import { useUnits } from '../../../../hooks/useUnits';
 
 const TRIANGLE_WIDTH = 280;
 const TRIANGLE_HEIGHT = 240;
@@ -62,6 +63,7 @@ const MacroChip = ({
   canLock,
   onToggleLock,
 }) => {
+  const { energy } = useUnits();
   const handleClick = useCallback(() => {
     if (!canLock) return;
     onToggleLock?.();
@@ -112,7 +114,9 @@ const MacroChip = ({
           {grams}
         </span>
         <span className="text-[11px] text-muted">g</span>
-        <span className="text-[11px] text-muted ml-auto">{kcal} kcal</span>
+        <span className="text-[11px] text-muted ml-auto">
+          {energy.value(kcal, { grouping: false })} {energy.unit}
+        </span>
       </div>
       <div className="flex items-baseline justify-between">
         <span className={`text-xs font-bold ${accentClass}`}>{pct}%</span>
@@ -135,6 +139,7 @@ export const MacroPickerModal = ({
   onCancel,
   onSave,
 }) => {
+  const units = useUnits();
   const triangleRef = useRef(null);
   const draftSplit = useMemo(
     () => normalizeMacroRecommendationSplit(value),
@@ -727,7 +732,8 @@ export const MacroPickerModal = ({
           <div className="flex-1 min-w-0">
             <p className="text-muted text-xs mb-0.5">Target</p>
             <p className="text-foreground text-sm font-semibold truncate">
-              {Math.round(targetCalories || 0)} kcal
+              {units.energy.value(targetCalories || 0, { grouping: false })}{' '}
+              {units.energy.unit}
               <span className="text-muted font-normal ml-2">
                 ({targetLabel})
               </span>

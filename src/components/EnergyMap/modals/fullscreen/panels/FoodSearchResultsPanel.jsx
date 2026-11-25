@@ -84,7 +84,7 @@ const resolveOnlineTypeBadge = (type) => {
 // The inside of a local result card (shared by the plain card and the recipe
 // row, so the two can never drift apart).
 const ResultCardContent = ({ food, isPinned }) => {
-  const { food: foodUnit } = useUnits();
+  const { food: foodUnit, energy } = useUnits();
   // Stored per 100 g; shown per 100 g or per ounce.
   const basis = (value) => formatOne(foodUnit.perBasis(value));
 
@@ -112,9 +112,9 @@ const ResultCardContent = ({ food, isPinned }) => {
           <div className="flex items-center gap-3 text-xs">
             <div className="text-center">
               <p className="text-accent-emerald font-bold">
-                {basis(food.per100g.calories)}
+                {energy.compact(foodUnit.perBasis(food.per100g.calories))}
               </p>
-              <p className="text-muted">cal</p>
+              <p className="text-muted">{energy.shortUnit}</p>
             </div>
             <div className="text-center">
               <p className="text-accent-red font-bold">
@@ -163,7 +163,7 @@ export const FoodSearchResultsPanel = ({
   prefersReducedMotion,
   onEditRecipe,
 }) => {
-  const { food: foodUnit } = useUnits();
+  const { food: foodUnit, energy } = useUnits();
 
   return (
     <>
@@ -364,9 +364,11 @@ export const FoodSearchResultsPanel = ({
                       <div className="flex items-center gap-2 text-xs">
                         <div className="text-center">
                           <p className="text-accent-emerald font-bold">
-                            {Math.round(shown(macroSource.calories) || 0)}
+                            {energy.value(shown(macroSource.calories) || 0, {
+                              grouping: false,
+                            })}
                           </p>
-                          <p className="text-muted">cal</p>
+                          <p className="text-muted">{energy.shortUnit}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-accent-red font-bold">

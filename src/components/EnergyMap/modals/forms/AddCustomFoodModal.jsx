@@ -12,6 +12,7 @@ import { ModalShell } from '../../common/ModalShell';
 import { SegmentedToggle } from '../../common/SegmentedToggle';
 import { NumericValuePickerModal } from '../pickers/NumericValuePickerModal';
 import { DualWheelModal } from '../pickers/DualWheelModal';
+import { EnergyPickerModal } from '../pickers/EnergyPickerModal';
 import {
   buildHundredsWheel,
   buildTenthsWheel,
@@ -28,6 +29,7 @@ import {
   NUTRIENT_PICKER_FIELDS,
   getPortionWeightField,
   isPickerValueUnchanged,
+  formatEnergyFieldValue,
   formatPickerDisplayValue,
   formatPickerValueForState,
   normalizePickerValue,
@@ -405,7 +407,9 @@ export const AddCustomFoodModal = ({
     }
 
     const current = Number.parseFloat(field.value);
-    const wheel = foodUnit.isOunce ? OUNCE_NUTRIENT_WHEELS[fieldKey] : null;
+    const isEnergy = fieldKey === 'calories' && units.energy.isKj;
+    const wheel =
+      foodUnit.isOunce && !isEnergy ? OUNCE_NUTRIENT_WHEELS[fieldKey] : null;
     const precision = WHOLE_NUMBER_WHEELS.has(fieldKey) ? 0 : 1;
     const isOunceWeight = foodUnit.isOunce && fieldKey === 'portionGrams';
 
@@ -414,13 +418,18 @@ export const AddCustomFoodModal = ({
         fieldKey,
         config: field.config,
         wheel,
+        isEnergy,
         precision,
-        value: wheel
-          ? roundTo(Number.isFinite(current) ? current : 0, precision)
-          : normalizePickerValue(
-              isOunceWeight ? foodUnit.toPicker(current) : current,
-              field.config
-            ),
+        value: isEnergy
+          ? Number.isFinite(current)
+            ? current
+            : 0
+          : wheel
+            ? roundTo(Number.isFinite(current) ? current : 0, precision)
+            : normalizePickerValue(
+                isOunceWeight ? foodUnit.toPicker(current) : current,
+                field.config
+              ),
       });
       numericPickerModal.open();
     }, 60);
@@ -441,10 +450,16 @@ export const AddCustomFoodModal = ({
       return;
     }
 
-    const { wheel, precision, value: shownValue } = numericPickerState;
-    const normalizedValue = wheel
-      ? Number(nextValue)
-      : normalizePickerValue(Number(nextValue), field.config);
+    const {
+      wheel,
+      isEnergy,
+      precision,
+      value: shownValue,
+    } = numericPickerState;
+    const normalizedValue =
+      wheel || isEnergy
+        ? Number(nextValue)
+        : normalizePickerValue(Number(nextValue), field.config);
 
     if (fieldKey === 'basisOunces') {
       changeBasis(normalizedValue);
@@ -458,6 +473,12 @@ export const AddCustomFoodModal = ({
           )
         )
       );
+    } else if (isEnergy) {
+      // The energy picker hands back kcal, and the original when untouched.
+      if (normalizedValue !== shownValue) {
+        field.setValue(String(normalizedValue));
+        setEditedFields((previous) => new Set(previous).add(fieldKey));
+      }
     } else {
       // Saving the wheel as it opened leaves the field exactly as it was.
       const isUnchanged = wheel
@@ -863,7 +884,7 @@ export const AddCustomFoodModal = ({
                     {/* Calories */}
                     <div className="mb-3">
                       <label className="block text-muted text-xs mb-1.5">
-                        Calories
+                        {units.energy.noun}
                       </label>
                       <button
                         type="button"
@@ -872,7 +893,7 @@ export const AddCustomFoodModal = ({
                         aria-label="Open calories picker"
                       >
                         <span className="font-medium text-base">
-                          {formatPickerDisplayValue(calories, 'kcal')}
+                          {formatEnergyFieldValue(calories, units.energy)}
                         </span>
                         <ChevronsUpDown
                           size={16}
@@ -1227,8 +1248,22 @@ export const AddCustomFoodModal = ({
         onSave={handleNumericPickerSave}
       />
 
+      <EnergyPickerModal
+        isOpen={
+          numericPickerModal.isOpen && Boolean(numericPickerState?.isEnergy)
+        }
+        isClosing={numericPickerModal.isClosing}
+        value={numericPickerState?.value ?? 0}
+        onCancel={numericPickerModal.requestClose}
+        onSave={handleNumericPickerSave}
+      />
+
       <NumericValuePickerModal
-        isOpen={numericPickerModal.isOpen && !numericPickerState?.wheel}
+        isOpen={
+          numericPickerModal.isOpen &&
+          !numericPickerState?.wheel &&
+          !numericPickerState?.isEnergy
+        }
         isClosing={numericPickerModal.isClosing}
         title={pickerField?.title ?? 'Select Value'}
         value={numericPickerState?.value ?? 0}

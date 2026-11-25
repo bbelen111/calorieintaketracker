@@ -27,6 +27,7 @@ import { SessionHeartRatePanel } from '../../common/SessionHeartRatePanel';
 import { ImportWorkoutButton } from '../../common/ImportWorkoutButton';
 import { SegmentedToggle } from '../../common/SegmentedToggle';
 import { SmoothHeight } from '../../common/SmoothHeight';
+import { useUnits } from '../../../../hooks/useUnits';
 
 const DEFAULT_TRAINING_TYPE_CATALOG =
   getDefaultEnergyMapData().trainingType ?? {};
@@ -199,12 +200,13 @@ export const TrainingModal = ({
   );
   const canSave = hasValidDuration && hasValidHeartRate && hasValidStartTime;
 
+  const units = useUnits();
   const selectedTraining = resolvedTrainingTypes?.[session?.type] ?? null;
   const selectedCalories = Number(selectedTraining?.caloriesPerHour);
   const selectedCaloriesSummary = selectedTraining
     ? Number.isFinite(selectedCalories)
-      ? `${Math.round(selectedCalories)} kcal/hr`
-      : '-- kcal/hr'
+      ? `${units.energy.value(selectedCalories, { grouping: false })} ${units.energy.unit}/hr`
+      : `-- ${units.energy.unit}/hr`
     : 'Browse the full training library to find the best match.';
 
   const {
@@ -512,7 +514,7 @@ export const TrainingModal = ({
                 <p className="text-xs text-muted mt-2">
                   {hrBurnModel === 'keytel'
                     ? 'Classic heart-rate formula (this session was logged before heart rate set the intensity).'
-                    : 'Heart rate sets the intensity; your training type keeps its kcal per hour.'}
+                    : `Heart rate sets the intensity; your training type keeps its ${units.energy.unit} per hour.`}
                 </p>
                 <SessionHeartRatePanel
                   session={session}
@@ -527,11 +529,12 @@ export const TrainingModal = ({
               Estimated Burn:
             </p>
             <p className="text-foreground font-bold text-xl text-center">
-              ~{estimatedBurn} calories
+              ~{units.energy.value(estimatedBurn, { grouping: false })}{' '}
+              {units.energy.longUnit}
             </p>
             {epocEnabled && (
               <p className="text-muted text-xs text-center mt-1">
-                +~{Math.round(estimatedEpoc)} EPOC
+                +~{units.energy.value(estimatedEpoc, { grouping: false })} EPOC
               </p>
             )}
           </div>

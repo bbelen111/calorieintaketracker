@@ -285,7 +285,8 @@ export const DailyLogModal = ({
               <>
                 <div className="flex flex-col gap-0.5">
                   <span className="font-semibold text-sm md:text-base">
-                    {formatOne(nutritionTotals.calories)} kcal
+                    {units.energy.compact(nutritionTotals.calories)}{' '}
+                    {units.energy.unit}
                   </span>
                   <span className="text-[11px] md:text-xs opacity-90">
                     P {formatOne(nutritionTotals.protein)}g · C{' '}

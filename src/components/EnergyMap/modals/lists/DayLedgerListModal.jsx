@@ -617,7 +617,7 @@ export const DayLedgerListModal = ({
                     <p className="text-muted text-xs mt-0.5 truncate">
                       {dayPanelPreview.stepCount.toLocaleString()} steps
                       {showBodyFat && pickedSessionBurn > 0
-                        ? `\u00B7 ~${pickedSessionBurn.toLocaleString()} kcal sessions`
+                        ? `\u00B7 ~${units.energy.value(pickedSessionBurn)} ${units.energy.unit} sessions`
                         : ''}
                     </p>
                   </div>
@@ -656,7 +656,7 @@ export const DayLedgerListModal = ({
                   <div className="min-w-0">
                     <p className="text-muted text-[11px]">Eaten</p>
                     <p className="text-foreground font-bold text-base leading-tight">
-                      {Math.round(dayPanelPreview.intake).toLocaleString()}
+                      {units.energy.value(dayPanelPreview.intake)}
                     </p>
                   </div>
                   <div className="text-center shrink-0">
@@ -666,7 +666,7 @@ export const DayLedgerListModal = ({
                           .textClass
                       }`}
                     >
-                      {formatSignedKcal(dayPanelPreview.deficit)}
+                      {formatSignedKcal(dayPanelPreview.deficit, units)}
                     </p>
                     <p
                       className={`text-[10px] font-semibold mt-1 ${
@@ -698,7 +698,7 @@ export const DayLedgerListModal = ({
                             onTargetTolerance
                           )
                             ? 'on target'
-                            : `${formatSignedKcal(dayPanelPreview.targetDeviation)} vs target`}
+                            : `${formatSignedKcal(dayPanelPreview.targetDeviation, units)} vs target`}
                         </span>
                       )}
                     </p>
@@ -706,7 +706,7 @@ export const DayLedgerListModal = ({
                   <div className="min-w-0 text-right">
                     <p className="text-muted text-[11px]">Burned</p>
                     <p className="text-foreground font-bold text-base leading-tight">
-                      {Math.round(dayPanelPreview.tdee).toLocaleString()}
+                      {units.energy.value(dayPanelPreview.tdee)}
                     </p>
                   </div>
                 </div>
@@ -754,18 +754,13 @@ export const DayLedgerListModal = ({
                     <SummaryTile icon={Dumbbell} label="Sessions">
                       <p className="text-foreground font-bold text-base leading-tight">
                         {pickedSessionBurn > 0
-                          ? `${pickedSessionBurn.toLocaleString()} kcal`
+                          ? `${units.energy.value(pickedSessionBurn)} ${units.energy.unit}`
                           : '\u2014'}
                       </p>
                       <p className="text-muted text-[10px] font-medium leading-tight">
-                        Cardio{' '}
-                        {Math.round(
-                          dayPanelPreview.cardioBurn
-                        ).toLocaleString()}{' '}
+                        Cardio {units.energy.value(dayPanelPreview.cardioBurn)}{' '}
                         {'\u00B7'} Training{' '}
-                        {Math.round(
-                          dayPanelPreview.trainingBurn
-                        ).toLocaleString()}
+                        {units.energy.value(dayPanelPreview.trainingBurn)}
                       </p>
                     </SummaryTile>
                   )}
@@ -780,7 +775,11 @@ export const DayLedgerListModal = ({
                   }`}
                 >
                   <span className="text-foreground font-semibold">
-                    +{dayPanelPreview.epocCarryInCalories} kcal EPOC
+                    +
+                    {units.energy.value(dayPanelPreview.epocCarryInCalories, {
+                      grouping: false,
+                    })}{' '}
+                    {units.energy.unit} EPOC
                   </span>
                   <span className="text-muted"> carried in</span>
                 </p>
@@ -878,14 +877,14 @@ export const DayLedgerListModal = ({
                   <div className="grid grid-cols-2 gap-1.5">
                     <SummaryTile icon={Utensils} label="Avg Energy">
                       <p className="text-foreground font-bold text-sm leading-tight">
-                        {monthSummary.avgIntake.toLocaleString()}
+                        {units.energy.value(monthSummary.avgIntake)}
                         <span className="text-muted text-[10px] font-medium">
                           {' '}
                           in
                         </span>
                       </p>
                       <p className="text-foreground font-bold text-sm leading-tight">
-                        {monthSummary.avgTdee.toLocaleString()}
+                        {units.energy.value(monthSummary.avgTdee)}
                         <span className="text-muted text-[10px] font-medium">
                           {' '}
                           burn
@@ -900,7 +899,7 @@ export const DayLedgerListModal = ({
                           ].textClass
                         }`}
                       >
-                        {formatSignedKcal(monthSummary.avgBalance)}
+                        {formatSignedKcal(monthSummary.avgBalance, units)}
                         <span className="text-muted text-[10px] font-medium">
                           {' '}
                           avg
@@ -913,7 +912,7 @@ export const DayLedgerListModal = ({
                           ].textClass
                         }`}
                       >
-                        {formatSignedKcal(monthSummary.totalBalance)}
+                        {formatSignedKcal(monthSummary.totalBalance, units)}
                         <span className="text-muted text-[10px] font-medium">
                           {' '}
                           total
