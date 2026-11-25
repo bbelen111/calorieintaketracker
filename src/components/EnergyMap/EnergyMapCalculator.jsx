@@ -4677,11 +4677,18 @@ export const EnergyMapCalculator = () => {
           selectedPhase,
           weightEntries,
           nutritionData,
-          heartRateEntries
+          heartRateEntries,
+          units
         );
       }
     },
-    [nutritionData, selectedPhase, userData.heartRateEntries, weightEntries]
+    [
+      nutritionData,
+      selectedPhase,
+      units,
+      userData.heartRateEntries,
+      weightEntries,
+    ]
   );
 
   // Phase archive/delete handlers

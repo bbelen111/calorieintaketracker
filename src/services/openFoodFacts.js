@@ -6,6 +6,7 @@ import {
   normalizeNutrientValue,
   scaleNutrientValues,
 } from '../constants/nutrients/nutrients.js';
+import { KJ_PER_KCAL, roundTo } from '../utils/units/unitFormatter.js';
 
 const API_BASE = (
   (typeof import.meta.env?.VITE_OPENFOODFACTS_API_BASE === 'string'
@@ -74,14 +75,32 @@ function buildOffMicroNutrients(nutriments, parentTotals) {
   }).nutrients;
 }
 
+const toFiniteOrNull = (value) => {
+  if (value == null || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+// Per-100g energy in kcal. Products that only declare kilojoules are converted:
+// `energy-kj_100g`, else `energy_100g`, which Open Food Facts keeps in kJ.
+function resolveEnergyKcal(nutriments) {
+  const kcal = toFiniteOrNull(nutriments['energy-kcal_100g']);
+  if (kcal != null) {
+    return Math.max(0, Math.round(kcal));
+  }
+  const kilojoules =
+    toFiniteOrNull(nutriments['energy-kj_100g']) ??
+    toFiniteOrNull(nutriments.energy_100g);
+  return kilojoules == null
+    ? 0
+    : Math.max(0, roundTo(kilojoules / KJ_PER_KCAL, 2));
+}
+
 function mapProductToFood(product, barcode) {
   const nutriments = product?.nutriments || {};
 
   const baseMacros = {
-    calories: Math.max(
-      0,
-      Math.round(Number(nutriments['energy-kcal_100g']) || 0)
-    ),
+    calories: resolveEnergyKcal(nutriments),
     protein: Math.max(0, round2(nutriments.proteins_100g)),
     carbs: Math.max(0, round2(nutriments.carbohydrates_100g)),
     fats: Math.max(0, round2(nutriments.fat_100g)),
