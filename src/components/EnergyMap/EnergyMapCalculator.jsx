@@ -4352,6 +4352,7 @@ export const EnergyMapCalculator = () => {
     latestWeightEntry?.weight,
     phaseCreationModal,
     phaseDraft,
+    units,
     userData.bodyFatTrackingEnabled,
     userData.weight,
   ]);
