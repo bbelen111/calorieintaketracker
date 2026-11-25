@@ -150,7 +150,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
           <TrendingUp size={14} className="text-muted" />
           <span>
             {bodyWeight.format(phase.startingWeight)} → {weightChangeDisplay}
-            {phase.targetWeight &&
+            {phase.targetWeight > 0 &&
               ` (Target: ${bodyWeight.format(phase.targetWeight)})`}
           </span>
         </div>

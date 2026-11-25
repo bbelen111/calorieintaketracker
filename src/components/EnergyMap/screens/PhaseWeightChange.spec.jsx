@@ -47,6 +47,22 @@ describe('phase weight change', () => {
     expect(screen.queryByText(/30 kg/)).not.toBeInTheDocument();
   });
 
+  it('prints nothing for a phase without a target weight', () => {
+    seed();
+    render(
+      <LogbookScreen
+        phases={[{ ...PHASE, targetWeight: 0 }]}
+        weightEntries={WEIGHTS}
+        nutritionData={{}}
+        onCreatePhase={vi.fn()}
+        onPhaseClick={vi.fn()}
+        onOpenDayLedger={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/80 kg → -2\.0 kg/)).toHaveTextContent(/-2\.0 kg$/);
+  });
+
   it('keeps the minus sign on Phase Detail', () => {
     seed();
     render(

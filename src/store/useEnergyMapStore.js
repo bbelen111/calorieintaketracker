@@ -1731,12 +1731,15 @@ export const useEnergyMapStore = createWithEqualityFn(
       const startingBodyFat = Number(latestBodyFatEntry?.bodyFat);
       const creationMode =
         phaseData?.creationMode === 'target' ? 'target' : 'goal';
-      const targetWeight = Number.isFinite(Number(phaseData?.targetWeight))
-        ? Number(phaseData.targetWeight)
-        : null;
-      const targetBodyFat = Number.isFinite(Number(phaseData?.targetBodyFat))
-        ? Number(phaseData.targetBodyFat)
-        : null;
+      // An empty target arrives as null, and `Number(null)` is 0.
+      const targetWeight =
+        Number(phaseData?.targetWeight) > 0
+          ? Number(phaseData.targetWeight)
+          : null;
+      const targetBodyFat =
+        Number(phaseData?.targetBodyFat) > 0
+          ? Number(phaseData.targetBodyFat)
+          : null;
       const targetPayload =
         creationMode === 'target'
           ? deriveTargetCreationModePayload({
