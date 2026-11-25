@@ -441,6 +441,16 @@ export const AddCustomFoodModal = ({
     );
   }, []);
 
+  const handleUpdateIngredient = useCallback((id, { grams, portionLabel }) => {
+    setIngredients((prev) =>
+      prev.map((ingredient) =>
+        ingredient.id === id
+          ? { ...ingredient, grams, portionLabel: portionLabel ?? null }
+          : ingredient
+      )
+    );
+  }, []);
+
   const handleRemoveIngredient = useCallback((id) => {
     setIngredients((prev) => prev.filter((ingredient) => ingredient.id !== id));
   }, []);
@@ -663,7 +673,9 @@ export const AddCustomFoodModal = ({
                 cookedWeightGrams={cookedWeightGrams}
                 previewFood={previewFood}
                 validation={recipeValidation}
+                userFoods={userFoods}
                 onAddIngredient={ingredientPickerModal.open}
+                onEditIngredient={handleUpdateIngredient}
                 onChangeIngredientGrams={handleChangeIngredientGrams}
                 onRemoveIngredient={handleRemoveIngredient}
                 onChangeServings={handleChangeServings}
@@ -1028,7 +1040,10 @@ export const AddCustomFoodModal = ({
             isClosing={ingredientPickerModal.isClosing}
             onClose={ingredientPickerModal.requestClose}
             onPickIngredient={handleAddIngredient}
+            ingredients={ingredients}
             ingredientCount={ingredients.length}
+            onEditIngredient={handleUpdateIngredient}
+            onRemoveIngredient={handleRemoveIngredient}
             customFoods={userFoods}
           />
         </Suspense>

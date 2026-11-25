@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -325,6 +325,136 @@ describe('RecipeIngredientPickerModal - choosing an ingredient', () => {
     await user.click(screen.getByRole('button', { name: 'Back' }));
 
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('RecipeIngredientPickerModal - In recipe button & preview', () => {
+  const SAMPLE_INGREDIENTS = [
+    {
+      id: 'ing_beef',
+      foodId: 'usda_beef',
+      name: 'Beef, raw',
+      brand: null,
+      category: 'protein',
+      grams: 150,
+      per100g: per100g(250, { protein: 26, carbs: 0, fats: 15 }),
+      portionLabel: null,
+    },
+  ];
+
+  it('flashes the In recipe button blue when the ingredient count changes, then settles back', async () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(
+        <RecipeIngredientPickerModal
+          isOpen
+          isClosing={false}
+          onClose={vi.fn()}
+          onPickIngredient={vi.fn()}
+          ingredients={[]}
+          ingredientCount={0}
+        />
+      );
+
+      const button = screen.getByRole('button', { name: '0 in recipe' });
+      expect(button.className).toContain('bg-surface-highlight');
+      expect(button.className).not.toContain('bg-accent-blue');
+
+      rerender(
+        <RecipeIngredientPickerModal
+          isOpen
+          isClosing={false}
+          onClose={vi.fn()}
+          onPickIngredient={vi.fn()}
+          ingredients={SAMPLE_INGREDIENTS}
+          ingredientCount={1}
+        />
+      );
+
+      const flashingButton = screen.getByRole('button', {
+        name: '1 in recipe',
+      });
+      expect(flashingButton.className).toContain('bg-accent-blue');
+      expect(flashingButton.className).toContain('border-accent-blue');
+      expect(flashingButton.className).toContain('text-primary-foreground');
+
+      act(() => {
+        vi.advanceTimersByTime(450);
+      });
+
+      expect(flashingButton.className).toContain('bg-surface-highlight');
+      expect(flashingButton.className).not.toContain('bg-accent-blue');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('opens the Current Recipe preview sheet with empty state when no ingredients are added', async () => {
+    const user = userEvent.setup();
+    renderPicker({ ingredients: [], ingredientCount: 0 });
+    await screen.findByText('Apple');
+
+    await user.click(screen.getByRole('button', { name: '0 in recipe' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'Current Recipe' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('No ingredients in this recipe yet.')
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Close recipe preview' })
+    );
+    expect(
+      screen.queryByRole('heading', { name: 'Current Recipe' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('lists current ingredients with scaled macros and supports removing and editing from the preview', async () => {
+    const user = userEvent.setup();
+    const onEditIngredient = vi.fn();
+    const onRemoveIngredient = vi.fn();
+    renderPicker({
+      ingredients: SAMPLE_INGREDIENTS,
+      ingredientCount: 1,
+      onEditIngredient,
+      onRemoveIngredient,
+    });
+    await screen.findByText('Apple');
+
+    await user.click(screen.getByRole('button', { name: '1 in recipe' }));
+
+    expect(
+      screen.getByRole('heading', { name: 'Current Recipe' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('(1 ingredient)')).toBeInTheDocument();
+    expect(screen.getByText('150 g')).toBeInTheDocument();
+    expect(screen.getByText('375 kcal')).toBeInTheDocument();
+    expect(screen.getByText('39 p')).toBeInTheDocument();
+    expect(screen.getByText('22.5 f')).toBeInTheDocument();
+    expect(screen.getByText('0 c')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Remove ingredient' }));
+    expect(onRemoveIngredient).toHaveBeenCalledWith('ing_beef');
+
+    await user.click(screen.getByRole('button', { name: 'Edit ingredient' }));
+    expect(
+      screen.queryByRole('heading', { name: 'Current Recipe' })
+    ).not.toBeInTheDocument();
+
+    const saveButton = await screen.findByRole('button', {
+      name: /save changes/i,
+    });
+    await user.click(saveButton);
+
+    expect(onEditIngredient).toHaveBeenCalledWith(
+      'ing_beef',
+      expect.objectContaining({ grams: 150 })
+    );
+    expect(
+      await screen.findByText('Updated Beef, raw · 150 g')
+    ).toBeInTheDocument();
   });
 });
 

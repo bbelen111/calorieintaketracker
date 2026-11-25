@@ -59,6 +59,7 @@ const renderSection = (props = {}) => {
   };
   const handlers = {
     onAddIngredient: vi.fn(),
+    onEditIngredient: vi.fn(),
     onChangeIngredientGrams: vi.fn(),
     onRemoveIngredient: vi.fn(),
     onChangeServings: vi.fn(),
@@ -103,18 +104,25 @@ describe('RecipeIngredientsSection', () => {
     expect(handlers.onAddIngredient).toHaveBeenCalledTimes(1);
   });
 
-  it('lists each ingredient with its weight and calories', () => {
+  it('lists each ingredient like preview items with grams and scaled macros', () => {
     renderSection();
 
     expect(screen.getByText('2 ingredients')).toBeInTheDocument();
     expect(screen.getByText('Beef')).toBeInTheDocument();
+    expect(screen.getByText('150 g')).toBeInTheDocument();
     expect(screen.getByText('375 kcal')).toBeInTheDocument(); // 150 g x 250/100
-    // Brand-first display name + how the amount was picked.
+    expect(screen.getByText('39 p')).toBeInTheDocument();
+    expect(screen.getByText('22.5 f')).toBeInTheDocument();
+    expect(screen.getByText('0 c')).toBeInTheDocument();
     expect(screen.getByText('Uncle Ben - Rice')).toBeInTheDocument();
-    expect(screen.getByText('1 × 1 cup · 260 kcal')).toBeInTheDocument();
+    expect(screen.getByText('200 g')).toBeInTheDocument();
+    expect(screen.getByText('260 kcal')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Change Beef weight' })
-    ).toHaveTextContent('150 g');
+      screen.getByRole('button', { name: 'Edit Beef' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Remove Beef' })
+    ).toBeInTheDocument();
   });
 
   it('shows the per-serving nutrition and the serving weight', () => {
@@ -154,16 +162,25 @@ describe('RecipeIngredientsSection', () => {
     ).toBeDisabled();
   });
 
-  it('changes an ingredient weight from the shared wheel picker', async () => {
+  it('opens the food portion modal to edit an ingredient', async () => {
     const user = userEvent.setup();
     const handlers = renderSection();
 
-    await user.click(
-      screen.getByRole('button', { name: 'Change Beef weight' })
-    );
-    await pickValue(user, /ingredient weight/i, 250);
+    await user.click(screen.getByRole('button', { name: 'Edit Beef' }));
 
-    expect(handlers.onChangeIngredientGrams).toHaveBeenCalledWith('beef', 250);
+    expect(
+      await screen.findByRole('heading', { name: /select portion size/i })
+    ).toBeInTheDocument();
+
+    const saveButton = await screen.findByRole('button', {
+      name: /save changes/i,
+    });
+    await user.click(saveButton);
+
+    expect(handlers.onEditIngredient).toHaveBeenCalledWith(
+      'beef',
+      expect.objectContaining({ grams: 150 })
+    );
   });
 
   it('keeps cooked weight behind a disclosure and reports the picked value', async () => {

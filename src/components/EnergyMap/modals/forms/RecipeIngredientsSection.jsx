@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ChevronDown,
   ChevronsUpDown,
+  Edit3,
   Minus,
   Plus,
   Trash2,
@@ -13,12 +14,12 @@ import { NumericValuePickerModal } from '../pickers/NumericValuePickerModal';
 import { SettingsReveal } from '../fullscreen/SettingsReveal';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
+import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { formatOne } from '../../../../utils/formatting/format';
 import { formatFoodDisplayName } from '../../../../utils/food/foodPresentation';
 import { scaleMacrosFromPer100g } from '../../../../utils/food/portionNormalization';
 import {
   RECIPE_COOKED_WEIGHT_PICKER_FIELD,
-  RECIPE_INGREDIENT_GRAMS_PICKER_FIELD,
   formatPickerDisplayValue,
   formatPickerValueForState,
   normalizePickerValue,
@@ -26,16 +27,41 @@ import {
 import {
   RECIPE_MAX_SERVINGS,
   RECIPE_MIN_SERVINGS,
-  getRecipeIngredientCalories,
+  favouriteToIngredientFood,
 } from '../../../../utils/food/recipe';
 
+const FoodPortionModal = React.lazy(() =>
+  import('../pickers/FoodPortionModal').then((module) => ({
+    default: module.FoodPortionModal,
+  }))
+);
+
+const MODAL_CLOSE_DELAY = 180;
+const EMPTY = [];
+
 const PICKER_BUTTON_CLASS =
-  'flex items-center justify-between gap-2 rounded-lg border border-border bg-surface-highlight text-left text-foreground transition-all focus-ring pressable-inline md:hover:border-muted/50';
+  'flex items-center justify-between gap-2 rounded-lg border border-border bg-surface-highlight/70 text-left text-foreground transition-all focus-ring pressable-inline md:hover:border-muted/50';
 
 const STEPPER_BUTTON_CLASS =
-  'flex h-9 w-9 items-center justify-center rounded-lg bg-surface-highlight text-foreground transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:text-muted md:hover:bg-surface';
+  'flex h-9 w-9 items-center justify-center rounded-lg text-foreground transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:text-muted md:hover:bg-surface';
 
 const ROW_EASE = [0.32, 0.72, 0, 1];
+
+const shortenName = (name, maxLength = 36) => {
+  if (typeof name !== 'string') return name ?? '';
+  if (name.length <= maxLength) return name;
+  return `${name.slice(0, maxLength - 1)}…`;
+};
+
+const ingredientToPortionFood = (ingredient) => ({
+  id: ingredient.foodId ?? ingredient.id,
+  name: ingredient.name,
+  brand: ingredient.brand ?? null,
+  category: ingredient.category ?? 'custom',
+  source: ingredient.source ?? null,
+  per100g: ingredient.per100g,
+  portions: [],
+});
 
 /**
  * A number that ticks (the short fade/rise the app uses when a header stat
@@ -85,7 +111,9 @@ export const RecipeIngredientsSection = ({
   cookedWeightGrams,
   previewFood,
   validation,
+  userFoods = EMPTY,
   onAddIngredient,
+  onEditIngredient,
   onChangeIngredientGrams,
   onRemoveIngredient,
   onChangeServings,
@@ -100,6 +128,19 @@ export const RecipeIngredientsSection = ({
   // animation, so its title/value never flash back to defaults.
   const pickerModal = useAnimatedModal(false);
   const [pickerState, setPickerState] = useState(null);
+
+  const portionModal = useAnimatedModal(false, MODAL_CLOSE_DELAY);
+  const [editingIngredient, setEditingIngredient] = useState(null);
+  const [portionFood, setPortionFood] = useState(null);
+
+  useEffect(() => {
+    if (!portionModal.isClosing) return undefined;
+    const timer = setTimeout(() => {
+      setEditingIngredient(null);
+      setPortionFood(null);
+    }, MODAL_CLOSE_DELAY + 50);
+    return () => clearTimeout(timer);
+  }, [portionModal.isClosing]);
 
   const openPicker = (target, config, currentValue) => {
     const activeElement = document.activeElement;
@@ -122,15 +163,63 @@ export const RecipeIngredientsSection = ({
     const config = pickerState?.config;
     if (target && config) {
       const normalized = normalizePickerValue(Number(nextValue), config);
-      if (target.kind === 'ingredient') {
-        onChangeIngredientGrams?.(target.id, normalized);
-      } else if (target.kind === 'cooked') {
+      if (target.kind === 'cooked') {
         onChangeCookedWeight?.(
           formatPickerValueForState(normalized, config.step)
         );
       }
     }
     pickerModal.requestClose();
+  };
+
+  const handleOpenIngredientPortion = async (ingredient) => {
+    const activeElement = document.activeElement;
+    if (activeElement && typeof activeElement.blur === 'function') {
+      activeElement.blur();
+    }
+
+    let resolvedFood = null;
+    if (ingredient.foodId) {
+      const { cachedFoods, foodFavourites } = useEnergyMapStore.getState();
+      const fromUserFoods = userFoods.find(
+        (item) => item?.id === ingredient.foodId
+      );
+      const fromCached = (cachedFoods ?? []).find(
+        (item) => item?.id === ingredient.foodId
+      );
+      const fromFavourites = (foodFavourites ?? [])
+        .map(favouriteToIngredientFood)
+        .find((item) => item?.id === ingredient.foodId);
+
+      resolvedFood = fromUserFoods || fromCached || fromFavourites || null;
+
+      if (!resolvedFood) {
+        try {
+          const { getFoodById } =
+            await import('../../../../services/foodCatalog');
+          resolvedFood = await getFoodById(ingredient.foodId);
+        } catch {
+          resolvedFood = null;
+        }
+      }
+    }
+
+    setEditingIngredient(ingredient);
+    setPortionFood(
+      resolvedFood?.per100g ? resolvedFood : ingredientToPortionFood(ingredient)
+    );
+    portionModal.open();
+  };
+
+  const handleConfirmIngredientPortion = ({ grams, portionLabel }) => {
+    if (editingIngredient) {
+      if (typeof onEditIngredient === 'function') {
+        onEditIngredient(editingIngredient.id, { grams, portionLabel });
+      } else {
+        onChangeIngredientGrams?.(editingIngredient.id, grams);
+      }
+    }
+    portionModal.requestClose();
   };
 
   const perServing = previewFood
@@ -168,7 +257,7 @@ export const RecipeIngredientsSection = ({
           {ingredients.length > 0 ? (
             <TickValue
               as="span"
-              className="inline-block text-xs text-muted"
+              className="inline-block text-xs"
               text={`${ingredients.length} ${
                 ingredients.length === 1 ? 'ingredient' : 'ingredients'
               }`}
@@ -185,63 +274,81 @@ export const RecipeIngredientsSection = ({
 
         <ul className="mb-1">
           <AnimatePresence initial={false}>
-            {ingredients.map((ingredient) => (
-              <motion.li
-                key={ingredient.id}
-                initial={rowMotion.initial}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={rowMotion.exit}
-                transition={rowMotion.transition}
-                style={{ overflow: 'hidden' }}
-              >
-                <div className="pb-2">
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-surface/60 px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground">
-                        {formatFoodDisplayName({
-                          name: ingredient.name,
-                          brand: ingredient.brand,
-                        })}
-                      </p>
-                      <p className="truncate text-xs text-muted">
-                        {ingredient.portionLabel
-                          ? `${ingredient.portionLabel} · `
-                          : ''}
-                        {getRecipeIngredientCalories(ingredient)} kcal
-                      </p>
+            {ingredients.map((ingredient) => {
+              const displayName = formatFoodDisplayName({
+                name: ingredient.name,
+                brand: ingredient.brand,
+              });
+              const scaled = scaleMacrosFromPer100g(
+                ingredient.per100g,
+                ingredient.grams
+              );
+
+              return (
+                <motion.li
+                  key={ingredient.id}
+                  initial={rowMotion.initial}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={rowMotion.exit}
+                  transition={rowMotion.transition}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div className="pb-2">
+                    <div className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-surface-highlight/75 p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-foreground/80">
+                          <span className="align-middle" title={displayName}>
+                            {shortenName(displayName)}
+                          </span>
+                          {ingredient.grams != null ? (
+                            <span className="ml-2 align-middle text-xs text-muted">
+                              {formatOne(ingredient.grams)} g
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="text-xs text-muted">
+                          <span className="text-accent-emerald">
+                            {formatOne(scaled.calories || 0)} kcal
+                          </span>
+                          {' - '}
+                          <span className="text-accent-red">
+                            {formatOne(scaled.protein || 0)} p
+                          </span>
+                          {' - '}
+                          <span className="text-accent-yellow">
+                            {formatOne(scaled.fats || 0)} f
+                          </span>
+                          {' - '}
+                          <span className="text-accent-amber">
+                            {formatOne(scaled.carbs || 0)} c
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex items-end gap-4">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleOpenIngredientPortion(ingredient)
+                          }
+                          aria-label={`Edit ${ingredient.name}`}
+                          className="text-foreground/80 transition-all pressable-inline focus-ring md:hover:scale-110 md:hover:text-foreground"
+                        >
+                          <Edit3 size={20} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveIngredient?.(ingredient.id)}
+                          aria-label={`Remove ${ingredient.name}`}
+                          className="text-accent-red transition-all pressable-inline focus-ring md:hover:scale-110 md:hover:text-accent-red"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openPicker(
-                          { kind: 'ingredient', id: ingredient.id },
-                          RECIPE_INGREDIENT_GRAMS_PICKER_FIELD,
-                          ingredient.grams
-                        )
-                      }
-                      aria-label={`Change ${ingredient.name} weight`}
-                      className={`${PICKER_BUTTON_CLASS} w-24 shrink-0 px-2.5 py-2 text-sm`}
-                    >
-                      <span className="font-medium">
-                        {formatPickerDisplayValue(ingredient.grams, 'g')}
-                      </span>
-                      <ChevronsUpDown
-                        size={14}
-                        className="shrink-0 text-muted"
-                      />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onRemoveIngredient?.(ingredient.id)}
-                      aria-label={`Remove ${ingredient.name}`}
-                      className="shrink-0 p-1 text-muted transition-colors pressable-inline focus-ring md:hover:text-accent-red"
-                    >
-                      <Trash2 size={16} />
-                    </button>
                   </div>
-                </div>
-              </motion.li>
-            ))}
+                </motion.li>
+              );
+            })}
           </AnimatePresence>
         </ul>
 
@@ -269,7 +376,7 @@ export const RecipeIngredientsSection = ({
         <label className="mb-2 block text-sm font-semibold text-foreground">
           Servings
         </label>
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-highlight px-3 py-2">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-highlight/70 px-3 py-2">
           <span className="text-xs text-muted">
             How many portions does this make?
           </span>
@@ -314,7 +421,7 @@ export const RecipeIngredientsSection = ({
 
       {/* Live nutrition: the placeholder and the numbers trade places with a
           height reveal, so the card grows / shrinks instead of snapping. */}
-      <div className="rounded-xl border border-border bg-surface-highlight/75 p-4">
+      <div className="rounded-xl border border-border bg-surface-highlight/70 p-4">
         <p className="text-center text-xs text-muted">
           {perServing ? 'Per serving' : 'Nutrition per serving'}
         </p>
@@ -470,6 +577,22 @@ export const RecipeIngredientsSection = ({
         onCancel={pickerModal.requestClose}
         onSave={handlePickerSave}
       />
+
+      {portionModal.isOpen || portionModal.isClosing ? (
+        <Suspense fallback={null}>
+          <FoodPortionModal
+            isOpen={portionModal.isOpen}
+            isClosing={portionModal.isClosing}
+            onClose={portionModal.requestClose}
+            selectedFood={portionFood}
+            initialGrams={editingIngredient?.grams}
+            isEditing
+            ingredientMode
+            confirmLabel="Save changes"
+            onConfirmIngredient={handleConfirmIngredientPortion}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 };
