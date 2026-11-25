@@ -1025,7 +1025,9 @@
     the same faint top-light as cards. Both are background-image/box-shadow only,
     so the `bg-*` colour utilities on the elements still own the base colour and
     every theme follows its own tokens. The header needs `position: relative` +
-    a z-index so its shadow paints over the scrolling body.
+    a z-index so its shadow paints over the scrolling body. The body is its own
+    stacking context (`isolation`), so a `z-10` inside it can never paint over
+    the header or a dropdown that opens from it.
   */
   .fullscreen-header {
     position: relative;
@@ -1041,6 +1043,7 @@
   }
 
   .fullscreen-body {
+    isolation: isolate;
     background-image: linear-gradient(
       to bottom,
       rgb(var(--card-sheen)),
