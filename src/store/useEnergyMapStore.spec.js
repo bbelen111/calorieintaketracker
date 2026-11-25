@@ -312,6 +312,35 @@ describe('store - setSelectedGoal', () => {
   });
 });
 
+describe('store - createPhase', () => {
+  it('creates a target phase that has only a body fat target', () => {
+    const weightEntries = [{ date: '2026-01-01', weight: 80 }];
+    const bodyFatEntries = [{ date: '2026-01-01', bodyFat: 20 }];
+    useEnergyMapStore.setState({
+      weightEntries,
+      bodyFatEntries,
+      userData: { ...get().userData, weightEntries, bodyFatEntries },
+    });
+
+    get().createPhase({
+      name: 'Lean out',
+      startDate: '2026-01-01',
+      endDate: '2026-04-01',
+      creationMode: 'target',
+      targetWeight: null,
+      targetBodyFat: 17,
+    });
+
+    const { phaseLogV2, phaseGoalCalorieDelta } = get().userData;
+    expect(phaseLogV2.phasesById[phaseLogV2.activePhaseId]).toMatchObject({
+      targetMetric: 'bodyFat',
+      targetWeight: null,
+      targetBodyFat: 17,
+    });
+    expect(phaseGoalCalorieDelta).toBe(-205);
+  });
+});
+
 describe('store - markSwipeHintSeen', () => {
   it('flips the one-time flag', () => {
     expect(get().userData.hasSeenSwipeHint).toBe(false);
