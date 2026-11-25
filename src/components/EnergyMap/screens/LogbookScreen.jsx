@@ -12,7 +12,7 @@ import {
   Flame,
 } from 'lucide-react';
 import { goals } from '../../../constants/goals/goals';
-import { formatWeight } from '../../../utils/measurements/weight';
+import { useUnits } from '../../../hooks/useUnits';
 import { calculatePhaseMetrics } from '../../../utils/phases/phases';
 import {
   buildDayLedgerCardSummary,
@@ -79,6 +79,7 @@ const calculateCurrentDay = (startDate) => {
 };
 
 const PhaseCard = ({ phase, onPhaseClick }) => {
+  const { bodyWeight, energy } = useUnits();
   const goal = goals[phase.goalType] || goals.maintenance;
   // Helper for goal badge color classes
   const getGoalBadgeClass = () => {
@@ -94,9 +95,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
 
   const weightChange = phase.metrics?.weightChange || 0;
   const weightChangeDisplay =
-    weightChange === 0
-      ? '—'
-      : `${weightChange > 0 ? '+' : ''}${formatWeight(weightChange)} kg`;
+    weightChange === 0 ? '—' : bodyWeight.formatDelta(weightChange);
 
   return (
     <button
@@ -150,9 +149,9 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
         <div className="flex items-center gap-2 text-sm text-muted">
           <TrendingUp size={14} className="text-muted" />
           <span>
-            {formatWeight(phase.startingWeight)} kg → {weightChangeDisplay}
-            {phase.targetWeight &&
-              ` (Target: ${formatWeight(phase.targetWeight)} kg)`}
+            {bodyWeight.format(phase.startingWeight)} → {weightChangeDisplay}
+            {phase.targetWeight > 0 &&
+              ` (Target: ${bodyWeight.format(phase.targetWeight)})`}
           </span>
         </div>
 
@@ -167,9 +166,11 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
               </div>
               {phase.metrics.avgCalories > 0 && (
                 <div>
-                  <span className="text-muted">Avg Calories:</span>
+                  <span className="text-muted">Avg {energy.noun}:</span>
                   <span className="ml-1 text-foreground font-semibold">
-                    {Math.round(phase.metrics.avgCalories)}
+                    {energy.value(phase.metrics.avgCalories, {
+                      grouping: false,
+                    })}
                   </span>
                 </div>
               )}
@@ -237,6 +238,7 @@ const LedgerTile = ({ label, children }) => (
 
 /** One "7 days ........ +280" row inside the average tile. */
 const LedgerAverageRow = ({ label, value }) => {
+  const units = useUnits();
   const meta =
     value !== null ? DAY_LEDGER_BALANCE_META[getDailyBalanceKind(value)] : null;
   return (
@@ -245,7 +247,7 @@ const LedgerAverageRow = ({ label, value }) => {
       <span
         className={`text-base font-bold ${meta?.textClass ?? 'text-muted'}`}
       >
-        {value !== null ? formatSignedKcal(value) : '—'}
+        {value !== null ? formatSignedKcal(value, units) : '—'}
       </span>
     </p>
   );
@@ -262,6 +264,7 @@ const LedgerAverageRow = ({ label, value }) => {
  * read-only snapshot projections; an unlogged day is a gap, never a zero.
  */
 const DayLedgerCard = ({ dailySnapshots, selectedGoal, tolerance, onOpen }) => {
+  const units = useUnits();
   const summary = useMemo(
     () =>
       buildDayLedgerCardSummary({
@@ -391,7 +394,7 @@ const DayLedgerCard = ({ dailySnapshots, selectedGoal, tolerance, onOpen }) => {
                     <p
                       className={`mt-0.5 text-base font-bold truncate ${yesterdayMeta.textClass}`}
                     >
-                      {formatSignedKcal(yesterday.balance)}
+                      {formatSignedKcal(yesterday.balance, units)}
                       <span className="ml-1 text-[11px] font-medium text-muted">
                         {yesterdayMeta.label}
                       </span>
@@ -405,12 +408,14 @@ const DayLedgerCard = ({ dailySnapshots, selectedGoal, tolerance, onOpen }) => {
                         </span>
                       ) : (
                         <span className="font-semibold text-accent-orange">
-                          {formatSignedKcal(yesterday.deviation)} vs target
+                          {formatSignedKcal(yesterday.deviation, units)} vs
+                          target
                         </span>
                       )}
                       {yesterday.target !== null && (
                         <span className="text-muted">
-                          {' · '}target {formatSignedKcal(yesterday.target)}
+                          {' · '}target{' '}
+                          {formatSignedKcal(yesterday.target, units)}
                         </span>
                       )}
                     </p>

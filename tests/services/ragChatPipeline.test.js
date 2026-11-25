@@ -489,3 +489,101 @@ test('runRagChatPipeline grounded fallback uses clarification lookupTerms and pr
   assert.deepEqual(entries[0].lookupTerms, ['white rice']);
   assert.ok(stages.includes(CHAT_PIPELINE_STAGE.RETRIEVAL));
 });
+
+test('runRagChatPipeline hands the units note to extraction and its retry', async () => {
+  const notes = [];
+
+  await runRagChatPipeline({
+    message: 'some meal',
+    isOnline: false,
+    enableRag: true,
+    displayUnits: { energy: 'kJ', foodWeight: 'oz' },
+    modules: {
+      sendOpenRouterExtraction: async (options) => {
+        notes.push(options.unitsNote);
+        return { text: 'Clarify.', foodParser: { messageType: 'error' } };
+      },
+      sendOpenRouterPresentation: async () => {
+        throw new Error('presentation must not run');
+      },
+    },
+    telemetry: makeTelemetry(),
+  });
+
+  const note =
+    '[DISPLAY_UNITS]\nenergy: kJ (1 kcal = 4.184 kJ)\nfood weight: oz (1 oz = 28.35 g)';
+  assert.deepEqual(notes, [note, note]);
+});
+
+test('runRagChatPipeline sends presentation preconverted values beside kcal entries', async () => {
+  const requests = [];
+  const entry = (name, grams, calories) => ({
+    name,
+    grams,
+    calories,
+    protein: 5,
+    carbs: 40,
+    fats: 2,
+    confidence: 'high',
+  });
+  const run = (displayUnits) =>
+    runRagChatPipeline({
+      message: 'rice and oats',
+      isOnline: false,
+      enableRag: true,
+      displayUnits,
+      modules: {
+        sendOpenRouterExtraction: async () => ({
+          text: 'Two foods.',
+          foodParser: {
+            messageType: 'food_entries',
+            entries: [entry('Rice', 170, 221), entry('Oats', 50, 190)],
+          },
+        }),
+        sendOpenRouterPresentation: async (options) => {
+          requests.push(options);
+          return { text: 'Logged.', foodParser: null };
+        },
+      },
+      telemetry: makeTelemetry(),
+    });
+
+  await run({ energy: 'kcal', foodWeight: 'g' });
+  await run({ energy: 'kJ', foodWeight: 'oz' });
+
+  const [metric, converted] = requests;
+  assert.equal(metric.unitsNote, '');
+  assert.equal('displayValues' in metric.systemData, false);
+  assert.match(converted.unitsNote, /\[DISPLAY_UNITS\]/);
+  assert.deepEqual(converted.systemData.entries, metric.systemData.entries);
+  assert.deepEqual(converted.systemData.displayValues, [
+    { name: 'Rice', energy: '925 kJ', weight: '6 oz' },
+    { name: 'Oats', energy: '795 kJ', weight: '1.8 oz' },
+  ]);
+});
+
+test('runRagChatPipeline notes the display units on the single-call path', async () => {
+  const messages = [];
+  const run = (displayUnits) =>
+    runRagChatPipeline({
+      message: '6 oz steak',
+      enableRag: false,
+      displayUnits,
+      modules: {
+        sendOpenRouterMessage: async (options) => {
+          messages.push(options.message);
+          return { text: 'ok', foodParser: { messageType: 'follow_up' } };
+        },
+      },
+      telemetry: makeTelemetry(),
+    });
+
+  await run({ energy: 'kcal', foodWeight: 'g' });
+  await run({ energy: 'kJ', foodWeight: 'g' });
+
+  assert.equal(messages[0], '6 oz steak');
+  assert.equal(
+    messages[1],
+    '6 oz steak\n\n[DISPLAY_UNITS]\nenergy: kJ (1 kcal = 4.184 kJ)'
+  );
+});

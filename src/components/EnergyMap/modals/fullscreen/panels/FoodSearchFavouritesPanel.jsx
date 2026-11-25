@@ -3,6 +3,7 @@ import { Heart, Edit3, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
 import { formatOne } from '../../../../../utils/formatting/format';
+import { useUnits } from '../../../../../hooks/useUnits';
 import { formatFoodDisplayName } from '../../../../../utils/food/foodPresentation';
 import {
   FOOD_SOURCE_TYPES,
@@ -25,6 +26,8 @@ export const FoodSearchFavouritesPanel = ({
   openDeleteConfirm,
   prefersReducedMotion,
 }) => {
+  const { food: foodUnit, energy } = useUnits();
+
   if (!hasFavourites) {
     return (
       <motion.div
@@ -59,10 +62,15 @@ export const FoodSearchFavouritesPanel = ({
           : isRecipe
             ? 'per serving'
             : isCustom && favourite.per100g
-              ? 'per 100g'
+              ? foodUnit.basisLabel
               : !isManual && favourite.grams
-                ? `${formatOne(favourite.grams)}g`
+                ? foodUnit.format(favourite.grams, { space: false })
                 : null;
+        // A custom food's row is its per-amount nutrition, not a logged portion.
+        const rowValue = (key) =>
+          isCustom && favourite.per100g
+            ? foodUnit.perBasis(favourite.per100g[key])
+            : favourite[key] || 0;
         const canEditInFavourites =
           isManual ||
           (isCustom && typeof onEditCustomFood === 'function') ||
@@ -125,36 +133,16 @@ export const FoodSearchFavouritesPanel = ({
 
                 <div className="flex items-center gap-3 mt-2 text-xs">
                   <span className="text-accent-green font-medium">
-                    {formatOne(
-                      isCustom && favourite.per100g
-                        ? favourite.per100g.calories
-                        : favourite.calories || 0
-                    )}{' '}
-                    kcal
+                    {energy.compact(rowValue('calories'))} {energy.unit}
                   </span>
                   <span className="text-accent-red font-medium">
-                    {formatOne(
-                      isCustom && favourite.per100g
-                        ? favourite.per100g.protein
-                        : favourite.protein || 0
-                    )}
-                    g P
+                    {formatOne(rowValue('protein'))}g P
                   </span>
                   <span className="text-accent-amber font-medium">
-                    {formatOne(
-                      isCustom && favourite.per100g
-                        ? favourite.per100g.carbs
-                        : favourite.carbs || 0
-                    )}
-                    g C
+                    {formatOne(rowValue('carbs'))}g C
                   </span>
                   <span className="text-accent-yellow font-medium">
-                    {formatOne(
-                      isCustom && favourite.per100g
-                        ? favourite.per100g.fats
-                        : favourite.fats || 0
-                    )}
-                    g F
+                    {formatOne(rowValue('fats'))}g F
                   </span>
                 </div>
               </div>

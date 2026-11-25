@@ -2,6 +2,8 @@ import React from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
+import { useUnits } from '../../../../hooks/useUnits';
+import { describeGoal } from '../../../../utils/units/goalDescription';
 
 const GOAL_BORDER_CLASS_BY_BG = {
   'bg-accent-purple': 'border-accent-purple',
@@ -21,6 +23,7 @@ export const GoalModal = ({
   onSave,
 }) => {
   const resolvedGoals = goals ?? baseGoals;
+  const units = useUnits();
 
   return (
     <ModalShell
@@ -53,7 +56,9 @@ export const GoalModal = ({
                 <Icon size={32} className="shrink-0" />
                 <div className="flex-1">
                   <p className="font-bold text-lg">{goal.label}</p>
-                  <p className="text-sm opacity-90 mt-1">{goal.desc}</p>
+                  <p className="text-sm opacity-90 mt-1">
+                    {describeGoal(key, goal, units)}
+                  </p>
                   {goal.warning && (
                     <p className="text-xs opacity-75 mt-2 line-clamp-2">
                       {goal.warning}

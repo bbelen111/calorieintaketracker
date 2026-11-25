@@ -10,6 +10,17 @@ const formatDateFromMs = (ms) => new Date(ms).toISOString().slice(0, 10);
 export const MIN_WEIGHT_KG = 30;
 export const MAX_WEIGHT_KG = 210;
 
+/**
+ * Decimals a stored weight keeps. Two, so a weight entered in pounds reads back
+ * as the same pounds; kg displays still show one.
+ */
+const STORED_WEIGHT_FACTOR = 100;
+
+const roundToPrecision = (value, precision) => {
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+};
+
 /** Max day span allowed when falling back to the last two entries for trend. */
 export const MAX_TREND_FALLBACK_SPAN_DAYS = 14;
 
@@ -19,8 +30,7 @@ export const clampWeight = (value) => {
     return null;
   }
   const clamped = Math.min(Math.max(numeric, MIN_WEIGHT_KG), MAX_WEIGHT_KG);
-  const rounded = Math.round(clamped * 10) / 10;
-  return rounded;
+  return Math.round(clamped * STORED_WEIGHT_FACTOR) / STORED_WEIGHT_FACTOR;
 };
 
 export const normalizeDateKey = (value) => {
@@ -80,7 +90,8 @@ export const formatWeight = (value) => {
   if (numeric == null) {
     return null;
   }
-  return Number.isInteger(numeric) ? numeric.toFixed(0) : numeric.toFixed(1);
+  const shown = roundToPrecision(numeric, 1);
+  return Number.isInteger(shown) ? shown.toFixed(0) : shown.toFixed(1);
 };
 
 export const formatDateLabel = (dateKey, options) => {
@@ -319,9 +330,15 @@ export const getTotalWeightChange = (entries) => {
  * @param {Array<{ date: string }>} sortedEntries - Entries sorted ascending by date key
  * @param {string} dateKey - `YYYY-MM-DD` of the selected sample
  * @param {string} valueField - Numeric field to compare ('weight' | 'bodyFat')
+ * @param {number} [precision=1] - Decimals kept on the delta
  * @returns {{ currentValue: number, previousValue: number, previousDate: string, delta: number, spanDays: number }|null}
  */
-export const getPreviousEntryDelta = (sortedEntries, dateKey, valueField) => {
+export const getPreviousEntryDelta = (
+  sortedEntries,
+  dateKey,
+  valueField,
+  precision = 1
+) => {
   const normalized = normalizeDateKey(dateKey);
   if (!normalized || !Array.isArray(sortedEntries)) {
     return null;
@@ -348,7 +365,7 @@ export const getPreviousEntryDelta = (sortedEntries, dateKey, valueField) => {
     currentValue,
     previousValue,
     previousDate: previous.date,
-    delta: Math.round((currentValue - previousValue) * 10) / 10,
+    delta: roundToPrecision(currentValue - previousValue, precision),
     spanDays,
   };
 };
@@ -367,13 +384,15 @@ export const getPreviousEntryDelta = (sortedEntries, dateKey, valueField) => {
  * @param {string} dateKey - `YYYY-MM-DD` sample to compare (window end)
  * @param {number} n - Window size in days
  * @param {string} valueField - Numeric field ('weight' | 'bodyFat')
+ * @param {number} [precision=1] - Decimals kept on the average and deviation
  * @returns {number|null} Signed deviation in the field's unit, or null
  */
 export const getWindowAverageDeviation = (
   sortedEntries,
   dateKey,
   n,
-  valueField
+  valueField,
+  precision = 1
 ) => {
   const normalized = normalizeDateKey(dateKey);
   if (!normalized || !Array.isArray(sortedEntries)) {
@@ -410,13 +429,14 @@ export const getWindowAverageDeviation = (
     sortedEntries,
     n,
     normalized,
-    valueField
+    valueField,
+    precision
   );
   if (average == null) {
     return null;
   }
 
-  return Math.round((value - average) * 10) / 10;
+  return roundToPrecision(value - average, precision);
 };
 
 /**
@@ -448,14 +468,26 @@ export const formatSignedDelta = (value, unit = '', separator = ' ') => {
  * @param {Array} entries - Weight entries (sorted internally)
  * @param {number} n - Number of calendar days in the window
  * @param {string|null} [endDateKey=null] - Optional `YYYY-MM-DD` window end; defaults to today
+ * @param {number} [precision=1] - Decimals kept on the average
  * @returns {number|null} Trapezoidal window average, or null when the window holds no data
  */
-export const calculateNDayWeightAverage = (entries, n, endDateKey = null) => {
+export const calculateNDayWeightAverage = (
+  entries,
+  n,
+  endDateKey = null,
+  precision = 1
+) => {
   const sorted = sortWeightEntries(entries);
   if (!sorted.length) return null;
 
   const anchorKey = normalizeDateKey(endDateKey) ?? getTodayDateKey();
-  return calculateTrapezoidalWindowAverage(sorted, n, anchorKey, 'weight');
+  return calculateTrapezoidalWindowAverage(
+    sorted,
+    n,
+    anchorKey,
+    'weight',
+    precision
+  );
 };
 
 /**
@@ -466,13 +498,15 @@ export const calculateNDayWeightAverage = (entries, n, endDateKey = null) => {
  * @param {number} n - Window size in days
  * @param {string} anchorKey - `YYYY-MM-DD` window end
  * @param {string} valueField - Numeric field to average ('weight' | 'bodyFat')
+ * @param {number} [precision=1] - Decimals kept on the average
  * @returns {number|null}
  */
 export const calculateTrapezoidalWindowAverage = (
   sortedEntries,
   n,
   anchorKey,
-  valueField
+  valueField,
+  precision = 1
 ) => {
   const windowKeys = getWindowDateKeys(anchorKey, n);
   if (!windowKeys.length) return null;
@@ -517,7 +551,7 @@ export const calculateTrapezoidalWindowAverage = (
     integral += ((points[i - 1].value + points[i].value) / 2) * spanDays;
   }
 
-  return Math.round((integral / windowKeys.length) * 10) / 10;
+  return roundToPrecision(integral / windowKeys.length, precision);
 };
 
 /**
@@ -525,7 +559,7 @@ export const calculateTrapezoidalWindowAverage = (
  * @param {Array} entries - Sorted weight entries
  * @returns {Array<{ key: string, label: string, year: number, month: number, avg: number, entries: Array }>}
  */
-export const groupWeightEntriesByMonth = (entries) => {
+export const groupWeightEntriesByMonth = (entries, precision = 1) => {
   const sorted = sortWeightEntries(entries);
   if (!sorted.length) return [];
 
@@ -553,7 +587,7 @@ export const groupWeightEntriesByMonth = (entries) => {
   const groups = Array.from(monthMap.values());
   groups.forEach((g) => {
     const sum = g.entries.reduce((acc, e) => acc + e.weight, 0);
-    g.avg = Math.round((sum / g.entries.length) * 10) / 10;
+    g.avg = roundToPrecision(sum / g.entries.length, precision);
   });
 
   return groups;

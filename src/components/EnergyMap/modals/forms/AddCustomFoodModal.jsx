@@ -11,6 +11,14 @@ import {
 import { ModalShell } from '../../common/ModalShell';
 import { SegmentedToggle } from '../../common/SegmentedToggle';
 import { NumericValuePickerModal } from '../pickers/NumericValuePickerModal';
+import { DualWheelModal } from '../pickers/DualWheelModal';
+import { EnergyPickerModal } from '../pickers/EnergyPickerModal';
+import {
+  buildHundredsWheel,
+  buildTenthsWheel,
+} from '../../../../utils/units/wheelConfigs';
+import { roundTo } from '../../../../utils/units/unitFormatter';
+import { useUnits } from '../../../../hooks/useUnits';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
 import { AddCustomFoodInfoModal } from '../info/AddCustomFoodInfoModal';
 import { RecipeIngredientsSection } from './RecipeIngredientsSection';
@@ -19,7 +27,9 @@ import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
 import { FOOD_CATEGORIES } from '../../../../constants/food/foodDatabase';
 import {
   NUTRIENT_PICKER_FIELDS,
-  PORTION_GRAMS_PICKER_FIELD,
+  getPortionWeightField,
+  isPickerValueUnchanged,
+  formatEnergyFieldValue,
   formatPickerDisplayValue,
   formatPickerValueForState,
   normalizePickerValue,
@@ -125,6 +135,34 @@ const toNutrientFieldString = (value) => {
   return Number.isFinite(parsed) ? String(parsed) : '';
 };
 
+// Wheels for per-ounce entry: finer steps than the per-100g lists, split in two
+// so they stay short.
+const OUNCE_NUTRIENT_WHEELS = {
+  calories: buildHundredsWheel({ max: 5000 }),
+  protein: buildTenthsWheel({ min: 0, max: 500 }),
+  carbs: buildTenthsWheel({ min: 0, max: 500 }),
+  fats: buildTenthsWheel({ min: 0, max: 500 }),
+  fiber: buildTenthsWheel({ min: 0, max: 200 }),
+  sodium: buildHundredsWheel({ max: 5000 }),
+  saturatedFats: buildTenthsWheel({ min: 0, max: 200 }),
+  sugars: buildTenthsWheel({ min: 0, max: 200 }),
+};
+const WHOLE_NUMBER_WHEELS = new Set(['calories', 'sodium']);
+const LABEL_SERVING_FIELD = {
+  ...getPortionWeightField({ isOunce: true }),
+  title: 'Label Serving',
+};
+const DEFAULT_BASIS_OUNCES = 1;
+
+/** A stored per-100g value as form text for a basis of `basisGrams`. */
+const toBasisFieldString = (value, basisGrams) => {
+  if (basisGrams === 100) return toNutrientFieldString(value);
+  const text = toNutrientFieldString(value);
+  return text === ''
+    ? ''
+    : String(roundTo((Number(text) * basisGrams) / 100, 1));
+};
+
 const resolveEditablePer100g = (food) => {
   if (food?.per100g && typeof food.per100g === 'object') {
     return food.per100g;
@@ -171,6 +209,8 @@ export const AddCustomFoodModal = ({
   userFoods = EMPTY,
 }) => {
   const prefersReducedMotion = useReducedMotionPreference();
+  const units = useUnits();
+  const foodUnit = units.food;
   const isEditingExisting = Boolean(editingRecipe || editingFood);
   const [mode, setMode] = useState(editingRecipe ? 'recipe' : 'food');
   // Which way the last Food | Recipe switch went (null until the user switches,
@@ -197,6 +237,16 @@ export const AddCustomFoodModal = ({
   const [newPortionLabel, setNewPortionLabel] = useState('');
   const [newPortionGrams, setNewPortionGrams] = useState('');
   const portionIdRef = useRef(1);
+  // Nutrition is typed per 100 g, or per a chosen number of ounces (a label's
+  // serving), and stored per 100 g either way.
+  const [basisOunces, setBasisOunces] = useState(DEFAULT_BASIS_OUNCES);
+  const basisGrams = foodUnit.isOunce
+    ? basisOunces * foodUnit.gramsPerUnit
+    : 100;
+  // The stored values of the food being edited: a field the user never changed
+  // saves them back exactly.
+  const [originalPer100g, setOriginalPer100g] = useState(null);
+  const [editedFields, setEditedFields] = useState(() => new Set());
 
   // Numeric fields open the shared wheel picker (same UX as Manual Entry).
   // The staged config is retained while the picker plays its close animation,
@@ -230,14 +280,17 @@ export const AddCustomFoodModal = ({
       setMode('food');
       setName(editingFood.name ?? '');
       setSelectedTags(getSavedTagSelection(editingFood));
-      setCalories(toNutrientFieldString(per100g?.calories));
-      setProtein(toNutrientFieldString(per100g?.protein));
-      setCarbs(toNutrientFieldString(per100g?.carbs));
-      setFats(toNutrientFieldString(per100g?.fats));
-      setFiber(toNutrientFieldString(per100g?.fiber));
-      setSodium(toNutrientFieldString(per100g?.sodium));
-      setSaturatedFats(toNutrientFieldString(per100g?.saturatedFats));
-      setSugars(toNutrientFieldString(per100g?.sugars));
+      setOriginalPer100g(per100g ?? {});
+      setEditedFields(new Set());
+      const seed = (value) => toBasisFieldString(value, basisGrams);
+      setCalories(seed(per100g?.calories));
+      setProtein(seed(per100g?.protein));
+      setCarbs(seed(per100g?.carbs));
+      setFats(seed(per100g?.fats));
+      setFiber(seed(per100g?.fiber));
+      setSodium(seed(per100g?.sodium));
+      setSaturatedFats(seed(per100g?.saturatedFats));
+      setSugars(seed(per100g?.sugars));
       setPortions(
         Array.isArray(editingFood.portions) ? editingFood.portions : []
       );
@@ -269,6 +322,9 @@ export const AddCustomFoodModal = ({
       setPortions([]);
       setNewPortionLabel('');
       setNewPortionGrams('');
+      setBasisOunces(DEFAULT_BASIS_OUNCES);
+      setOriginalPer100g(null);
+      setEditedFields(new Set());
     }, 200);
 
     return () => clearTimeout(timer);
@@ -316,10 +372,27 @@ export const AddCustomFoodModal = ({
       setValue: setSugars,
     },
     portionGrams: {
-      config: PORTION_GRAMS_PICKER_FIELD,
+      config: getPortionWeightField(foodUnit),
       value: newPortionGrams,
       setValue: setNewPortionGrams,
     },
+    basisOunces: {
+      config: LABEL_SERVING_FIELD,
+      value: String(basisOunces),
+    },
+  };
+
+  // Changing the basis restates the untouched stored values for the new weight;
+  // typed values stay, since they describe whatever weight is chosen.
+  const changeBasis = (ounces) => {
+    setBasisOunces(ounces);
+    if (!originalPer100g) return;
+    const grams = ounces * foodUnit.gramsPerUnit;
+    Object.entries(numericFields).forEach(([key, field]) => {
+      if (key in OUNCE_NUTRIENT_WHEELS && !editedFields.has(key)) {
+        field.setValue(toBasisFieldString(originalPer100g[key], grams));
+      }
+    });
   };
 
   // Blur whatever text field has focus before the picker mounts, so the
@@ -333,14 +406,30 @@ export const AddCustomFoodModal = ({
       activeElement.blur();
     }
 
+    const current = Number.parseFloat(field.value);
+    const isEnergy = fieldKey === 'calories' && units.energy.isKj;
+    const wheel =
+      foodUnit.isOunce && !isEnergy ? OUNCE_NUTRIENT_WHEELS[fieldKey] : null;
+    const precision = WHOLE_NUMBER_WHEELS.has(fieldKey) ? 0 : 1;
+    const isOunceWeight = foodUnit.isOunce && fieldKey === 'portionGrams';
+
     window.setTimeout(() => {
       setNumericPickerState({
         fieldKey,
         config: field.config,
-        value: normalizePickerValue(
-          Number.parseFloat(field.value),
-          field.config
-        ),
+        wheel,
+        isEnergy,
+        precision,
+        value: isEnergy
+          ? Number.isFinite(current)
+            ? current
+            : 0
+          : wheel
+            ? roundTo(Number.isFinite(current) ? current : 0, precision)
+            : normalizePickerValue(
+                isOunceWeight ? foodUnit.toPicker(current) : current,
+                field.config
+              ),
       });
       numericPickerModal.open();
     }, 60);
@@ -361,13 +450,49 @@ export const AddCustomFoodModal = ({
       return;
     }
 
-    const normalizedValue = normalizePickerValue(
-      Number(nextValue),
-      field.config
-    );
-    field.setValue(
-      formatPickerValueForState(normalizedValue, field.config.step)
-    );
+    const {
+      wheel,
+      isEnergy,
+      precision,
+      value: shownValue,
+    } = numericPickerState;
+    const normalizedValue =
+      wheel || isEnergy
+        ? Number(nextValue)
+        : normalizePickerValue(Number(nextValue), field.config);
+
+    if (fieldKey === 'basisOunces') {
+      changeBasis(normalizedValue);
+    } else if (fieldKey === 'portionGrams' && foodUnit.isOunce) {
+      const current = Number.parseFloat(field.value);
+      field.setValue(
+        String(
+          foodUnit.fromPicker(
+            normalizedValue,
+            Number.isFinite(current) ? current : null
+          )
+        )
+      );
+    } else if (isEnergy) {
+      // The energy picker hands back kcal, and the original when untouched.
+      if (normalizedValue !== shownValue) {
+        field.setValue(String(normalizedValue));
+        setEditedFields((previous) => new Set(previous).add(fieldKey));
+      }
+    } else {
+      // Saving the wheel as it opened leaves the field exactly as it was.
+      const isUnchanged = wheel
+        ? field.value !== '' && normalizedValue === shownValue
+        : isPickerValueUnchanged(field.value, normalizedValue, field.config);
+      if (!isUnchanged) {
+        field.setValue(
+          wheel
+            ? String(roundTo(normalizedValue, precision))
+            : formatPickerValueForState(normalizedValue, field.config.step)
+        );
+        setEditedFields((previous) => new Set(previous).add(fieldKey));
+      }
+    }
     numericPickerModal.requestClose();
   };
 
@@ -424,8 +549,8 @@ export const AddCustomFoodModal = ({
     [name, servings, cookedWeightGrams, ingredients]
   );
   const recipeValidation = useMemo(
-    () => validateRecipeDraft(recipeDraft),
-    [recipeDraft]
+    () => validateRecipeDraft(recipeDraft, units),
+    [recipeDraft, units]
   );
   // Live preview of the derived food (works before the recipe has a name).
   const previewFood = useMemo(
@@ -516,6 +641,19 @@ export const AddCustomFoodModal = ({
         return;
       }
 
+      // `null` is untracked; an unchanged stored value is returned as it was.
+      const toPer100g = (key, text) => {
+        if (originalPer100g && !editedFields.has(key)) {
+          const stored = originalPer100g[key];
+          return stored == null || stored === '' ? null : Number(stored);
+        }
+        if (text === '') return null;
+        const typed = parseFloat(text);
+        return basisGrams === 100
+          ? typed
+          : roundTo((typed * 100) / basisGrams, 3);
+      };
+
       const customFood = {
         id:
           editingFood?.foodId ??
@@ -528,15 +666,14 @@ export const AddCustomFoodModal = ({
         source: 'user',
         isCustom: true,
         per100g: {
-          calories: parseFloat(calories) || 0,
-          protein: parseFloat(protein) || 0,
-          carbs: parseFloat(carbs) || 0,
-          fats: parseFloat(fats) || 0,
-          fiber: fiber !== '' ? parseFloat(fiber) : null,
-          sodium: sodium !== '' ? parseFloat(sodium) : null,
-          saturatedFats:
-            saturatedFats !== '' ? parseFloat(saturatedFats) : null,
-          sugars: sugars !== '' ? parseFloat(sugars) : null,
+          calories: toPer100g('calories', calories) || 0,
+          protein: toPer100g('protein', protein) || 0,
+          carbs: toPer100g('carbs', carbs) || 0,
+          fats: toPer100g('fats', fats) || 0,
+          fiber: toPer100g('fiber', fiber),
+          sodium: toPer100g('sodium', sodium),
+          saturatedFats: toPer100g('saturatedFats', saturatedFats),
+          sugars: toPer100g('sugars', sugars),
         },
         portions: portions.length > 0 ? portions : [],
         createdAt: editingFood?.createdAt ?? new Date().toISOString(),
@@ -572,6 +709,9 @@ export const AddCustomFoodModal = ({
       onSaveFood,
       onSaveRecipe,
       onClose,
+      basisGrams,
+      editedFields,
+      originalPer100g,
     ]
   );
 
@@ -715,14 +855,36 @@ export const AddCustomFoodModal = ({
               ) : (
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-foreground text-sm font-semibold mb-2">
-                      Nutrition per 100g
-                    </label>
+                    {foodUnit.isOunce ? (
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <label className="block text-foreground text-sm font-semibold">
+                          Nutrition per
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openNumericPicker('basisOunces')}
+                          className="bg-surface-highlight text-foreground px-3 py-2 rounded-lg border border-border transition-all focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline"
+                          aria-label="Open label serving picker"
+                        >
+                          <span className="font-medium text-sm">
+                            {foodUnit.format(basisGrams)}
+                          </span>
+                          <ChevronsUpDown
+                            size={14}
+                            className="text-muted shrink-0"
+                          />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="block text-foreground text-sm font-semibold mb-2">
+                        Nutrition {foodUnit.basisLabel}
+                      </label>
+                    )}
 
                     {/* Calories */}
                     <div className="mb-3">
                       <label className="block text-muted text-xs mb-1.5">
-                        Calories
+                        {units.energy.noun}
                       </label>
                       <button
                         type="button"
@@ -731,7 +893,7 @@ export const AddCustomFoodModal = ({
                         aria-label="Open calories picker"
                       >
                         <span className="font-medium text-base">
-                          {formatPickerDisplayValue(calories, 'kcal')}
+                          {formatEnergyFieldValue(calories, units.energy)}
                         </span>
                         <ChevronsUpDown
                           size={16}
@@ -929,7 +1091,9 @@ export const AddCustomFoodModal = ({
                               {portion.label}
                             </span>
                             <span className="text-muted text-sm">
-                              ({portion.grams}g)
+                              (
+                              {foodUnit.format(portion.grams, { space: false })}
+                              )
                             </span>
                           </div>
                           <button
@@ -963,16 +1127,25 @@ export const AddCustomFoodModal = ({
                 </div>
                 <div className="w-28">
                   <label className="block text-muted text-xs mb-1.5">
-                    Grams
+                    {foodUnit.isOunce ? 'Ounces' : 'Grams'}
                   </label>
                   <button
                     type="button"
                     onClick={() => openNumericPicker('portionGrams')}
                     className="w-full bg-surface-highlight text-foreground px-2.5 py-2.5 rounded-lg border border-border transition-all text-left focus-ring md:hover:border-muted/50 flex items-center justify-between gap-2 pressable-inline text-sm"
-                    aria-label="Open portion grams picker"
+                    aria-label={
+                      foodUnit.isOunce
+                        ? 'Open portion weight picker'
+                        : 'Open portion grams picker'
+                    }
                   >
                     <span className="font-medium">
-                      {formatPickerDisplayValue(newPortionGrams, 'g')}
+                      {formatPickerDisplayValue(
+                        foodUnit.isOunce && newPortionGrams
+                          ? foodUnit.toPicker(newPortionGrams)
+                          : newPortionGrams,
+                        foodUnit.unit
+                      )}
                     </span>
                     <ChevronsUpDown size={14} className="text-muted shrink-0" />
                   </button>
@@ -1064,8 +1237,33 @@ export const AddCustomFoodModal = ({
         onClose={infoModal.requestClose}
       />
 
+      <DualWheelModal
+        isOpen={numericPickerModal.isOpen && Boolean(numericPickerState?.wheel)}
+        isClosing={numericPickerModal.isClosing}
+        title={pickerField?.title ?? 'Select Value'}
+        unitLabel={pickerField?.unitLabel ?? ''}
+        value={numericPickerState?.value ?? 0}
+        config={numericPickerState?.wheel}
+        onCancel={numericPickerModal.requestClose}
+        onSave={handleNumericPickerSave}
+      />
+
+      <EnergyPickerModal
+        isOpen={
+          numericPickerModal.isOpen && Boolean(numericPickerState?.isEnergy)
+        }
+        isClosing={numericPickerModal.isClosing}
+        value={numericPickerState?.value ?? 0}
+        onCancel={numericPickerModal.requestClose}
+        onSave={handleNumericPickerSave}
+      />
+
       <NumericValuePickerModal
-        isOpen={numericPickerModal.isOpen}
+        isOpen={
+          numericPickerModal.isOpen &&
+          !numericPickerState?.wheel &&
+          !numericPickerState?.isEnergy
+        }
         isClosing={numericPickerModal.isClosing}
         title={pickerField?.title ?? 'Select Value'}
         value={numericPickerState?.value ?? 0}

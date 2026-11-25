@@ -2,6 +2,7 @@ import React, {
   useState,
   useRef,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useMemo,
 } from 'react';
@@ -25,24 +26,39 @@ import {
   createPickerScrollHandler,
 } from '../../../../utils/visuals/scroll';
 import { scaleMacrosFromPer100g } from '../../../../utils/food/portionNormalization';
+import { useUnits } from '../../../../hooks/useUnits';
+import { createFoodUnit } from '../../../../utils/units/unitFormatter';
 
 const MIN_GRAMS = 1;
 const MAX_GRAMS = 1000;
 const DEFAULT_GRAMS = 100;
+const DEFAULT_OUNCES = 4;
 
-const GRAM_VALUES = Array.from(
-  { length: MAX_GRAMS - MIN_GRAMS + 1 },
-  (_, index) => MIN_GRAMS + index
-);
+// The two weight units are always offered; the preference picks the default.
+const GRAMS_UNIT_ID = 'grams';
+const OUNCES_UNIT_ID = 'ounces';
+const OUNCE = createFoodUnit('oz');
+
+const countFrom = (first, last) =>
+  Array.from({ length: last - first + 1 }, (_, index) => first + index);
+
+// What the two wheels span: grams and custom-portion quantities share one, the
+// ounce wheel stops at the same 1000 g.
+const QUANTITY_WHEEL = {
+  min: MIN_GRAMS,
+  max: MAX_GRAMS,
+  values: countFrom(MIN_GRAMS, MAX_GRAMS),
+};
+const OUNCE_WHEEL = {
+  min: 0.1,
+  max: OUNCE.toPicker(MAX_GRAMS),
+  values: countFrom(0, Math.floor(OUNCE.toPicker(MAX_GRAMS))),
+};
+
+const wheelFor = (unitId) =>
+  unitId === OUNCES_UNIT_ID ? OUNCE_WHEEL : QUANTITY_WHEEL;
 
 const DECIMAL_VALUES = Array.from({ length: 10 }, (_, index) => index);
-
-const clampWhole = (value) => {
-  if (!Number.isFinite(value)) {
-    return MIN_GRAMS;
-  }
-  return Math.min(Math.max(Math.round(value), MIN_GRAMS), MAX_GRAMS);
-};
 
 const clampDecimal = (value) => {
   if (!Number.isFinite(value)) {
@@ -58,31 +74,34 @@ const normalizeGrams = (grams) => {
   return Math.min(Math.max(grams, MIN_GRAMS), MAX_GRAMS);
 };
 
-const convertGramsToParts = (grams) => {
-  const normalized = Math.round(normalizeGrams(grams) * 10) / 10;
-  let whole = Math.floor(normalized);
-  let decimal = Math.round((normalized - whole) * 10);
-
-  if (decimal === 10) {
-    whole = Math.min(whole + 1, MAX_GRAMS);
-    decimal = 0;
-  }
-
-  if (whole === MAX_GRAMS) {
-    decimal = 0;
-  }
-
-  return {
-    whole,
-    decimal,
-  };
+/** A quantity inside the wheel's range, as its whole and decimal rows. */
+const quantityToParts = (quantity, wheel) => {
+  const safe = Number.isFinite(quantity) ? quantity : wheel.min;
+  const bounded = Math.min(Math.max(safe, wheel.min), wheel.max);
+  const tenths = Math.round(bounded * 10);
+  return { whole: Math.floor(tenths / 10), decimal: tenths % 10 };
 };
 
-const buildGramValue = (whole, decimal) => {
-  const clampedWhole = clampWhole(whole);
-  const safeDecimal = clampedWhole === MAX_GRAMS ? 0 : clampDecimal(decimal);
-  return Math.round((clampedWhole + safeDecimal / 10) * 10) / 10;
+/** The quantity two wheel rows stand for, pulled back inside the range. */
+const buildQuantity = (whole, decimal, wheel) => {
+  const first = wheel.values[0];
+  const last = wheel.values[wheel.values.length - 1];
+  const safeWhole = Number.isFinite(whole)
+    ? Math.min(Math.max(Math.round(whole), first), last)
+    : first;
+  const quantity = (safeWhole * 10 + clampDecimal(decimal)) / 10;
+  return Math.min(Math.max(quantity, wheel.min), wheel.max);
 };
+
+const clampParts = (whole, decimal, wheel) =>
+  quantityToParts(buildQuantity(whole, decimal, wheel), wheel);
+
+/** The weight-wheel rows for `grams` in one of the two weight units. */
+const gramsToParts = (grams, unitId) =>
+  quantityToParts(
+    unitId === OUNCES_UNIT_ID ? OUNCE.toPicker(grams) : grams,
+    wheelFor(unitId)
+  );
 
 export const FoodPortionModal = ({
   isOpen,
@@ -91,7 +110,7 @@ export const FoodPortionModal = ({
   onAddFood,
   onSaveAsFavourite,
   selectedFood,
-  initialGrams = DEFAULT_GRAMS,
+  initialGrams,
   smartTefEnabled = false,
   isEditing = false,
   isFoodFavourited = false,
@@ -103,6 +122,18 @@ export const FoodPortionModal = ({
   onConfirmIngredient,
 }) => {
   const roundToTenth = (value) => Math.round(value * 10) / 10;
+  const { food: foodUnit, energy } = useUnits();
+  const preferredUnitId = foodUnit.isOunce ? OUNCES_UNIT_ID : GRAMS_UNIT_ID;
+
+  const initialGramsValue = useMemo(() => {
+    const numeric = Number(initialGrams);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return preferredUnitId === OUNCES_UNIT_ID
+        ? OUNCE.fromPicker(DEFAULT_OUNCES)
+        : DEFAULT_GRAMS;
+    }
+    return normalizeGrams(numeric);
+  }, [initialGrams, preferredUnitId]);
 
   const wholeRef = useRef(null);
   const decimalRef = useRef(null);
@@ -110,7 +141,7 @@ export const FoodPortionModal = ({
   const decimalTimeoutRef = useRef(null);
   const idCounterRef = useRef(0);
   const hasAlignedRef = useRef(false);
-  const selectionRef = useRef(convertGramsToParts(initialGrams));
+  const selectionRef = useRef(gramsToParts(initialGramsValue, preferredUnitId));
   // The modal's top item card (the element that flies) and a flag that skips the
   // return flight when the whole search modal is closing too (Log & exit).
   const cardRef = useRef(null);
@@ -132,17 +163,14 @@ export const FoodPortionModal = ({
     [selectedFood]
   );
 
-  const initialGramsValue = useMemo(() => {
-    const numeric = Number(initialGrams);
-    if (!Number.isFinite(numeric) || numeric <= 0) {
-      return DEFAULT_GRAMS;
-    }
-    return normalizeGrams(numeric);
-  }, [initialGrams]);
-
-  const [selectedUnit, setSelectedUnit] = useState('grams'); // 'grams' or portion id
-  const [selectedWhole, setSelectedWhole] = useState(DEFAULT_GRAMS);
-  const [selectedDecimal, setSelectedDecimal] = useState(0);
+  // 'grams', 'ounces' or a portion id.
+  const [selectedUnit, setSelectedUnit] = useState(preferredUnitId);
+  const [selectedWhole, setSelectedWhole] = useState(
+    () => gramsToParts(initialGramsValue, preferredUnitId).whole
+  );
+  const [selectedDecimal, setSelectedDecimal] = useState(
+    () => gramsToParts(initialGramsValue, preferredUnitId).decimal
+  );
 
   const [handleWholeScroll, setHandleWholeScroll] = useState(() => () => {});
   const [handleDecimalScroll, setHandleDecimalScroll] = useState(
@@ -159,143 +187,149 @@ export const FoodPortionModal = ({
 
   // Get current portion object if using custom unit
   const currentPortion = useMemo(() => {
-    if (selectedUnit === 'grams' || !selectedFood?.portions) return null;
+    if (
+      selectedUnit === GRAMS_UNIT_ID ||
+      selectedUnit === OUNCES_UNIT_ID ||
+      !selectedFood?.portions
+    ) {
+      return null;
+    }
     return selectedFood.portions.find((p) => p.id === selectedUnit);
   }, [selectedUnit, selectedFood]);
 
   const computeGramsFromParts = useCallback(
-    (whole, decimal, unitOverride, portionOverride) => {
-      const quantity = buildGramValue(whole, decimal);
-      const targetUnit = unitOverride ?? selectedUnit;
+    (whole, decimal) => {
+      const quantity = buildQuantity(whole, decimal, wheelFor(selectedUnit));
 
-      if (targetUnit === 'grams') {
-        return quantity;
+      if (currentPortion) {
+        return Math.round(quantity * currentPortion.grams * 10) / 10;
       }
 
-      const resolvedPortion =
-        portionOverride ??
-        (targetUnit === selectedUnit
-          ? currentPortion
-          : selectedFood?.portions?.find((portion) => {
-              return portion.id === targetUnit;
-            }));
-
-      if (!resolvedPortion) {
-        return quantity;
+      // Wheels still showing what the modal opened with keep the exact grams.
+      const isOunces = selectedUnit === OUNCES_UNIT_ID;
+      const opened = isOunces
+        ? OUNCE.toPicker(initialGramsValue)
+        : Math.round(initialGramsValue * 10) / 10;
+      if (quantity === opened) {
+        return initialGramsValue;
       }
 
-      return Math.round(quantity * resolvedPortion.grams * 10) / 10;
+      return isOunces
+        ? Math.min(OUNCE.fromPicker(quantity), MAX_GRAMS)
+        : quantity;
     },
-    [selectedUnit, currentPortion, selectedFood]
+    [selectedUnit, currentPortion, initialGramsValue]
   );
 
-  const applySelection = useCallback((whole, decimal, behavior = 'instant') => {
-    const clampedWhole = clampWhole(whole);
-    const clampedDecimal =
-      clampedWhole === MAX_GRAMS ? 0 : clampDecimal(decimal);
-
-    selectionRef.current = {
-      whole: clampedWhole,
-      decimal: clampedDecimal,
-    };
-
-    setSelectedWhole(clampedWhole);
-    setSelectedDecimal(clampedDecimal);
-
+  const alignWheels = useCallback((behavior) => {
+    const { whole, decimal } = selectionRef.current;
     if (wholeRef.current) {
-      alignScrollContainerToValue(
-        wholeRef.current,
-        clampedWhole.toString(),
-        behavior
-      );
+      alignScrollContainerToValue(wholeRef.current, whole.toString(), behavior);
     }
-
     if (decimalRef.current) {
       alignScrollContainerToValue(
         decimalRef.current,
-        clampedDecimal.toString(),
+        decimal.toString(),
         behavior
       );
     }
   }, []);
 
+  const applySelection = useCallback(
+    (whole, decimal, behavior = 'instant', unitId = GRAMS_UNIT_ID) => {
+      const parts = clampParts(whole, decimal, wheelFor(unitId));
+
+      selectionRef.current = parts;
+      setSelectedWhole(parts.whole);
+      setSelectedDecimal(parts.decimal);
+      alignWheels(behavior);
+    },
+    [alignWheels]
+  );
+
+  // Switching between the gram and ounce wheels swaps the rows, so re-align
+  // once the new list is in the document.
+  useLayoutEffect(() => {
+    alignWheels('instant');
+  }, [alignWheels, selectedUnit]);
+
   const grams = useMemo(() => {
     return computeGramsFromParts(selectedWhole, selectedDecimal);
   }, [computeGramsFromParts, selectedWhole, selectedDecimal]);
 
-  // Reset state when modal opens with new food
-  useEffect(() => {
-    hasAlignedRef.current = false;
-
-    if (!isOpen || !selectedFood) {
-      const frame = requestAnimationFrame(() => setSelectedUnit('grams'));
-      return () => cancelAnimationFrame(frame);
-    }
-
-    const frame = requestAnimationFrame(() => setSelectedUnit('grams'));
-    return () => cancelAnimationFrame(frame);
-  }, [isOpen, selectedFood, setSelectedUnit]);
-
-  // Sync picker to default position on open
+  // Sync unit and wheels to the default position on open
   useEffect(() => {
     if (!isOpen || !selectedFood) {
+      hasAlignedRef.current = false;
       return undefined;
     }
 
     const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
     hasAlignedRef.current = true;
 
-    const parts = convertGramsToParts(initialGramsValue);
+    const parts = gramsToParts(initialGramsValue, preferredUnitId);
 
     const frame = requestAnimationFrame(() => {
-      applySelection(parts.whole, parts.decimal, behavior);
+      setSelectedUnit(preferredUnitId);
+      applySelection(parts.whole, parts.decimal, behavior, preferredUnitId);
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [applySelection, initialGramsValue, isOpen, selectedFood]);
+  }, [
+    applySelection,
+    initialGramsValue,
+    isOpen,
+    preferredUnitId,
+    selectedFood,
+  ]);
 
-  const handleWholeChange = useCallback((nextWhole) => {
-    const clampedWhole = clampWhole(nextWhole);
-    const nextDecimal =
-      clampedWhole === MAX_GRAMS ? 0 : selectionRef.current.decimal;
+  const handleWholeChange = useCallback(
+    (nextWhole) => {
+      const requested = selectionRef.current.decimal;
+      const parts = clampParts(nextWhole, requested, wheelFor(selectedUnit));
 
-    selectionRef.current = {
-      whole: clampedWhole,
-      decimal: nextDecimal,
-    };
+      selectionRef.current = parts;
+      setSelectedWhole(parts.whole);
+      setSelectedDecimal(parts.decimal);
 
-    setSelectedWhole(clampedWhole);
-    setSelectedDecimal(nextDecimal);
+      if (parts.decimal !== requested && decimalRef.current) {
+        alignScrollContainerToValue(
+          decimalRef.current,
+          String(parts.decimal),
+          'smooth'
+        );
+      }
+    },
+    [selectedUnit]
+  );
 
-    if (clampedWhole === MAX_GRAMS && decimalRef.current) {
-      alignScrollContainerToValue(decimalRef.current, '0', 'smooth');
-    }
-  }, []);
+  const handleDecimalChange = useCallback(
+    (nextDecimal) => {
+      const parts = clampParts(
+        selectionRef.current.whole,
+        nextDecimal,
+        wheelFor(selectedUnit)
+      );
 
-  const handleDecimalChange = useCallback((nextDecimal) => {
-    const clampedDecimal =
-      selectionRef.current.whole === MAX_GRAMS ? 0 : clampDecimal(nextDecimal);
-
-    selectionRef.current = {
-      whole: selectionRef.current.whole,
-      decimal: clampedDecimal,
-    };
-
-    setSelectedDecimal(clampedDecimal);
-  }, []);
+      selectionRef.current = parts;
+      setSelectedDecimal(parts.decimal);
+    },
+    [selectedUnit]
+  );
 
   const unitOptions = useMemo(
     () => [
-      { id: 'grams', label: 'Grammes', detail: 'Exact weight' },
+      { id: GRAMS_UNIT_ID, label: 'Grammes', detail: 'Exact weight' },
+      { id: OUNCES_UNIT_ID, label: 'Ounces', detail: 'Exact weight' },
       ...(selectedFood?.portions ?? []).map((portion) => ({
         id: portion.id,
-        label: portion.label,
+        label: foodUnit.formatPortionLabel(portion.label),
         detail: Number.isFinite(portion.grams)
-          ? `${formatOne(portion.grams)} g`
+          ? foodUnit.format(portion.grams)
           : undefined,
       })),
     ],
-    [selectedFood]
+    [foodUnit, selectedFood]
   );
 
   const handleUnitChange = useCallback(
@@ -306,12 +340,13 @@ export const FoodPortionModal = ({
 
       setSelectedUnit(newUnit);
 
-      if (newUnit === 'grams') {
-        applySelection(DEFAULT_GRAMS, 0, 'instant');
-        return;
-      }
-
-      applySelection(1, 0, 'instant');
+      const startingQuantity =
+        newUnit === GRAMS_UNIT_ID
+          ? DEFAULT_GRAMS
+          : newUnit === OUNCES_UNIT_ID
+            ? DEFAULT_OUNCES
+            : 1;
+      applySelection(startingQuantity, 0, 'instant', newUnit);
     },
     [applySelection, selectedUnit]
   );
@@ -431,7 +466,11 @@ export const FoodPortionModal = ({
 
     // Portion units are display-only here: the recipe stores the resolved grams
     // and just remembers how the user picked them ("1.5 x 1 cup").
-    const quantity = buildGramValue(selectedWhole, selectedDecimal);
+    const quantity = buildQuantity(
+      selectedWhole,
+      selectedDecimal,
+      wheelFor(selectedUnit)
+    );
     onConfirmIngredient({
       food: selectedFood,
       grams,
@@ -452,7 +491,11 @@ export const FoodPortionModal = ({
       ? {
           portionId: currentPortion.id,
           portionName: currentPortion.name,
-          portionMultiplier: buildGramValue(selectedWhole, selectedDecimal),
+          portionMultiplier: buildQuantity(
+            selectedWhole,
+            selectedDecimal,
+            wheelFor(selectedUnit)
+          ),
           portionGrams: currentPortion.grams,
         }
       : null;
@@ -489,6 +532,9 @@ export const FoodPortionModal = ({
 
   if (!selectedFood) return null;
 
+  // The item card shows nutrition per 100 g or per ounce.
+  const perBasis = (value) => formatOne(foodUnit.perBasis(value));
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -515,29 +561,33 @@ export const FoodPortionModal = ({
             <FoodTagBadges food={selectedFood} className="mt-1" />
           </div>
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-medium text-muted">per 100g</span>
+            <span className="text-[10px] font-medium text-muted">
+              {foodUnit.basisLabel}
+            </span>
             <div className="flex items-center gap-3 text-xs">
               <div className="text-center">
                 <p className="font-bold text-accent-emerald">
-                  {formatOne(selectedFood.per100g.calories)}
+                  {energy.compact(
+                    foodUnit.perBasis(selectedFood.per100g.calories)
+                  )}
                 </p>
-                <p className="text-muted">cal</p>
+                <p className="text-muted">{energy.shortUnit}</p>
               </div>
               <div className="text-center">
                 <p className="font-bold text-accent-red">
-                  {formatOne(selectedFood.per100g.protein)}g
+                  {perBasis(selectedFood.per100g.protein)}g
                 </p>
                 <p className="text-muted">prot</p>
               </div>
               <div className="text-center">
                 <p className="font-bold text-accent-amber">
-                  {formatOne(selectedFood.per100g.carbs)}g
+                  {perBasis(selectedFood.per100g.carbs)}g
                 </p>
                 <p className="text-muted">carb</p>
               </div>
               <div className="text-center">
                 <p className="font-bold text-accent-yellow">
-                  {formatOne(selectedFood.per100g.fats)}g
+                  {perBasis(selectedFood.per100g.fats)}g
                 </p>
                 <p className="text-muted">fat</p>
               </div>
@@ -556,7 +606,7 @@ export const FoodPortionModal = ({
         <div className="relative z-20 mb-3">
           <PortionUnitSelect
             value={selectedUnit}
-            options={hasCustomPortions ? unitOptions : unitOptions.slice(0, 1)}
+            options={hasCustomPortions ? unitOptions : unitOptions.slice(0, 2)}
             onChange={handleUnitChange}
           />
         </div>
@@ -578,7 +628,7 @@ export const FoodPortionModal = ({
                 onScroll={handleWholeScroll}
               >
                 <div className="h-16" />
-                {GRAM_VALUES.map((value) => (
+                {wheelFor(selectedUnit).values.map((value) => (
                   <div
                     key={value}
                     data-value={value}
@@ -586,7 +636,8 @@ export const FoodPortionModal = ({
                       applySelection(
                         value,
                         selectionRef.current.decimal,
-                        'smooth'
+                        'smooth',
+                        selectedUnit
                       )
                     }
                     className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
@@ -619,8 +670,10 @@ export const FoodPortionModal = ({
               >
                 <div className="h-16" />
                 {DECIMAL_VALUES.map((decimal) => {
+                  const wheel = wheelFor(selectedUnit);
+                  const quantity = (selectedWhole * 10 + decimal) / 10;
                   const isDisabled =
-                    selectedWhole === MAX_GRAMS && decimal !== 0;
+                    quantity < wheel.min || quantity > wheel.max;
                   return (
                     <div
                       key={decimal}
@@ -630,7 +683,8 @@ export const FoodPortionModal = ({
                         applySelection(
                           selectionRef.current.whole,
                           decimal,
-                          'smooth'
+                          'smooth',
+                          selectedUnit
                         );
                       }}
                       className={`h-16 flex items-center justify-center text-2xl font-bold snap-center transition-all text-center cursor-pointer ${
@@ -671,14 +725,14 @@ export const FoodPortionModal = ({
       {nutrition && (
         <div className="bg-surface-highlight/75 border border-border rounded-lg p-4 mb-6 shadow-lg">
           <p className="text-muted text-xs mb-3 text-center">
-            For {formatOne(grams)}g:
+            For {foodUnit.format(grams, { space: false })}:
           </p>
           <div className="grid grid-cols-4 gap-3 text-center">
             <div>
               <p className="text-accent-emerald font-bold text-2xl">
-                {formatOne(nutrition.calories)}
+                {energy.compact(nutrition.calories)}
               </p>
-              <p className="text-muted text-xs">kcal</p>
+              <p className="text-muted text-xs">{energy.unit}</p>
             </div>
             <div>
               <p className="text-accent-red font-bold text-2xl">

@@ -26,6 +26,7 @@ import { SessionHeartRatePanel } from '../../common/SessionHeartRatePanel';
 import { ImportWorkoutButton } from '../../common/ImportWorkoutButton';
 import { SegmentedToggle } from '../../common/SegmentedToggle';
 import { SmoothHeight } from '../../common/SmoothHeight';
+import { useUnits } from '../../../../hooks/useUnits';
 
 const EFFORT_TYPE_OPTIONS = [
   { id: 'intensity', label: 'Intensity' },
@@ -57,6 +58,7 @@ export const CardioModal = ({
   mode = 'session',
   isEditing: isEditingProp,
 }) => {
+  const units = useUnits();
   const {
     cardioTypes: storeCardioTypes,
     customCardioTypes: storeCustomTypes,
@@ -618,11 +620,12 @@ export const CardioModal = ({
               Estimated Burn:
             </p>
             <p className="text-foreground font-bold text-xl text-center">
-              ~{estimatedBurn} calories
+              ~{units.energy.value(estimatedBurn, { grouping: false })}{' '}
+              {units.energy.longUnit}
             </p>
             {epocEnabled && (
               <p className="text-muted text-xs text-center mt-1">
-                +~{Math.round(estimatedEpoc)} EPOC
+                +~{units.energy.value(estimatedEpoc, { grouping: false })} EPOC
               </p>
             )}
           </div>

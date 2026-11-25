@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatOne } from '../../../utils/formatting/format';
+import { useUnits } from '../../../hooks/useUnits';
 import {
   FOOD_SOURCE_TYPES,
   getFoodCategoryMeta,
@@ -17,6 +17,8 @@ export const FoodTagBadges = ({
   portionText = null,
   className = '',
 }) => {
+  const { food: foodUnit } = useUnits();
+
   if (!food) {
     return null;
   }
@@ -51,7 +53,7 @@ export const FoodTagBadges = ({
         : food?.portions?.length > 0
           ? `${food.portions.length} ${food.portions.length === 1 ? 'portion' : 'portions'}`
           : sourceType !== FOOD_SOURCE_TYPES.MANUAL && food?.grams
-            ? `${formatOne(food.grams)}g`
+            ? foodUnit.format(food.grams, { space: false })
             : null);
 
   return (

@@ -2,7 +2,7 @@ import React from 'react';
 import { Info, X } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
-import { formatWeight } from '../../../../utils/measurements/weight';
+import { useUnits } from '../../../../hooks/useUnits';
 import {
   calculateBMI,
   getBMICategory,
@@ -10,6 +10,7 @@ import {
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 
 export const BmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
+  const units = useUnits();
   const { storeUserData } = useEnergyMapStore(
     (state) => ({ storeUserData: state.userData }),
     shallow
@@ -93,12 +94,14 @@ export const BmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
             <p>
               Weight:{' '}
               <span className="text-foreground font-semibold">
-                {formatWeight(weight)} kg
+                {units.bodyWeight.format(weight)}
               </span>
             </p>
             <p>
               Height:{' '}
-              <span className="text-foreground font-semibold">{height} cm</span>
+              <span className="text-foreground font-semibold">
+                {units.height.format(height)}
+              </span>
             </p>
             <div className="border-t border-accent-blue/50 mt-2 pt-2">
               <p className="text-lg">

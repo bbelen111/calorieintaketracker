@@ -1,12 +1,15 @@
 import React from 'react';
 import { Info, X } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import { useUnits } from '../../../../hooks/useUnits';
 
 export const AdaptiveThermogenesisInfoModal = ({
   isOpen,
   isClosing,
   onClose,
 }) => {
+  const { energy } = useUnits();
+  const amount = (kcal) => energy.value(kcal, { grouping: false });
   return (
     <ModalShell
       isOpen={isOpen}
@@ -54,8 +57,8 @@ export const AdaptiveThermogenesisInfoModal = ({
             baseline TDEE + AT correction = adjusted TDEE
           </p>
           <p className="text-xs">
-            Corrections are bounded: staged −250 to +150 kcal/day, smart up to
-            ±300 kcal/day.
+            Corrections are bounded: staged −{amount(250)} to +{amount(150)}{' '}
+            {energy.unit}/day, smart up to ±{amount(300)} {energy.unit}/day.
           </p>
         </div>
 
@@ -72,15 +75,16 @@ export const AdaptiveThermogenesisInfoModal = ({
           <ul className="list-disc pl-5 space-y-1">
             <li>
               <span className="text-foreground font-semibold">Cut goals</span>{' '}
-              deepen the negative pressure over time, growing from −50 toward
-              −250 kcal/day as pressure stays deeply negative.
+              deepen the negative pressure over time, growing from −50 toward −
+              {amount(250)} {energy.unit}/day as pressure stays deeply negative.
             </li>
             <li>
               <span className="text-foreground font-semibold">
                 Surplus goals
               </span>{' '}
               unwind deficits roughly twice as fast as maintenance, then build
-              small positive corrections up to +150 kcal/day.
+              small positive corrections up to +{amount(150)} {energy.unit}
+              /day.
             </li>
             <li>
               <span className="text-foreground font-semibold">Maintenance</span>{' '}

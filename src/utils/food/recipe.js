@@ -19,6 +19,7 @@ import {
   NUTRIENT_KEYS,
 } from '../../constants/nutrients/nutrients.js';
 import { scaleMacrosFromPer100g } from './portionNormalization.js';
+import { METRIC_UNITS } from '../units/unitFormatter.js';
 
 export const RECIPE_ID_PREFIX = 'recipe_';
 export const RECIPE_SOURCE = 'recipe';
@@ -482,9 +483,10 @@ export const buildRecipeIngredient = ({ food, grams, portionLabel } = {}) =>
  * Validate a builder draft `{ name, servings, cookedWeightGrams, ingredients }`.
  * Returns `{ isValid, errors, totalGrams, servingGrams, suggestedServings }`;
  * `errors` only contains the keys that failed (`name`, `ingredients`,
- * `servings`, `cookedWeight`, `servingWeight`).
+ * `servings`, `cookedWeight`, `servingWeight`). `units` writes the weights in
+ * the messages; the limits themselves are grams.
  */
-export const validateRecipeDraft = (draft) => {
+export const validateRecipeDraft = (draft, units = METRIC_UNITS) => {
   const errors = {};
 
   if (!toTrimmedStringOrNull(draft?.name)) {
@@ -516,7 +518,10 @@ export const validateRecipeDraft = (draft) => {
       cooked <= 0 ||
       cooked > RECIPE_MAX_COOKED_WEIGHT_GRAMS
     ) {
-      errors.cookedWeight = `Cooked weight must be between 1 and ${RECIPE_MAX_COOKED_WEIGHT_GRAMS} g.`;
+      const maximum = units.food.format(RECIPE_MAX_COOKED_WEIGHT_GRAMS);
+      errors.cookedWeight = units.food.isOunce
+        ? `Cooked weight must be above 0 and at most ${maximum}.`
+        : `Cooked weight must be between 1 and ${maximum}.`;
     }
   }
 
@@ -529,7 +534,7 @@ export const validateRecipeDraft = (draft) => {
   );
 
   if (!errors.servings && servingGrams > RECIPE_MAX_SERVING_GRAMS) {
-    errors.servingWeight = `Each serving would weigh ${Math.round(servingGrams)} g. Use at least ${suggestedServings} servings to keep a serving under ${RECIPE_MAX_SERVING_GRAMS} g.`;
+    errors.servingWeight = `Each serving would weigh ${units.food.format(Math.round(servingGrams))}. Use at least ${suggestedServings} servings to keep a serving under ${units.food.format(RECIPE_MAX_SERVING_GRAMS)}.`;
   }
 
   return {

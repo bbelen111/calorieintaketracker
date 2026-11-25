@@ -2,7 +2,7 @@ import React from 'react';
 import { Info, X } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
-import { formatWeight } from '../../../../utils/measurements/weight';
+import { useUnits } from '../../../../hooks/useUnits';
 import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import {
   calculateFFMI,
@@ -11,6 +11,7 @@ import {
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 
 export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
+  const units = useUnits();
   const { storeUserData } = useEnergyMapStore(
     (state) => ({ storeUserData: state.userData }),
     shallow
@@ -128,12 +129,14 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
             <p>
               Weight:{' '}
               <span className="text-foreground font-semibold">
-                {formatWeight(weight)} kg
+                {units.bodyWeight.format(weight)}
               </span>
             </p>
             <p>
               Height:{' '}
-              <span className="text-foreground font-semibold">{height} cm</span>
+              <span className="text-foreground font-semibold">
+                {units.height.format(height)}
+              </span>
             </p>
             <p>
               Body fat:{' '}
@@ -147,7 +150,7 @@ export const FfmiInfoModal = ({ isOpen, isClosing, userData, onClose }) => {
               <p>
                 Lean mass:{' '}
                 <span className="text-foreground font-semibold">
-                  {ffmiData.leanMass.toFixed(1)} kg
+                  {units.bodyWeight.format(ffmiData.leanMass, { fixed: 1 })}
                 </span>
               </p>
             )}

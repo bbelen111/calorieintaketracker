@@ -1,35 +1,41 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import {
   alignScrollContainerToValue,
   createPickerScrollHandler,
 } from '../../../../utils/visuals/scroll';
+import { useUnits } from '../../../../hooks/useUnits';
 
-const MIN_CALORIES_PER_HOUR = 0;
-const MAX_CALORIES_PER_HOUR = 2000;
-const CALORIES_STEP = 5;
+const DEFAULT_KCAL_PER_HOUR = 220;
+const MAX_KCAL_PER_HOUR = 2000;
+// Wheel steps per energy unit (about the same 5 kcal of resolution).
+const STEP_BY_UNIT = { kcal: 5, kJ: 20 };
 
-const CALORIES_VALUES = Array.from(
-  {
-    length:
-      Math.floor(
-        (MAX_CALORIES_PER_HOUR - MIN_CALORIES_PER_HOUR) / CALORIES_STEP
-      ) + 1,
-  },
-  (_, index) => MIN_CALORIES_PER_HOUR + index * CALORIES_STEP
-);
-
-const clampCaloriesPerHour = (value) => {
-  if (!Number.isFinite(value)) {
-    return 220;
-  }
-
-  const rounded = Math.round(value / CALORIES_STEP) * CALORIES_STEP;
-  return Math.min(
-    Math.max(rounded, MIN_CALORIES_PER_HOUR),
-    MAX_CALORIES_PER_HOUR
+/** The wheel for the user's energy unit; picks and `value` are kcal outside. */
+const buildWheel = (energy) => {
+  const step = STEP_BY_UNIT[energy.unit];
+  const max = Math.floor(energy.toNumber(MAX_KCAL_PER_HOUR) / step) * step;
+  const values = Array.from(
+    { length: max / step + 1 },
+    (_, index) => index * step
   );
+  const snap = (picked) => {
+    const numeric = Number.isFinite(picked)
+      ? picked
+      : energy.toNumber(DEFAULT_KCAL_PER_HOUR);
+    return Math.min(Math.max(Math.round(numeric / step) * step, 0), max);
+  };
+  const fromKcal = (kcal) =>
+    snap(Number.isFinite(kcal) ? energy.toNumber(kcal) : Number.NaN);
+
+  return { values, snap, fromKcal };
 };
 
 export const CaloriesPerHourPickerModal = ({
@@ -42,14 +48,18 @@ export const CaloriesPerHourPickerModal = ({
   const scrollRef = useRef(null);
   const timeoutRef = useRef(null);
   const hasAlignedRef = useRef(false);
-  const selectionRef = useRef(220);
+  const { energy } = useUnits();
+  const wheel = useMemo(() => buildWheel(energy), [energy]);
+  const selectionRef = useRef(wheel.fromKcal(DEFAULT_KCAL_PER_HOUR));
 
-  const [selectedCalories, setSelectedCalories] = useState(220);
+  const [selectedCalories, setSelectedCalories] = useState(() =>
+    wheel.fromKcal(value ?? DEFAULT_KCAL_PER_HOUR)
+  );
   const [handleScroll, setHandleScroll] = useState(() => () => {});
 
   const applySelection = useCallback(
     (caloriesPerHour, behavior = 'instant') => {
-      const clamped = clampCaloriesPerHour(caloriesPerHour);
+      const clamped = wheel.snap(caloriesPerHour);
       selectionRef.current = clamped;
       setSelectedCalories(clamped);
 
@@ -63,7 +73,7 @@ export const CaloriesPerHourPickerModal = ({
         }
       });
     },
-    []
+    [wheel]
   );
 
   useEffect(() => {
@@ -77,7 +87,7 @@ export const CaloriesPerHourPickerModal = ({
     }
     hasAlignedRef.current = true;
 
-    const initialValue = clampCaloriesPerHour(value ?? 220);
+    const initialValue = wheel.fromKcal(value ?? DEFAULT_KCAL_PER_HOUR);
     selectionRef.current = initialValue;
 
     const frame = requestAnimationFrame(() => {
@@ -92,13 +102,16 @@ export const CaloriesPerHourPickerModal = ({
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [isOpen, value]);
+  }, [isOpen, value, wheel]);
 
-  const handleCaloriesChange = useCallback((nextValue) => {
-    const clamped = clampCaloriesPerHour(nextValue);
-    selectionRef.current = clamped;
-    setSelectedCalories(clamped);
-  }, []);
+  const handleCaloriesChange = useCallback(
+    (nextValue) => {
+      const clamped = wheel.snap(nextValue);
+      selectionRef.current = clamped;
+      setSelectedCalories(clamped);
+    },
+    [wheel]
+  );
 
   useEffect(() => {
     setHandleScroll(() =>
@@ -114,8 +127,11 @@ export const CaloriesPerHourPickerModal = ({
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   const handleSave = useCallback(() => {
-    onSave?.(selectedCalories);
-  }, [onSave, selectedCalories]);
+    // An untouched value is kept as it was, not re-derived from the wheel step.
+    const isUntouched =
+      Number.isFinite(value) && wheel.fromKcal(value) === selectedCalories;
+    onSave?.(isUntouched ? value : energy.fromPicker(selectedCalories));
+  }, [energy, onSave, selectedCalories, value, wheel]);
 
   return (
     <ModalShell
@@ -125,10 +141,13 @@ export const CaloriesPerHourPickerModal = ({
       contentClassName="p-6 w-full max-w-md"
     >
       <h3 className="text-foreground font-bold text-xl mb-4 text-center">
-        Calories Per Hour
+        {energy.noun} Per Hour
       </h3>
       <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
-        kcal / hr
+        <span className={energy.isKj ? 'normal-case' : undefined}>
+          {energy.unit}
+        </span>{' '}
+        / hr
       </p>
 
       <div className="flex justify-center">
@@ -147,7 +166,7 @@ export const CaloriesPerHourPickerModal = ({
               onScroll={handleScroll}
             >
               <div className="h-16" />
-              {CALORIES_VALUES.map((caloriesPerHour) => (
+              {wheel.values.map((caloriesPerHour) => (
                 <div
                   key={caloriesPerHour}
                   data-value={caloriesPerHour}

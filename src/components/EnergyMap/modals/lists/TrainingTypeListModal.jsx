@@ -6,6 +6,7 @@ import { ModalShell } from '../../common/ModalShell';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
 import { getDefaultEnergyMapData } from '../../../../utils/data/storage';
+import { useUnits } from '../../../../hooks/useUnits';
 
 const LONG_PRESS_DURATION = 650;
 const DEFAULT_TRAINING_TYPE_CATALOG =
@@ -22,6 +23,7 @@ export const TrainingTypeListModal = ({
   onCreateCustomTrainingType,
   onDeleteCustomTrainingType,
 }) => {
+  const units = useUnits();
   const {
     storeTrainingTypes,
     storeCustomTypes,
@@ -231,8 +233,8 @@ export const TrainingTypeListModal = ({
               const isActive = selectedType === key;
               const caloriesPerHour = Number(type.caloriesPerHour);
               const caloriesDisplay = Number.isFinite(caloriesPerHour)
-                ? `${Math.round(caloriesPerHour)} kcal/hr`
-                : '-- kcal/hr';
+                ? `${units.energy.value(caloriesPerHour, { grouping: false })} ${units.energy.unit}/hr`
+                : `-- ${units.energy.unit}/hr`;
               const isCustom = Boolean(resolvedCustomTypes?.[key]);
               const isPinned = resolvedPinnedTrainingTypes.includes(key);
               const isLongPressing = longPressingId === key;

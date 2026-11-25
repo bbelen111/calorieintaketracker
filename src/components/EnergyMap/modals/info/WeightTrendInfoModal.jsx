@@ -16,6 +16,7 @@ import {
   hasTrendData,
 } from '../../../../utils/calculations/goalAlignment';
 import { goals } from '../../../../constants/goals/goals';
+import { useUnits } from '../../../../hooks/useUnits';
 
 const TrendIcon = ({ direction }) => {
   if (direction === 'up') {
@@ -27,12 +28,24 @@ const TrendIcon = ({ direction }) => {
   return <Minus size={20} />;
 };
 
+// `text` is what kg prints; `kg` holds the bounds converted for other units.
 const WEIGHT_GOAL_RANGES = {
-  aggressive_bulk: '+0.5 to +1.0 kg/week',
-  bulking: '+0.25 to +0.5 kg/week',
-  maintenance: '-0.1 to +0.1 kg/week',
-  cutting: '-0.5 to -0.25 kg/week',
-  aggressive_cut: '-1.0 to -0.5 kg/week',
+  aggressive_bulk: { text: '+0.5 to +1.0', kg: [0.5, 1] },
+  bulking: { text: '+0.25 to +0.5', kg: [0.25, 0.5] },
+  maintenance: { text: '-0.1 to +0.1', kg: [-0.1, 0.1] },
+  cutting: { text: '-0.5 to -0.25', kg: [-0.5, -0.25] },
+  aggressive_cut: { text: '-1.0 to -0.5', kg: [-1, -0.5] },
+};
+
+const describeGoalRange = (range, bodyWeight) => {
+  const unit = `${bodyWeight.linearUnit}/week`;
+  if (bodyWeight.linearUnit === 'kg') {
+    return `${range.text} ${unit}`;
+  }
+  const bounds = range.kg.map(
+    (kg) => `${kg > 0 ? '+' : ''}${bodyWeight.toNumber(kg).toFixed(1)}`
+  );
+  return `${bounds.join(' to ')} ${unit}`;
 };
 
 const getStatusVisual = (alignment) => {
@@ -106,6 +119,7 @@ export const WeightTrendInfoModal = ({
   selectedGoal = 'maintenance',
   onClose,
 }) => {
+  const { bodyWeight } = useUnits();
   const safeTrend =
     trend && Number.isFinite(trend.weeklyRate)
       ? trend
@@ -131,8 +145,17 @@ export const WeightTrendInfoModal = ({
     'weight'
   );
   const statusVisual = getStatusVisual(alignment.alignment);
-  const targetRate =
-    WEIGHT_GOAL_RANGES[selectedGoal] || WEIGHT_GOAL_RANGES.maintenance;
+  const { linearUnit } = bodyWeight;
+  const targetRate = describeGoalRange(
+    WEIGHT_GOAL_RANGES[selectedGoal] || WEIGHT_GOAL_RANGES.maintenance,
+    bodyWeight
+  );
+  // Classification thresholds (kg per week), written in the user's unit.
+  const threshold = (kg) =>
+    linearUnit === 'kg' ? String(kg) : bodyWeight.toNumber(kg).toFixed(1);
+  const currentRate = `${safeTrend.weeklyRate >= 0 ? '+' : ''}${bodyWeight
+    .toNumber(safeTrend.weeklyRate)
+    .toFixed(2)} ${linearUnit}/week`;
 
   return (
     <ModalShell
@@ -208,8 +231,7 @@ export const WeightTrendInfoModal = ({
                 <p>
                   Weekly Rate:{' '}
                   <span className="text-foreground font-semibold">
-                    {safeTrend.weeklyRate >= 0 ? '+' : ''}
-                    {safeTrend.weeklyRate.toFixed(2)} kg/week
+                    {currentRate}
                   </span>
                 </p>
                 <p>
@@ -255,8 +277,7 @@ export const WeightTrendInfoModal = ({
               <p>
                 Your current rate:{' '}
                 <span className={`${getTrendColor()} font-semibold`}>
-                  {safeTrend.weeklyRate >= 0 ? '+' : ''}
-                  {safeTrend.weeklyRate.toFixed(2)} kg/week
+                  {currentRate}
                 </span>
               </p>
             )}
@@ -292,31 +313,31 @@ export const WeightTrendInfoModal = ({
             <div className="flex items-center justify-between">
               <span className="text-muted">Stable</span>
               <span className="text-accent-blue font-semibold">
-                &lt; 0.1 kg/week
+                &lt; {threshold(0.1)} {linearUnit}/week
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted">Gradual change</span>
               <span className="text-accent-green font-semibold">
-                0.1 - 0.45 kg/week
+                {threshold(0.1)} - {threshold(0.45)} {linearUnit}/week
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted">Moderate change</span>
               <span className="text-accent-yellow font-semibold">
-                0.45 - 0.8 kg/week
+                {threshold(0.45)} - {threshold(0.8)} {linearUnit}/week
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted">Aggressive change</span>
               <span className="text-accent-orange font-semibold">
-                0.8 - 1.2 kg/week
+                {threshold(0.8)} - {threshold(1.2)} {linearUnit}/week
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted">Severe change</span>
               <span className="text-accent-red font-semibold">
-                &gt; 1.2 kg/week
+                &gt; {threshold(1.2)} {linearUnit}/week
               </span>
             </div>
           </div>

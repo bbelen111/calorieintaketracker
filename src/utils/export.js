@@ -9,6 +9,7 @@ import {
   buildFullExportPayload,
   FULL_EXPORT_FORMAT_VERSION,
 } from './data/fullExport.js';
+import { METRIC_UNITS } from './units/unitFormatter.js';
 
 /**
  * `Phase Name 1` → `Phase_Name_1_2026-09-29.csv`.
@@ -43,12 +44,17 @@ const getPhaseHeartRateRows = (phase, heartRateEntries) =>
  * Delivery is platform-dependent — a web download in the browser, the native
  * share sheet inside the iOS/Android shell (`utils/../services/fileShare.js`).
  * Returns the delivery result; it never throws.
+ *
+ * `units` sets the body-weight and energy units of the CSV (stone is written
+ * in pounds, so every column stays a plain number). The JSON exports always
+ * keep the stored kg and kcal.
  */
 export const exportPhaseAsCSV = async (
   phase,
   weightEntries,
   nutritionData = {},
-  heartRateEntries = []
+  heartRateEntries = [],
+  units = METRIC_UNITS
 ) => {
   if (!phase) {
     return { success: false, method: 'none', error: 'No phase selected' };
@@ -61,6 +67,11 @@ export const exportPhaseAsCSV = async (
     heartRateEntries
   );
 
+  const { bodyWeight, energy } = units;
+  const isKilograms = bodyWeight.linearUnit === 'kg';
+  // A stored weight as a number in the column's unit.
+  const weightNumber = (kg, digits) => bodyWeight.toNumber(kg).toFixed(digits);
+
   // Build CSV content
   let csv = '';
 
@@ -70,17 +81,20 @@ export const exportPhaseAsCSV = async (
   csv += `Start Date,${phase.startDate}\n`;
   csv += `End Date,${phase.endDate || 'Ongoing'}\n`;
   csv += `Goal,${phase.goalType || 'None'}\n`;
-  csv += `Target Weight,${phase.targetWeight ? phase.targetWeight + ' kg' : 'Not set'}\n`;
+  const targetWeight = isKilograms
+    ? phase.targetWeight
+    : phase.targetWeight && weightNumber(phase.targetWeight, 1);
+  csv += `Target Weight,${phase.targetWeight ? `${targetWeight} ${bodyWeight.linearUnit}` : 'Not set'}\n`;
   csv += `Status,${phase.isCompleted ? 'Completed' : phase.isPaused ? 'Paused' : 'Active'}\n`;
   csv += '\n';
 
   // Phase metrics
   csv += 'PHASE METRICS\n';
-  csv += `Weight Change,${metrics.weightChange.toFixed(2)} kg\n`;
-  csv += `Average Weekly Rate,${metrics.avgWeeklyRate.toFixed(2)} kg/week\n`;
+  csv += `Weight Change,${weightNumber(metrics.weightChange, 2)} ${bodyWeight.linearUnit}\n`;
+  csv += `Average Weekly Rate,${weightNumber(metrics.avgWeeklyRate, 2)} ${bodyWeight.linearUnit}/week\n`;
   csv += `Completion Rate,${metrics.completionRate.toFixed(1)}%\n`;
-  csv += `Starting Weight,${phase.startingWeight ? phase.startingWeight.toFixed(1) + ' kg' : 'Not recorded'}\n`;
-  csv += `Current Weight,${metrics.currentWeight ? metrics.currentWeight.toFixed(1) + ' kg' : 'Not recorded'}\n`;
+  csv += `Starting Weight,${phase.startingWeight ? `${weightNumber(phase.startingWeight, 1)} ${bodyWeight.linearUnit}` : 'Not recorded'}\n`;
+  csv += `Current Weight,${metrics.currentWeight ? `${weightNumber(metrics.currentWeight, 1)} ${bodyWeight.linearUnit}` : 'Not recorded'}\n`;
   csv += `Active Days,${metrics.activeDays}\n`;
   csv += `Total Days,${metrics.totalDays}\n`;
   csv += `Nutrition Logged Days,${metrics.nutritionDays}\n`;
@@ -108,8 +122,8 @@ export const exportPhaseAsCSV = async (
 
   // Daily logs - reference-based system (links to weight/nutrition data, not raw values)
   csv += 'DAILY LOGS\n';
-  csv +=
-    'Date,Weight Ref,Body Fat Ref,Nutrition Ref,Calories,Protein,Carbs,Fats,Fiber,Sodium,SaturatedFat,Sugars,Completed,Notes\n';
+  const energyColumn = energy.isKj ? `Energy (${energy.unit})` : 'Calories';
+  csv += `Date,Weight Ref,Body Fat Ref,Nutrition Ref,${energyColumn},Protein,Carbs,Fats,Fiber,Sodium,SaturatedFat,Sugars,Completed,Notes\n`;
 
   const logs = Object.entries(phase.dailyLogs || {})
     .map(([date, log]) => ({ date, ...log }))
@@ -125,7 +139,9 @@ export const exportPhaseAsCSV = async (
       log.weightRef || 'Not linked',
       log.bodyFatRef || 'Not linked',
       log.nutritionRef || 'Not linked',
-      nutritionTotals.calories ? nutritionTotals.calories.toFixed(1) : '',
+      nutritionTotals.calories
+        ? energy.decimal(nutritionTotals.calories, 1)
+        : '',
       nutritionTotals.protein ? nutritionTotals.protein.toFixed(1) : '',
       nutritionTotals.carbs ? nutritionTotals.carbs.toFixed(1) : '',
       nutritionTotals.fats ? nutritionTotals.fats.toFixed(1) : '',
@@ -145,7 +161,7 @@ export const exportPhaseAsCSV = async (
 
   // Weight entries
   csv += 'WEIGHT ENTRIES\n';
-  csv += 'Date,Weight (kg)\n';
+  csv += `Date,Weight (${bodyWeight.linearUnit})\n`;
 
   const phaseWeights = weightEntries
     .filter((entry) => {
@@ -156,7 +172,8 @@ export const exportPhaseAsCSV = async (
     .sort((a, b) => a.date.localeCompare(b.date));
 
   phaseWeights.forEach((entry) => {
-    csv += `${entry.date},${entry.weight}\n`;
+    const weight = isKilograms ? entry.weight : weightNumber(entry.weight, 1);
+    csv += `${entry.date},${weight}\n`;
   });
 
   const phaseHeartRate = getPhaseHeartRateRows(phase, heartRateEntries);

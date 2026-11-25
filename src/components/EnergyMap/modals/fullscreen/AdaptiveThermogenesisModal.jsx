@@ -19,6 +19,7 @@ import { formatSignedBpm } from '../../../../utils/formatting/heartRate';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
+import { useUnits } from '../../../../hooks/useUnits';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import {
   computeAdaptiveThermogenesis,
@@ -45,6 +46,20 @@ const signed = (value, unit = '') => {
   const number = Number(value) || 0;
   return (number > 0 ? '+' : '') + number + unit;
 };
+// A kcal figure as a plain signed number in the user's energy unit.
+const signedEnergy = (kcal, energy) =>
+  signed(energy.isKj ? Math.round(energy.toNumber(kcal) ?? 0) : kcal);
+// Kg figures print as they come; other units convert and keep two decimals.
+const signedWeight = (kg, bodyWeight, suffix = '') => {
+  const value =
+    bodyWeight.linearUnit === 'kg'
+      ? kg
+      : Number(bodyWeight.toNumber(Number(kg) || 0)).toFixed(2);
+  return signed(value, ` ${bodyWeight.linearUnit}${suffix}`);
+};
+const NOISE_FLOOR_KG = 0.15;
+const formatNoiseFloor = (bodyWeight) =>
+  `±${bodyWeight.formatAmount(NOISE_FLOOR_KG, { digits: 2 })}`;
 const goalLabel = (goal) =>
   goal ? goal.charAt(0).toUpperCase() + goal.slice(1) : 'No goal';
 
@@ -56,6 +71,7 @@ export const AdaptiveThermogenesisModal = ({
   onOpenRollingBalance,
 }) => {
   const [tab, setTab] = useState('smart');
+  const { energy } = useUnits();
   const store = useEnergyMapStore(
     (state) => ({
       userData: state.userData,
@@ -211,9 +227,9 @@ export const AdaptiveThermogenesisModal = ({
             <section className="px-4 pt-2 pb-3 grid grid-cols-2 gap-x-4 gap-y-3 shrink-0">
               <Metric
                 label={preview ? 'Preview correction' : 'Applied correction'}
-                value={signed(correction)}
+                value={signedEnergy(correction, energy)}
                 tone={correctionTone}
-                detail="kcal per day"
+                detail={`${energy.unit} per day`}
               />
               <Metric
                 label="Status"
@@ -262,7 +278,7 @@ export const AdaptiveThermogenesisModal = ({
                   tab === 'smart'
                     ? 'signal quality'
                     : next
-                      ? signed(next.kcal) + ' kcal/day'
+                      ? `${signedEnergy(next.kcal, energy)} ${energy.unit}/day`
                       : crudeMilestone
                         ? 'final stage reached'
                         : 'no adaptation pressure yet'
@@ -325,9 +341,9 @@ function Metric({ label, value, detail, tone = 'text-foreground' }) {
   );
 }
 
-function getDivergenceExplanation(signal) {
+function getDivergenceExplanation(signal, bodyWeight) {
   if (signal?.noiseSuppressed) {
-    return 'Divergence is within the ±0.15 kg noise floor, so no correction is needed.';
+    return `Divergence is within the ${formatNoiseFloor(bodyWeight)} noise floor, so no correction is needed.`;
   }
   const divergence = Number(signal?.divergenceKg) || 0;
   if (divergence > 0) {
@@ -340,6 +356,7 @@ function getDivergenceExplanation(signal) {
 }
 
 function SmartView({ result, physiology, onOpenRollingBalance }) {
+  const { bodyWeight } = useUnits();
   if (!result)
     return <EmptyState message="No smart-mode result was provided." />;
   if (result.details?.reason === 'maintenance-goal') {
@@ -381,14 +398,14 @@ function SmartView({ result, physiology, onOpenRollingBalance }) {
             }
           >
             <Direction size={14} />
-            {signed(signal.divergenceKg, ' kg')}
+            {signedWeight(signal.divergenceKg, bodyWeight)}
           </span>
         </div>
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-2 gap-2.5">
             <Comparison
               label="Expected"
-              value={signed(signal.expectedWeightDeltaKg, ' kg')}
+              value={signedWeight(signal.expectedWeightDeltaKg, bodyWeight)}
               caption="from energy balance"
               onClick={
                 typeof onOpenRollingBalance === 'function'
@@ -398,7 +415,7 @@ function SmartView({ result, physiology, onOpenRollingBalance }) {
             />
             <Comparison
               label="Observed"
-              value={signed(signal.observedWeightDeltaKg, ' kg')}
+              value={signedWeight(signal.observedWeightDeltaKg, bodyWeight)}
               caption="from weight trend"
               onClick={
                 typeof onOpenRollingBalance === 'function'
@@ -408,7 +425,7 @@ function SmartView({ result, physiology, onOpenRollingBalance }) {
             />
           </div>
           <p className="text-sm text-muted leading-relaxed">
-            {getDivergenceExplanation(signal)}
+            {getDivergenceExplanation(signal, bodyWeight)}
           </p>
         </div>
       </div>
@@ -428,11 +445,19 @@ function SmartView({ result, physiology, onOpenRollingBalance }) {
           <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-border/60">
             <MiniFact
               label="Expected rate"
-              value={signed(details.expectedRateKgPerWeek, ' kg/wk')}
+              value={signedWeight(
+                details.expectedRateKgPerWeek,
+                bodyWeight,
+                '/wk'
+              )}
             />
             <MiniFact
               label="Observed rate"
-              value={signed(details.observedRateKgPerWeek, ' kg/wk')}
+              value={signedWeight(
+                details.observedRateKgPerWeek,
+                bodyWeight,
+                '/wk'
+              )}
             />
           </div>
         </div>
@@ -466,6 +491,7 @@ function SmartView({ result, physiology, onOpenRollingBalance }) {
 }
 
 function SmartMaintenanceView({ onOpenRollingBalance }) {
+  const { bodyWeight, energy } = useUnits();
   return (
     <div className="space-y-4">
       <InfoCallout
@@ -484,14 +510,14 @@ function SmartMaintenanceView({ onOpenRollingBalance }) {
             icon={Activity}
             iconClass="text-accent-blue"
             title="28-day balance vs. scale"
-            range="up to ±300 kcal/day"
+            range={`up to ±${energy.value(300)} ${energy.unit}/day`}
             description="Compares cumulative energy balance against your real weight trend to estimate how much expenditure has shifted."
           />
           <GoalBehaviorRow
             icon={Gauge}
             iconClass="text-accent-emerald"
             title="Noise floor & freshness"
-            range="±0.15 kg floor"
+            range={`${formatNoiseFloor(bodyWeight)} floor`}
             description="Ignores minor scale fluctuations and requires recent weigh-ins plus consistent food logs before applying a change."
           />
           <GoalBehaviorRow
@@ -555,6 +581,7 @@ function PhysiologyCheck({ physiology }) {
 }
 
 function TimelineView({ result, stages, onOpenRollingBalance }) {
+  const { energy } = useUnits();
   if (!result) return <EmptyState message="No timeline result was provided." />;
   const goal = result.details?.goalType;
   const milestone = result.details?.milestone ?? null;
@@ -621,7 +648,7 @@ function TimelineView({ result, stages, onOpenRollingBalance }) {
               badgeTone
             }
           >
-            {signed(result.correction)} kcal/day
+            {signedEnergy(result.correction, energy)} {energy.unit}/day
           </span>
         </div>
 
@@ -681,7 +708,7 @@ function TimelineView({ result, stages, onOpenRollingBalance }) {
                     textTone
                   }
                 >
-                  {signed(stage.kcal)}
+                  {signedEnergy(stage.kcal, energy)}
                 </span>
               </div>
             );
@@ -701,23 +728,24 @@ function TimelineView({ result, stages, onOpenRollingBalance }) {
   );
 }
 
-function formatStageRange(stageList) {
+function formatStageRange(stageList, energy) {
   if (!Array.isArray(stageList) || stageList.length === 0) return '—';
   const first = stageList[0].kcal;
   const last = stageList[stageList.length - 1].kcal;
-  return `${signed(first)} to ${signed(last)} kcal/day`;
+  return `${signedEnergy(first, energy)} to ${signedEnergy(last, energy)} ${energy.unit}/day`;
 }
 
 function CrudeMaintenanceView({ result, stages, onOpenRollingBalance }) {
+  const { energy } = useUnits();
   const pressure = Number(result?.details?.balancePressure) || 0;
   const hasResidualPressure = pressure !== 0;
-  const cutRange = formatStageRange(stages?.cut);
-  const surplusRange = formatStageRange(stages?.surplus);
+  const cutRange = formatStageRange(stages?.cut, energy);
+  const surplusRange = formatStageRange(stages?.surplus, energy);
 
   return (
     <div className="space-y-4">
       <InfoCallout
-        title="Why maintenance stays at 0 kcal"
+        title={`Why maintenance stays at 0 ${energy.unit}`}
         body="Adaptive thermogenesis is your metabolism shifting in response to a sustained calorie deficit or surplus. Eating at maintenance keeps energy balance neutral, so your baseline TDEE does not need an adaptation correction."
       />
 
@@ -764,7 +792,7 @@ function CrudeMaintenanceView({ result, stages, onOpenRollingBalance }) {
             icon={CheckCircle2}
             iconClass="text-accent-green"
             title="Maintenance"
-            range="0 kcal/day"
+            range={`0 ${energy.unit}/day`}
             description="Adds no new pressure. After a cut or bulk, maintenance days gradually decay leftover adaptation back to baseline."
           />
         </div>

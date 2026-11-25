@@ -12,6 +12,7 @@ import {
   getSortLabel,
   mergeFoodsById,
 } from '../utils/food/foodListing';
+import { useUnits } from './useUnits';
 
 /**
  * Browse foods the way the Food Search modal does - Local (your favourites,
@@ -95,6 +96,7 @@ export const useFoodBrowser = ({
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+  const energyNoun = useUnits().energy.noun;
 
   const [catalogState, setCatalogState] = useState(null);
   const [onlineState, setOnlineState] = useState(null);
@@ -494,7 +496,7 @@ export const useFoodBrowser = ({
     setSortBy,
     sortOrder,
     setSortOrder,
-    sortLabel: getSortLabel(sortBy, sortOrder),
+    sortLabel: getSortLabel(sortBy, sortOrder, energyNoun),
     hasActiveFilters,
     clearFilters,
     categoryOptions,

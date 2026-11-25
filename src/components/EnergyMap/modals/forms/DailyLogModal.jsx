@@ -11,7 +11,7 @@ import {
   StickyNote,
   CheckCircle2,
 } from 'lucide-react';
-import { formatWeight } from '../../../../utils/measurements/weight';
+import { useUnits } from '../../../../hooks/useUnits';
 import { formatBodyFat } from '../../../../utils/measurements/bodyFat';
 import { formatOne } from '../../../../utils/formatting/format';
 import {
@@ -49,6 +49,7 @@ export const DailyLogModal = ({
   error,
   isDateLocked = false,
 }) => {
+  const units = useUnits();
   const { weightEntries, bodyFatEntries } = useEnergyMapStore(
     (state) => ({
       weightEntries: state.weightEntries,
@@ -247,7 +248,9 @@ export const DailyLogModal = ({
             {matchingWeight ? (
               <>
                 <span className="font-semibold text-sm md:text-base">
-                  {formatWeight(matchingWeight.weight)}kg
+                  {units.bodyWeight.format(matchingWeight.weight, {
+                    space: false,
+                  })}
                 </span>
                 <span className="text-xs md:text-sm opacity-90 ml-auto whitespace-nowrap">
                   {formatShortDate(matchingWeight.date)}
@@ -282,7 +285,8 @@ export const DailyLogModal = ({
               <>
                 <div className="flex flex-col gap-0.5">
                   <span className="font-semibold text-sm md:text-base">
-                    {formatOne(nutritionTotals.calories)} kcal
+                    {units.energy.compact(nutritionTotals.calories)}{' '}
+                    {units.energy.unit}
                   </span>
                   <span className="text-[11px] md:text-xs opacity-90">
                     P {formatOne(nutritionTotals.protein)}g · C{' '}

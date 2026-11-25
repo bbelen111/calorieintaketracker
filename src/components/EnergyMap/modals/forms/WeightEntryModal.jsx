@@ -1,339 +1,51 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
 import { TrackerEntryModal } from '../../common/TrackerEntryModal';
-import {
-  alignScrollContainerToValue,
-  createPickerScrollHandler,
-} from '../../../../utils/visuals/scroll';
-import {
-  MAX_WEIGHT_KG,
-  MIN_WEIGHT_KG,
-} from '../../../../utils/measurements/weight';
+import { DualWheel } from '../../common/DualWheel';
+import { useUnits } from '../../../../hooks/useUnits';
+import { buildBodyWeightWheel } from '../../../../utils/units/wheelConfigs';
 
-const MIN_WEIGHT = MIN_WEIGHT_KG;
-const MAX_WEIGHT = MAX_WEIGHT_KG;
-const WEIGHT_VALUES = Array.from(
-  { length: MAX_WEIGHT - MIN_WEIGHT + 1 },
-  (_, index) => MIN_WEIGHT + index
-);
-const DECIMAL_VALUES = Array.from({ length: 10 }, (_, index) => index);
-const PICKER_USER_DRIVEN_RESET_MS = 400;
-
-const clampWhole = (value) => {
-  if (!Number.isFinite(value)) {
-    return MIN_WEIGHT;
-  }
-  return Math.min(Math.max(Math.round(value), MIN_WEIGHT), MAX_WEIGHT);
+const UNIT_HEADINGS = {
+  kg: 'Kilograms',
+  lb: 'Pounds',
+  st: 'Stone and pounds',
 };
 
-const clampDecimal = (value) => {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.min(Math.max(Math.round(value), 0), 9);
-};
-
-const normalizeWeight = (weight) => {
-  if (!Number.isFinite(weight)) {
-    return MIN_WEIGHT;
-  }
-  return Math.min(Math.max(weight, MIN_WEIGHT), MAX_WEIGHT);
-};
-
-const convertWeightToParts = (weight) => {
-  const normalized = Math.round(normalizeWeight(weight) * 10) / 10;
-  let whole = Math.floor(normalized);
-  let decimal = Math.round((normalized - whole) * 10);
-
-  if (decimal === 10) {
-    whole = Math.min(whole + 1, MAX_WEIGHT);
-    decimal = 0;
-  }
-
-  if (whole === MAX_WEIGHT) {
-    decimal = 0;
-  }
-
-  return {
-    whole,
-    decimal,
-  };
-};
-
-const buildWeightValue = (whole, decimal) => {
-  const clampedWhole = clampWhole(whole);
-  const safeDecimal = clampedWhole === MAX_WEIGHT ? 0 : clampDecimal(decimal);
-  return Math.round((clampedWhole + safeDecimal / 10) * 10) / 10;
-};
-
+/**
+ * Body weight wheel in the user's unit. `value` and `onChange` are kg. Scrolling
+ * back to what the picker opened on hands the original kg back untouched, so
+ * opening an entry and saving it never changes it.
+ */
 export const WeightPicker = ({ value, onChange }) => {
-  const wholeRef = useRef(null);
-  const decimalRef = useRef(null);
-  const wholeTimeoutRef = useRef(null);
-  const decimalTimeoutRef = useRef(null);
-  const hasAlignedRef = useRef(false);
-  const selectionRef = useRef({ whole: MIN_WEIGHT, decimal: 0 });
-  const isUserDrivenRef = useRef(false);
-  const userDrivenTimeoutRef = useRef(null);
+  const { bodyWeight } = useUnits();
+  const config = useMemo(() => buildBodyWeightWheel(bodyWeight), [bodyWeight]);
+  const originalRef = useRef(value);
+  const emittedRef = useRef(value);
 
-  const [selectedWhole, setSelectedWhole] = useState(MIN_WEIGHT);
-  const [selectedDecimal, setSelectedDecimal] = useState(0);
-
-  const [handleWholeScroll, setHandleWholeScroll] = useState(() => () => {});
-  const [handleDecimalScroll, setHandleDecimalScroll] = useState(
-    () => () => {}
-  );
-
-  const markUserDriven = useCallback(() => {
-    isUserDrivenRef.current = true;
-    if (userDrivenTimeoutRef.current) {
-      clearTimeout(userDrivenTimeoutRef.current);
-    }
-    userDrivenTimeoutRef.current = setTimeout(() => {
-      isUserDrivenRef.current = false;
-    }, PICKER_USER_DRIVEN_RESET_MS);
-  }, []);
-
-  const applySelection = useCallback(
-    (whole, decimal, behavior = 'instant') => {
-      markUserDriven();
-
-      const clampedWhole = clampWhole(whole);
-      const clampedDecimal =
-        clampedWhole === MAX_WEIGHT ? 0 : clampDecimal(decimal);
-
-      selectionRef.current = {
-        whole: clampedWhole,
-        decimal: clampedDecimal,
-      };
-
-      setSelectedWhole(clampedWhole);
-      setSelectedDecimal(clampedDecimal);
-
-      if (wholeRef.current) {
-        alignScrollContainerToValue(
-          wholeRef.current,
-          clampedWhole.toString(),
-          behavior
-        );
-      }
-
-      if (decimalRef.current) {
-        alignScrollContainerToValue(
-          decimalRef.current,
-          clampedDecimal.toString(),
-          behavior
-        );
-      }
-
-      onChange?.(buildWeightValue(clampedWhole, clampedDecimal));
-    },
-    [markUserDriven, onChange]
-  );
-
-  useEffect(
-    () => () => {
-      clearTimeout(wholeTimeoutRef.current);
-      clearTimeout(decimalTimeoutRef.current);
-      clearTimeout(userDrivenTimeoutRef.current);
-    },
-    []
-  );
-
+  // A value this picker did not emit is a new starting point.
   useEffect(() => {
-    const behavior = hasAlignedRef.current ? 'smooth' : 'instant';
-    hasAlignedRef.current = true;
-
-    const parts = convertWeightToParts(value);
-
-    const frame = requestAnimationFrame(() => {
-      selectionRef.current = { whole: parts.whole, decimal: parts.decimal };
-      setSelectedWhole(parts.whole);
-      setSelectedDecimal(parts.decimal);
-
-      // Skip programmatic alignment for user-driven scroll changes. The
-      // picker settle handler already snap-aligns after the gesture ends;
-      // re-aligning here would fight the finger and cause choppy scrolling.
-      if (isUserDrivenRef.current) {
-        return;
-      }
-
-      if (wholeRef.current) {
-        alignScrollContainerToValue(
-          wholeRef.current,
-          parts.whole.toString(),
-          behavior
-        );
-      }
-      if (decimalRef.current) {
-        alignScrollContainerToValue(
-          decimalRef.current,
-          parts.decimal.toString(),
-          behavior
-        );
-      }
-    });
-
-    return () => cancelAnimationFrame(frame);
+    if (value !== emittedRef.current) {
+      originalRef.current = value;
+      emittedRef.current = value;
+    }
   }, [value]);
 
-  const handleWholeChange = useCallback(
-    (nextWhole) => {
-      markUserDriven();
-
-      const clampedWhole = clampWhole(nextWhole);
-      const nextDecimal =
-        clampedWhole === MAX_WEIGHT ? 0 : selectionRef.current.decimal;
-
-      selectionRef.current = {
-        whole: clampedWhole,
-        decimal: nextDecimal,
-      };
-
-      setSelectedWhole(clampedWhole);
-      setSelectedDecimal(nextDecimal);
-
-      if (clampedWhole === MAX_WEIGHT && decimalRef.current) {
-        alignScrollContainerToValue(decimalRef.current, '0', 'smooth');
-      }
-
-      onChange?.(buildWeightValue(clampedWhole, nextDecimal));
+  const handleChange = useCallback(
+    (picked) => {
+      const kg = bodyWeight.fromPicker(picked, originalRef.current);
+      emittedRef.current = kg;
+      onChange?.(kg);
     },
-    [markUserDriven, onChange]
+    [bodyWeight, onChange]
   );
-
-  const handleDecimalChange = useCallback(
-    (nextDecimal) => {
-      markUserDriven();
-
-      const clampedDecimal =
-        selectionRef.current.whole === MAX_WEIGHT
-          ? 0
-          : clampDecimal(nextDecimal);
-
-      selectionRef.current = {
-        whole: selectionRef.current.whole,
-        decimal: clampedDecimal,
-      };
-
-      setSelectedDecimal(clampedDecimal);
-
-      onChange?.(buildWeightValue(selectionRef.current.whole, clampedDecimal));
-    },
-    [markUserDriven, onChange]
-  );
-
-  useEffect(() => {
-    setHandleWholeScroll(() =>
-      createPickerScrollHandler(
-        wholeRef,
-        wholeTimeoutRef,
-        (val) => parseInt(val, 10),
-        handleWholeChange
-      )
-    );
-  }, [handleWholeChange]);
-
-  useEffect(() => {
-    setHandleDecimalScroll(() =>
-      createPickerScrollHandler(
-        decimalRef,
-        decimalTimeoutRef,
-        (val) => parseInt(val, 10),
-        handleDecimalChange
-      )
-    );
-  }, [handleDecimalChange]);
 
   return (
-    <div className="flex gap-4">
-      <div className="flex-1">
-        <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
-          <div className="absolute inset-0 pointer-events-none z-10">
-            <div className="h-16 bg-linear-to-b from-surface to-transparent" />
-            <div className="h-16 bg-transparent" />
-            <div className="h-16 bg-linear-to-t from-surface to-transparent" />
-          </div>
-          <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
-
-          <div
-            ref={wholeRef}
-            className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide touch-action-pan-y"
-            onScroll={handleWholeScroll}
-          >
-            <div className="h-16" />
-            {WEIGHT_VALUES.map((weight) => (
-              <div
-                key={weight}
-                data-value={weight}
-                onClick={() =>
-                  applySelection(
-                    weight,
-                    selectionRef.current.decimal,
-                    'smooth',
-                    true
-                  )
-                }
-                className={`h-16 flex items-center justify-center text-2xl font-bold snap-center cursor-pointer transition-all ${
-                  selectedWhole === weight
-                    ? 'text-foreground scale-110'
-                    : 'text-muted'
-                }`}
-              >
-                {weight}
-              </div>
-            ))}
-            <div className="h-16" />
-          </div>
-        </div>
-      </div>
-
-      <div className="w-20 shrink-0">
-        <div className="relative h-48 overflow-hidden rounded-xl bg-surface/80">
-          <div className="absolute inset-0 pointer-events-none z-10">
-            <div className="h-16 bg-linear-to-b from-surface to-transparent" />
-            <div className="h-16 bg-transparent" />
-            <div className="h-16 bg-linear-to-t from-surface to-transparent" />
-          </div>
-          <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-16 border-y-2 border-accent-blue/70 pointer-events-none z-10" />
-
-          <div
-            ref={decimalRef}
-            className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide touch-action-pan-y"
-            onScroll={handleDecimalScroll}
-          >
-            <div className="h-16" />
-            {DECIMAL_VALUES.map((decimal) => {
-              const isDisabled = selectedWhole === MAX_WEIGHT && decimal !== 0;
-              return (
-                <div
-                  key={decimal}
-                  data-value={decimal}
-                  onClick={() => {
-                    if (isDisabled) return;
-                    applySelection(
-                      selectionRef.current.whole,
-                      decimal,
-                      'smooth',
-                      true
-                    );
-                  }}
-                  className={`h-16 flex items-center justify-center text-2xl font-bold snap-center cursor-pointer transition-all ${
-                    selectedDecimal === decimal
-                      ? 'text-foreground scale-110'
-                      : 'text-muted'
-                  } ${isDisabled ? 'opacity-40 pointer-events-none' : ''}`}
-                >
-                  .{decimal}
-                </div>
-              );
-            })}
-            <div className="h-16" />
-          </div>
-        </div>
-      </div>
-    </div>
+    <DualWheel
+      value={bodyWeight.toPicker(value) ?? config.min}
+      config={config}
+      onChange={handleChange}
+    />
   );
 };
 
@@ -345,6 +57,14 @@ export const WeightPickerModal = ({
   onSave,
 }) => {
   const draftValueRef = useRef(value);
+  const { bodyWeight } = useUnits();
+
+  // The sheet outlives one open, so start each one from the current value.
+  useEffect(() => {
+    if (isOpen) {
+      draftValueRef.current = value;
+    }
+  }, [isOpen, value]);
 
   return (
     <ModalShell
@@ -356,7 +76,7 @@ export const WeightPickerModal = ({
         Select Weight
       </h3>
       <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
-        Kilograms
+        {UNIT_HEADINGS[bodyWeight.unit]}
       </p>
 
       <WeightPicker
@@ -392,17 +112,21 @@ export const WeightEntryModal = ({
   weight,
   onWeightChange,
   ...entryProps
-}) => (
-  <TrackerEntryModal
-    {...entryProps}
-    mode={mode}
-    title={mode === 'edit' ? 'Edit Weight Entry' : 'Add Weight Entry'}
-    unitLabel="Kilograms"
-    value={weight}
-    onValueChange={onWeightChange}
-    Picker={WeightPicker}
-    pickerProps={{ value: weight }}
-    deleteTitle="Delete weight entry?"
-    deleteDescription="This will remove the logged weight for the selected day."
-  />
-);
+}) => {
+  const { bodyWeight } = useUnits();
+
+  return (
+    <TrackerEntryModal
+      {...entryProps}
+      mode={mode}
+      title={mode === 'edit' ? 'Edit Weight Entry' : 'Add Weight Entry'}
+      unitLabel={UNIT_HEADINGS[bodyWeight.unit]}
+      value={weight}
+      onValueChange={onWeightChange}
+      Picker={WeightPicker}
+      pickerProps={{ value: weight }}
+      deleteTitle="Delete weight entry?"
+      deleteDescription="This will remove the logged weight for the selected day."
+    />
+  );
+};

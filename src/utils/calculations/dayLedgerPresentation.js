@@ -2,6 +2,7 @@ import {
   getDailyBalanceKind,
   ESTIMATED_ENERGY_PER_KG,
 } from './rollingEnergyBalance.js';
+import { METRIC_UNITS, createUnitFormatter } from '../units/unitFormatter.js';
 import { resolveSnapshotGoalTarget } from './dailySnapshots.js';
 import { DEFAULT_ON_TARGET_TOLERANCE_KCAL } from '../../constants/goals/onTarget.js';
 import {
@@ -89,15 +90,14 @@ export const DAY_LEDGER_BALANCE_META = {
   },
 };
 
-/** Signed whole-kcal formatter ("+350", "-120", "0", "—" for invalid). */
-export const formatSignedKcal = (value) => {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return '\u2014';
-  }
-  const rounded = Math.round(numeric);
-  return `${rounded > 0 ? '+' : ''}${rounded.toLocaleString()}`;
-};
+/**
+ * Signed whole-number energy ("+350", "-120", "0", "—" for invalid), in the
+ * user's energy unit. The input is kcal.
+ */
+export const formatSignedKcal = (value, units = METRIC_UNITS) =>
+  units.energy.value(Number.isFinite(Number(value)) ? Number(value) : null, {
+    signed: true,
+  });
 
 /**
  * Build the ordered energy-composition rows for one day's ledger.
@@ -208,6 +208,7 @@ export const buildDayLedgerRows = (snapshot) => {
  * @param {Array<{date:string,weight:number}>} [options.weightEntries]
  * @param {Array<{date:string,bodyFat:number}>} [options.bodyFatEntries]
  * @param {number} [options.tolerance] – on-target band (kcal) for `onTargetDays`
+ * @param {number} [options.weightPrecision=1] – decimals kept on `avgWeightKg`
  */
 export const summarizeMonthSnapshots = (
   snapshots,
@@ -326,7 +327,7 @@ export const summarizeMonthSnapshots = (
   // Measurement averages come from canonical tracker entries dated within
   // this month (≤ today), never from snapshots and never borrowed across
   // months. Absent/garbage input stays null with a zero sample count.
-  const averageEntriesInMonth = (entries, field) => {
+  const averageEntriesInMonth = (entries, field, precision = 1) => {
     if (!Array.isArray(entries)) {
       return { avg: null, count: 0 };
     }
@@ -358,10 +359,15 @@ export const summarizeMonthSnapshots = (
     if (count === 0) {
       return { avg: null, count: 0 };
     }
-    return { avg: Math.round((total / count) * 10) / 10, count };
+    const factor = 10 ** precision;
+    return { avg: Math.round((total / count) * factor) / factor, count };
   };
 
-  const weightStats = averageEntriesInMonth(options?.weightEntries, 'weight');
+  const weightStats = averageEntriesInMonth(
+    options?.weightEntries,
+    'weight',
+    options?.weightPrecision
+  );
   summary.avgWeightKg = weightStats.avg;
   summary.weightSampleCount = weightStats.count;
 
@@ -579,12 +585,12 @@ export const buildDayLedgerCardSummary = ({
  * Human wording for a daily balance target (positive = deficit):
  * "300 kcal deficit" / "300 kcal surplus" / "at TDEE".
  */
-export const describeGoalTarget = (target) => {
+export const describeGoalTarget = (target, units = METRIC_UNITS) => {
   const rounded = Math.round(Number(target) || 0);
   if (rounded === 0) {
     return 'at TDEE';
   }
-  return `${Math.abs(rounded).toLocaleString()} kcal ${
+  return `${units.energy.format(Math.abs(Number(target)))} ${
     rounded > 0 ? 'deficit' : 'surplus'
   }`;
 };
@@ -726,7 +732,12 @@ const sortEntriesByDate = (entries) =>
  * delta object (carries `spanDays` so the UI can label irregular sampling).
  * Both nullable — never zero-filled.
  */
-const buildMeasurementWithDelta = (entries, dateKey, valueField) => {
+const buildMeasurementWithDelta = (
+  entries,
+  dateKey,
+  valueField,
+  precision = 1
+) => {
   const value = getMeasurementForDate(entries, dateKey, valueField);
   if (value == null) {
     return { value: null, delta: null };
@@ -736,7 +747,8 @@ const buildMeasurementWithDelta = (entries, dateKey, valueField) => {
     delta: getPreviousEntryDelta(
       sortEntriesByDate(entries),
       dateKey,
-      valueField
+      valueField,
+      precision
     ),
   };
 };
@@ -1097,7 +1109,12 @@ export const buildDayLedgerDetailModel = (params) => {
     sessionsTotal,
     nutrition,
     measurements: {
-      weight: buildMeasurementWithDelta(weightEntries, dayDate, 'weight'),
+      weight: buildMeasurementWithDelta(
+        weightEntries,
+        dayDate,
+        'weight',
+        createUnitFormatter(userData?.unitPreferences).bodyWeight.mathPrecision
+      ),
       bodyFat:
         bodyFatTrackingEnabled === false
           ? { value: null, delta: null }

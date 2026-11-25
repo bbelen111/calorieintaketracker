@@ -170,6 +170,21 @@ test('v2 phase normalization includes target mode metadata', () => {
   assert.equal(phase.smartCaloriePlan.totalDeltaCalories, -32500);
 });
 
+test('a phase without a target weight keeps null, never 0', () => {
+  const normalizeTarget = (targetWeight) =>
+    normalizePhaseLogV2State({
+      version: 2,
+      phaseOrder: ['p'],
+      phasesById: { p: { id: 'p', startDate: '2026-04-01', targetWeight } },
+    }).phasesById.p.targetWeight;
+
+  // 0 is what earlier builds saved for "no target".
+  for (const empty of [null, undefined, '', 0]) {
+    assert.equal(normalizeTarget(empty), null, `input: ${String(empty)}`);
+  }
+  assert.equal(normalizeTarget(72.4), 72.4);
+});
+
 test('v2 phase normalization canonicalizes legacy combined target metric value', () => {
   const state = normalizePhaseLogV2State({
     version: 2,

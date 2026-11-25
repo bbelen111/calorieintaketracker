@@ -96,6 +96,13 @@ const normalizeTargetBodyFat = (value) => {
   return Math.round(numeric * 10) / 10;
 };
 
+// "No target" is null. `Number(null)` is 0, so zero is rejected too, which also
+// repairs phases already saved with a target weight of 0.
+const normalizeTargetWeight = (value) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+};
+
 const normalizeSmartCaloriePlan = (value, creationMode) => {
   if (creationMode !== 'target' || !value || typeof value !== 'object') {
     return null;
@@ -198,9 +205,7 @@ const normalizeLogRecord = (log) => {
 
 const normalizePhaseRecord = (phase) => {
   const creationMode = normalizeCreationMode(phase?.creationMode);
-  const normalizedTargetWeight = Number.isFinite(Number(phase?.targetWeight))
-    ? Number(phase.targetWeight)
-    : null;
+  const normalizedTargetWeight = normalizeTargetWeight(phase?.targetWeight);
   const normalizedTargetBodyFat = normalizeTargetBodyFat(phase?.targetBodyFat);
   const inferredTargetMetric =
     normalizedTargetWeight != null && normalizedTargetBodyFat != null

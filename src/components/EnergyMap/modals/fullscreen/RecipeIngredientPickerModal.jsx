@@ -28,7 +28,7 @@ import { addToFoodCache, trimFoodCache } from '../../../../services/foodCache';
 import { getFilterActiveClass } from '../../../../utils/food/foodListing';
 import { formatFoodDisplayName } from '../../../../utils/food/foodPresentation';
 import { scaleMacrosFromPer100g } from '../../../../utils/food/portionNormalization';
-import { formatOne } from '../../../../utils/formatting/format';
+import { useUnits } from '../../../../hooks/useUnits';
 import {
   favouriteToIngredientFood,
   isRecipeFood,
@@ -85,6 +85,7 @@ export const RecipeIngredientPickerModal = ({
   customFoods = EMPTY,
 }) => {
   const prefersReducedMotion = useReducedMotionPreference();
+  const units = useUnits();
   const resolvedIngredients = Array.isArray(ingredients) ? ingredients : EMPTY;
   const resolvedIngredientCount = ingredientCount ?? resolvedIngredients.length;
   const { foodFavourites, pinnedFoods, cachedFoods, updateCachedFoods } =
@@ -267,7 +268,7 @@ export const RecipeIngredientPickerModal = ({
   };
 
   const handleConfirmIngredient = ({ food, grams, portionLabel }) => {
-    const label = `${formatFoodDisplayName({ name: food?.name, brand: food?.brand })} · ${formatOne(grams)} g`;
+    const label = `${formatFoodDisplayName({ name: food?.name, brand: food?.brand })} · ${units.food.format(grams)}`;
     if (editingIngredient) {
       onEditIngredient?.(editingIngredient.id, { grams, portionLabel });
       setLastAdded({

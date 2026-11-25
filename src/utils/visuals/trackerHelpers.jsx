@@ -17,6 +17,7 @@ import {
   hasTrendData,
   getGoalAlignedTextClass,
 } from '../calculations/goalAlignment';
+import { METRIC_UNITS } from '../units/unitFormatter';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -126,22 +127,39 @@ export const getGoalAlignmentText = (
   return null;
 };
 
+// Weekly goal bands. The text is what kg and body fat print; the numbers (kg)
+// are converted for other body-weight units.
+const GOAL_WEEKLY_BANDS = {
+  aggressive_bulk: { sign: '+', text: '0.5-1.0', kg: [0.5, 1] },
+  bulking: { sign: '+', text: '0.25-0.5', kg: [0.25, 0.5] },
+  cutting: { sign: '-', text: '0.25-0.5', kg: [0.25, 0.5] },
+  aggressive_cut: { sign: '-', text: '0.5-1.0', kg: [0.5, 1] },
+};
+
 /**
  * Return a human-readable goal rate string, e.g. "+0.25-0.5 kg/wk".
  *
  * @param {string} selectedGoal
  * @param {string} metricType – 'weight' | 'bodyFat'
+ * @param {object} [units] – unit formatter (weight only)
  */
-export const getGoalWeeklyTarget = (selectedGoal, metricType = 'weight') => {
-  const unit = metricType === 'bodyFat' ? '%/wk' : 'kg/wk';
-  const goalTargets = {
-    aggressive_bulk: `+0.5-1.0 ${unit}`,
-    bulking: `+0.25-0.5 ${unit}`,
-    maintenance: `0.0 ${unit}`,
-    cutting: `-0.25-0.5 ${unit}`,
-    aggressive_cut: `-0.5-1.0 ${unit}`,
-  };
-  return goalTargets[selectedGoal] || `0.0 ${unit}`;
+export const getGoalWeeklyTarget = (
+  selectedGoal,
+  metricType = 'weight',
+  units = METRIC_UNITS
+) => {
+  const isBodyFat = metricType === 'bodyFat';
+  const { bodyWeight } = units;
+  const unit = isBodyFat ? '%/wk' : `${bodyWeight.linearUnit}/wk`;
+  const band = GOAL_WEEKLY_BANDS[selectedGoal];
+  if (!band) {
+    return `0.0 ${unit}`;
+  }
+  const range =
+    isBodyFat || bodyWeight.linearUnit === 'kg'
+      ? band.text
+      : band.kg.map((kg) => bodyWeight.toNumber(kg).toFixed(1)).join('-');
+  return `${band.sign}${range} ${unit}`;
 };
 
 // ---------------------------------------------------------------------------
@@ -151,16 +169,23 @@ export const getGoalWeeklyTarget = (selectedGoal, metricType = 'weight') => {
 /**
  * Format a signed weekly rate for display.
  *
- * @param {number} value     – signed rate
+ * @param {number} value     – signed rate (kg or % per week)
  * @param {string} metricType – 'weight' | 'bodyFat'
+ * @param {object} [units]    – unit formatter (weight only)
  */
-export const formatWeeklyRate = (value, metricType = 'weight') => {
-  const unit = metricType === 'bodyFat' ? '%/wk' : 'kg/wk';
+export const formatWeeklyRate = (
+  value,
+  metricType = 'weight',
+  units = METRIC_UNITS
+) => {
+  if (metricType !== 'bodyFat') {
+    return units.bodyWeight.formatRate(Number.isFinite(value) ? value : 0);
+  }
   if (!Number.isFinite(value) || value === 0) {
-    return `0.0 ${unit}`;
+    return '0.0 %/wk';
   }
   const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)} ${unit}`;
+  return `${sign}${value.toFixed(2)} %/wk`;
 };
 
 // ---------------------------------------------------------------------------

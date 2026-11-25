@@ -19,6 +19,7 @@ import {
 } from '../../../../utils/data/dateKeys';
 import { formatDateLabel } from '../../../../utils/measurements/weight';
 import { useContentRefresh } from '../../../../hooks/useContentRefresh';
+import { useUnits } from '../../../../hooks/useUnits';
 
 // Mirrors DayLedgerListModal's SummaryTile grammar (module-local there) so the
 // calendar picker's dual panel shares one design language with the ledger.
@@ -285,6 +286,7 @@ export const CalendarPickerModal = ({
   currentYear,
   onMonthChange,
 }) => {
+  const units = useUnits();
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
@@ -904,14 +906,16 @@ export const CalendarPickerModal = ({
                       }`}
                     >
                       <div className="grid grid-cols-2 gap-2">
-                        <SummaryTile icon={Flame} label="Calories">
+                        <SummaryTile icon={Flame} label={units.energy.noun}>
                           <p className="text-accent-emerald font-bold text-sm leading-tight">
                             <AnimatedNumber
-                              value={Math.round(dayMacros.calories)}
+                              value={Math.round(
+                                units.energy.toNumber(dayMacros.calories) ?? 0
+                              )}
                             />
                             <span className="text-muted text-[10px] font-medium">
                               {' '}
-                              kcal
+                              {units.energy.unit}
                             </span>
                           </p>
                         </SummaryTile>
@@ -1060,10 +1064,16 @@ export const CalendarPickerModal = ({
                     <div className="grid grid-cols-2 gap-1.5 mt-2">
                       <SummaryTile icon={Flame} label="Avg Energy">
                         <p className="text-accent-emerald font-bold text-sm leading-tight">
-                          <AnimatedNumber value={monthlyInsights.avgCalories} />
+                          <AnimatedNumber
+                            value={Math.round(
+                              units.energy.toNumber(
+                                monthlyInsights.avgCalories
+                              ) ?? 0
+                            )}
+                          />
                           <span className="text-muted text-[10px] font-medium">
                             {' '}
-                            kcal
+                            {units.energy.unit}
                           </span>
                         </p>
                       </SummaryTile>

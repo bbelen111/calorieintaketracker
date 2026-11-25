@@ -1,6 +1,15 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 import { Save } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
+import { DualWheelModal } from './DualWheelModal';
+import { useUnits } from '../../../../hooks/useUnits';
+import { buildHeightWheel } from '../../../../utils/units/wheelConfigs';
 
 import {
   alignScrollContainerToValue,
@@ -17,7 +26,7 @@ const HEIGHT_VALUES = Array.from(
   (_, index) => HEIGHT_MIN + index
 );
 
-export const HeightPickerModal = ({
+const CentimetreHeightPickerModal = ({
   isOpen,
   isClosing,
   value,
@@ -150,4 +159,43 @@ export const HeightPickerModal = ({
       </div>
     </ModalShell>
   );
+};
+
+const FeetHeightPickerModal = ({
+  isOpen,
+  isClosing,
+  value,
+  onCancel,
+  onSave,
+}) => {
+  const { height } = useUnits();
+  const config = useMemo(() => buildHeightWheel(height.inchRange), [height]);
+  const original = sanitizeHeight(value);
+  const parts = height.toParts(original);
+
+  return (
+    <DualWheelModal
+      isOpen={isOpen}
+      isClosing={isClosing}
+      title="Select Height"
+      unitLabel="Feet and inches"
+      value={parts.feet * 12 + parts.inches}
+      config={config}
+      onCancel={onCancel}
+      onSave={(inches) =>
+        onSave?.(
+          height.fromParts(Math.floor(inches / 12), inches % 12, original)
+        )
+      }
+    />
+  );
+};
+
+/** Height in the user's unit; the value in and out is whole centimetres. */
+export const HeightPickerModal = (props) => {
+  const { height } = useUnits();
+  const Picker = height.isFeet
+    ? FeetHeightPickerModal
+    : CentimetreHeightPickerModal;
+  return <Picker {...props} />;
 };

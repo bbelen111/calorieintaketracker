@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronDown, Flame } from 'lucide-react';
 import { formatOne } from '../../../utils/formatting/format';
+import { useUnits } from '../../../hooks/useUnits';
 
 const ROWS = [
   {
@@ -39,6 +40,7 @@ const ROWS = [
  * tracks the content's real height (no max-height guess) and stays smooth.
  */
 export const TefBurnCard = ({ breakdown, expanded, onToggle, className }) => {
+  const { energy } = useUnits();
   if (!breakdown) return null;
 
   return (
@@ -68,9 +70,9 @@ export const TefBurnCard = ({ breakdown, expanded, onToggle, className }) => {
           </span>
         </span>
         <span className="whitespace-nowrap text-base font-bold tabular-nums text-accent-blue">
-          {breakdown.roundedTotalCalories.toLocaleString()}{' '}
+          {energy.value(breakdown.roundedTotalCalories)}{' '}
           <span className="text-xs font-semibold text-accent-blue/80">
-            kcal
+            {energy.unit}
           </span>
         </span>
         <ChevronDown
@@ -109,14 +111,17 @@ export const TefBurnCard = ({ breakdown, expanded, onToggle, className }) => {
                 <p
                   className={`whitespace-nowrap font-semibold tabular-nums ${row.textClass}`}
                 >
-                  {formatOne(breakdown[row.kcalKey])} kcal
+                  {energy.compact(breakdown[row.kcalKey])} {energy.unit}
                 </p>
               </div>
             ))}
             <div className="flex items-center justify-between gap-3 border-t border-accent-blue/20 pt-2">
               <p className="font-semibold text-foreground">Total (rounded)</p>
               <p className="whitespace-nowrap font-bold tabular-nums text-foreground">
-                {breakdown.roundedTotalCalories} kcal
+                {energy.value(breakdown.roundedTotalCalories, {
+                  grouping: false,
+                })}{' '}
+                {energy.unit}
               </p>
             </div>
           </div>

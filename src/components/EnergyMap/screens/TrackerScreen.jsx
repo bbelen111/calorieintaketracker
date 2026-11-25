@@ -23,6 +23,7 @@ import {
   getMealTypeById,
 } from '../../../constants/meal/mealTypes';
 import { formatOne } from '../../../utils/formatting/format';
+import { useUnits } from '../../../hooks/useUnits';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../modals/common/ConfirmActionModal';
@@ -158,6 +159,7 @@ export const TrackerScreen = memo(function TrackerScreen({
   macroHintSeen = true,
   onMacroHintSeen,
 }) {
+  const units = useUnits();
   const store = useEnergyMapStore(
     (state) => ({
       nutritionData: state.nutritionData ?? {},
@@ -536,7 +538,8 @@ export const TrackerScreen = memo(function TrackerScreen({
                   {`${mealEntries.length} item${mealEntries.length !== 1 ? 's' : ''} - `}
                 </span>
                 <span className="text-accent-emerald">
-                  {formatOne(mealTotals.calories)} kcal
+                  {units.energy.compact(mealTotals.calories)}{' '}
+                  {units.energy.unit}
                 </span>
                 <span>{` - ${mealTime}`}</span>
               </p>
@@ -616,13 +619,14 @@ export const TrackerScreen = memo(function TrackerScreen({
                         </span>
                         {entry && entry.grams != null && (
                           <span className="ml-2 text-muted text-xs align-middle">
-                            {formatOne(entry.grams)} g
+                            {units.food.format(entry.grams)}
                           </span>
                         )}
                       </p>
                       <p className="text-muted text-xs">
                         <span className="text-accent-emerald">
-                          {formatOne(entry.calories)} kcal
+                          {units.energy.compact(entry.calories)}{' '}
+                          {units.energy.unit}
                         </span>
                         {' - '}
                         <span className="text-accent-red">
@@ -819,7 +823,7 @@ export const TrackerScreen = memo(function TrackerScreen({
           <div className="flex items-center gap-2">
             <Flame className="text-accent-blue" size={20} />
             <span className="text-foreground text-lg font-bold tracking-wide">
-              Total Calories
+              Total {units.energy.noun}
             </span>
           </div>
           <span className="text-foreground font-bold text-xl tracking-wide">
@@ -832,8 +836,8 @@ export const TrackerScreen = memo(function TrackerScreen({
                 transition={{ duration: 0.22 }}
                 className="inline-block leading-none"
               >
-                {Math.round(totals.calories).toLocaleString()} /{' '}
-                {Math.round(targetCalories).toLocaleString()} kcal
+                {units.energy.value(totals.calories)} /{' '}
+                {units.energy.value(targetCalories)} {units.energy.unit}
               </motion.span>
             </AnimatePresence>
           </span>
@@ -857,7 +861,7 @@ export const TrackerScreen = memo(function TrackerScreen({
                     transition={{ duration: 0.22 }}
                     className="text-foreground text-sm font-semibold absolute left-0"
                   >
-                    {formatOne(targetCalories)} kcal
+                    {units.energy.compact(targetCalories)} {units.energy.unit}
                     <span className="text-muted font-normal ml-2">
                       ({calorieTargetLabel})
                     </span>
@@ -896,14 +900,14 @@ export const TrackerScreen = memo(function TrackerScreen({
                   {caloriesRemaining >= 0 ? (
                     <>
                       <span className="text-accent-emerald font-semibold">
-                        {formatOne(caloriesRemaining)}
+                        {units.energy.compact(caloriesRemaining)}
                       </span>{' '}
                       remaining
                     </>
                   ) : (
                     <>
                       <span className="text-accent-red font-semibold">
-                        {formatOne(Math.abs(caloriesRemaining))}
+                        {units.energy.compact(Math.abs(caloriesRemaining))}
                       </span>{' '}
                       over target
                     </>

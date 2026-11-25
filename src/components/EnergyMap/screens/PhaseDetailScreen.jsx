@@ -11,7 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { goals } from '../../../constants/goals/goals';
-import { formatWeight } from '../../../utils/measurements/weight';
+import { useUnits } from '../../../hooks/useUnits';
 import {
   calculatePhaseMetrics,
   getNutritionTotalsForDate,
@@ -149,6 +149,7 @@ const CalendarHeatmap = ({ calendarData, onDateClick }) => {
 };
 
 const DailyLogCard = ({ log, nutritionTotals, onEdit }) => {
+  const { energy } = useUnits();
   const hasWeightRef = Boolean(log.weightRef?.trim());
   const hasBodyFatRef = Boolean(log.bodyFatRef?.trim());
   const hasNutritionRef = Boolean(log.nutritionRef?.trim());
@@ -200,8 +201,8 @@ const DailyLogCard = ({ log, nutritionTotals, onEdit }) => {
 
       {hasNutritionRef && hasNutritionTotals && (
         <div className="mt-2 text-xs text-muted">
-          {Math.round(nutritionTotals.calories)} kcal · P{' '}
-          {Math.round(nutritionTotals.protein)}g · C{' '}
+          {energy.value(nutritionTotals.calories, { grouping: false })}{' '}
+          {energy.unit} · P {Math.round(nutritionTotals.protein)}g · C{' '}
           {Math.round(nutritionTotals.carbs)}g · F{' '}
           {Math.round(nutritionTotals.fats)}g
         </div>
@@ -266,6 +267,8 @@ export const PhaseDetailScreen = ({
     }),
     shallow
   );
+
+  const units = useUnits();
 
   const resolvedWeightEntries = weightEntries ?? store.weightEntries;
   const resolvedNutritionData = nutritionData ?? store.nutritionData;
@@ -332,12 +335,9 @@ export const PhaseDetailScreen = ({
   const weightChangeDisplay =
     metrics.weightChange === 0
       ? '—'
-      : `${metrics.weightChange > 0 ? '+' : ''}${formatWeight(Math.abs(metrics.weightChange))} kg`;
+      : units.bodyWeight.formatDelta(metrics.weightChange);
 
-  const weeklyRateDisplay =
-    metrics.avgWeeklyRate === 0
-      ? '0.0 kg/wk'
-      : `${metrics.avgWeeklyRate > 0 ? '+' : ''}${metrics.avgWeeklyRate.toFixed(2)} kg/wk`;
+  const weeklyRateDisplay = units.bodyWeight.formatRate(metrics.avgWeeklyRate);
 
   return (
     <div className="space-y-6 pb-10">
@@ -444,11 +444,11 @@ export const PhaseDetailScreen = ({
           <div>
             <div className="flex items-center gap-1 text-muted mb-1">
               <Zap size={14} />
-              <span>Avg Calories</span>
+              <span>Avg {units.energy.noun}</span>
             </div>
             <div className="text-foreground font-semibold">
               {metrics.avgCalories > 0
-                ? metrics.avgCalories.toLocaleString()
+                ? units.energy.value(metrics.avgCalories)
                 : '—'}
             </div>
             {metrics.nutritionDays > 0 && (

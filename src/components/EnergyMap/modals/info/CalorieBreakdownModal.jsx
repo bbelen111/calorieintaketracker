@@ -4,6 +4,10 @@ import { ModalShell } from '../../common/ModalShell';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import { formatDateLabel } from '../../../../utils/measurements/weight';
+import { useUnits } from '../../../../hooks/useUnits';
+import { KM_PER_MILE } from '../../../../utils/units/unitFormatter';
+
+const FEET_PER_METRE = 3.28084;
 
 export const CalorieBreakdownModal = ({
   isOpen,
@@ -23,6 +27,7 @@ export const CalorieBreakdownModal = ({
   onClose,
 }) => {
   const [expandedItem, setExpandedItem] = useState(null);
+  const units = useUnits();
   const resolvedGoals = goals ?? baseGoals;
   const showDateChip = Boolean(dateKey) && dateKey !== getTodayDateKey();
   const dateLabel = showDateChip
@@ -58,6 +63,37 @@ export const CalorieBreakdownModal = ({
       : `${percent.toFixed(1)}%`;
   };
   const stepDetails = breakdown.stepDetails ?? {};
+  // Step math is linear, so it converts whole into the chosen distance unit.
+  const { distance, bodyWeight } = units;
+  const milesToUnit = KM_PER_MILE / distance.kmPerUnit;
+  const stepDistance = stepDetails.distanceMiles * milesToUnit;
+  const stepsPerUnit = stepDetails.stepsPerMile / milesToUnit;
+  const caloriesPerUnit = stepDetails.caloriesPerMile / milesToUnit;
+  const { energy } = units;
+  const kcalText = (value) => `${energy.value(value)} ${energy.unit}`;
+  const roundedText = (value) =>
+    Number.isFinite(value) ? kcalText(value) : '—';
+  const detailText = (value, digits = 1) =>
+    Number.isFinite(value) ? energy.decimal(value, digits) : '—';
+  // Equations defined in kcal print in kcal and append the converted result.
+  const equationResult = (value) =>
+    energy.isKj
+      ? `${value.toLocaleString()} kcal (${energy.format(value)})`
+      : `${value.toLocaleString()} kcal`;
+  const strideText =
+    distance.unit === 'mi'
+      ? `${formatNumber(stepDetails.strideLengthMeters * FEET_PER_METRE, 2)} ft`
+      : `${formatNumber(stepDetails.strideLengthMeters, 2)} m`;
+  // The BMR and MET equations are defined in kg and cm; say what those are in
+  // the user's units when they differ.
+  const convertedWeight = (kg) =>
+    bodyWeight.unit === 'kg' ? null : bodyWeight.format(kg, { fixed: 1 });
+  const convertedBmrInputs = [
+    convertedWeight(bmrDetails.weight),
+    !usesBodyFat && units.height.isFeet
+      ? units.height.format(bmrDetails.height)
+      : null,
+  ].filter(Boolean);
   const originalEstimatedSteps =
     breakdown.originalEstimatedSteps ?? stepDetails.originalEstimatedSteps;
   const deductedSteps = breakdown.deductedSteps ?? stepDetails.deductedSteps;
@@ -190,7 +226,7 @@ export const CalorieBreakdownModal = ({
             Goal Target
           </p>
           <p className="text-primary-foreground text-3xl font-extrabold mt-1">
-            {targetCalories?.toLocaleString() ?? '—'}
+            {targetCalories != null ? energy.value(targetCalories) : '—'}
           </p>
           {selectedGoal === 'maintenance' && !formattedDifference ? (
             <p className="text-sm mt-2 font-semibold uppercase tracking-wide text-primary-foreground/80">
@@ -200,8 +236,8 @@ export const CalorieBreakdownModal = ({
             formattedDifference !== null &&
             formattedDifference !== 0 && (
               <p className="text-sm font-semibold mt-2 text-primary-foreground/80">
-                {formattedDifference > 0 ? '+' : ''}
-                {formattedDifference.toLocaleString()} kcal from TDEE
+                {energy.value(formattedDifference, { signed: true })}{' '}
+                {energy.unit} from TDEE
               </p>
             )
           )}
@@ -242,9 +278,11 @@ export const CalorieBreakdownModal = ({
                 Lean mass = {formatNumber(bmrDetails.weight, 1)} × (1 −{' '}
                 {formatNumber(bmrDetails.bodyFat, 1)}%) ={' '}
                 {formatNumber(bmrDetails.leanMass, 1)} kg
+                {convertedWeight(bmrDetails.leanMass) &&
+                  ` (${convertedWeight(bmrDetails.leanMass)})`}
                 <br />
                 BMR = 370 + 21.6 × {formatNumber(bmrDetails.leanMass, 1)} ={' '}
-                {breakdown.bmr.toLocaleString()} kcal
+                {equationResult(breakdown.bmr)}
               </p>
             ) : (
               <p className="text-muted text-xs mt-2">
@@ -254,7 +292,13 @@ export const CalorieBreakdownModal = ({
                 {formatWhole(bmrDetails.height)}) - (5 ×{' '}
                 {formatWhole(bmrDetails.age)}){' '}
                 {bmrDetails.gender === 'male' ? '+ 5' : '- 161'} ={' '}
-                {breakdown.bmr.toLocaleString()} kcal
+                {equationResult(breakdown.bmr)}
+              </p>
+            )}
+            {convertedBmrInputs.length > 0 && (
+              <p className="text-muted text-xs mt-2">
+                The formula uses metric inputs. Yours:{' '}
+                {convertedBmrInputs.join(', ')}.
               </p>
             )}
             {typeof onOpenBmrInfo === 'function' && (
@@ -276,9 +320,9 @@ export const CalorieBreakdownModal = ({
             <p className="text-muted text-xs mt-2">
               <strong>Calculation:</strong>
               <br />
-              {breakdown.bmr.toLocaleString()} (BMR) ×{' '}
+              {energy.value(breakdown.bmr)} (BMR) ×{' '}
               {effectiveActivityMultiplier.toFixed(2)} ={' '}
-              {breakdown.baseActivity.toLocaleString()} kcal
+              {kcalText(breakdown.baseActivity)}
             </p>
             {tefOffsetApplied > 0 && (
               <p className="text-muted text-xs mt-2">
@@ -304,16 +348,16 @@ export const CalorieBreakdownModal = ({
               <strong>Calculation:</strong>
               <br />
               {breakdown.estimatedSteps.toLocaleString()} steps ÷{' '}
-              {formatWhole(stepDetails.stepsPerMile)} steps/mi ={' '}
-              {formatNumber(stepDetails.distanceMiles, 2)} mi
+              {formatWhole(stepsPerUnit)} steps/{distance.unit} ={' '}
+              {formatNumber(stepDistance, 2)} {distance.unit}
               <br />
-              {formatNumber(stepDetails.distanceMiles, 2)} mi ×{' '}
-              {formatNumber(stepDetails.caloriesPerMile, 1)} kcal/mi ={' '}
-              {breakdown.stepCalories.toLocaleString()} kcal
+              {formatNumber(stepDistance, 2)} {distance.unit} ×{' '}
+              {detailText(caloriesPerUnit)} {energy.unit}/{distance.unit} ={' '}
+              {kcalText(breakdown.stepCalories)}
             </p>
             <p className="text-muted text-xs mt-2">
-              Stride length: {formatNumber(stepDetails.strideLengthMeters, 2)} m
-              • Weight used: {formatNumber(stepDetails.weightKg, 1)} kg
+              Stride length: {strideText} • Weight used:{' '}
+              {bodyWeight.format(stepDetails.weightKg, { fixed: 1 })}
             </p>
             {hasStepOverlapDeduction && (
               <p className="text-muted text-xs mt-2">
@@ -348,26 +392,26 @@ export const CalorieBreakdownModal = ({
                         ` · ${detail.heartRatePercent}% ${
                           detail.heartRateModel === 'hrr' ? 'HRR' : 'of max'
                         }`}
-                      ) {formatWhole(detail.baseCaloriesPerHour)} kcal/hr ×{' '}
+                      ) {roundedText(detail.baseCaloriesPerHour)}/hr ×{' '}
                       {formatNumber(detail.intensityMultiplier, 2)} ×{' '}
                       {formatWhole(detail.durationMinutes)} min ÷ 60 ={' '}
-                      {detail.calories.toLocaleString()} kcal
+                      {kcalText(detail.calories)}
                     </p>
                   ) : detail.effortType === 'heartRate' ? (
                     <p key={`${detail.typeKey}-${index}`}>
                       <strong>{detail.typeLabel}</strong>:{' '}
-                      {formatNumber(detail.caloriesPerMinute, 2)} kcal/min ×{' '}
-                      {formatWhole(detail.durationMinutes)} min ={' '}
-                      {detail.calories.toLocaleString()} kcal (avg HR{' '}
+                      {detailText(detail.caloriesPerMinute, 2)} {energy.unit}
+                      /min × {formatWhole(detail.durationMinutes)} min ={' '}
+                      {kcalText(detail.calories)} (avg HR{' '}
                       {formatWhole(detail.averageHeartRate)} bpm)
                     </p>
                   ) : (
                     <p key={`${detail.typeKey}-${index}`}>
                       <strong>{detail.typeLabel}</strong> ({detail.intensityKey}
-                      ) {formatWhole(detail.baseCaloriesPerHour)} kcal/hr ×{' '}
+                      ) {roundedText(detail.baseCaloriesPerHour)}/hr ×{' '}
                       {formatNumber(detail.intensityMultiplier, 2)} ×{' '}
                       {formatWhole(detail.durationMinutes)} min ÷ 60 ={' '}
-                      {detail.calories.toLocaleString()} kcal
+                      {kcalText(detail.calories)}
                     </p>
                   )
                 )}
@@ -399,9 +443,9 @@ export const CalorieBreakdownModal = ({
                   detail.effortType === 'heartRate' ? (
                     <p key={`${detail.typeKey}-${index}`}>
                       <strong>{detail.typeLabel}</strong>:{' '}
-                      {formatNumber(detail.caloriesPerMinute, 2)} kcal/min ×{' '}
-                      {formatWhole(detail.durationMinutes)} min ={' '}
-                      {detail.calories.toLocaleString()} kcal (avg HR{' '}
+                      {detailText(detail.caloriesPerMinute, 2)} {energy.unit}
+                      /min × {formatWhole(detail.durationMinutes)} min ={' '}
+                      {kcalText(detail.calories)} (avg HR{' '}
                       {formatWhole(detail.averageHeartRate)} bpm
                       {detail.vo2Max != null &&
                         `, VO2 max ${formatNumber(detail.vo2Max, 1)}`}
@@ -411,9 +455,11 @@ export const CalorieBreakdownModal = ({
                     <p key={`${detail.typeKey}-${index}`}>
                       <strong>{detail.typeLabel}</strong> ({detail.intensityKey}
                       ) MET {formatNumber(detail.met, 1)} ×{' '}
-                      {formatNumber(detail.weightKg, 1)} kg ×{' '}
-                      {formatNumber(detail.hours, 2)} hr ={' '}
-                      {detail.calories.toLocaleString()} kcal
+                      {formatNumber(detail.weightKg, 1)} kg
+                      {convertedWeight(detail.weightKg) &&
+                        ` (${convertedWeight(detail.weightKg)})`}{' '}
+                      × {formatNumber(detail.hours, 2)} hr ={' '}
+                      {equationResult(detail.calories)}
                     </p>
                   )
                 )}
@@ -439,19 +485,13 @@ export const CalorieBreakdownModal = ({
                 demand and recovery processes.
               </p>
               <p className="text-muted text-xs mt-2">
-                Training contribution: {formatWhole(trainingEpoc)} kcal
+                Training contribution: {roundedText(trainingEpoc)}
                 <br />
-                Cardio contribution: {formatWhole(cardioEpoc)} kcal
+                Cardio contribution: {roundedText(cardioEpoc)}
                 <br />
-                From today&apos;s sessions: {formatWhole(
-                  epocFromTodaySessions
-                )}{' '}
-                kcal
+                From today&apos;s sessions: {roundedText(epocFromTodaySessions)}
                 <br />
-                Carry-in from previous day: {formatWhole(
-                  epocCarryInCalories
-                )}{' '}
-                kcal
+                Carry-in from previous day: {roundedText(epocCarryInCalories)}
               </p>
               {hasHeartRateSessions && (
                 <p className="text-muted text-xs mt-2">
@@ -498,27 +538,28 @@ export const CalorieBreakdownModal = ({
                   </p>
                   <div className="space-y-1">
                     <p>
-                      Protein:{' '}
-                      {formatNumber(smartTefDetails.proteinCalories, 1)} kcal ×
-                      25% ={' '}
-                      {formatNumber(smartTefDetails.proteinTefCalories, 1)} kcal
+                      Protein: {detailText(smartTefDetails.proteinCalories)}{' '}
+                      {energy.unit} × 25% ={' '}
+                      {detailText(smartTefDetails.proteinTefCalories)}{' '}
+                      {energy.unit}
                     </p>
                     <p>
-                      Carbs: {formatNumber(smartTefDetails.carbCalories, 1)}{' '}
-                      kcal × 8% ={' '}
-                      {formatNumber(smartTefDetails.carbTefCalories, 1)} kcal
+                      Carbs: {detailText(smartTefDetails.carbCalories)}{' '}
+                      {energy.unit} × 8% ={' '}
+                      {detailText(smartTefDetails.carbTefCalories)}{' '}
+                      {energy.unit}
                     </p>
                     <p>
-                      Fat: {formatNumber(smartTefDetails.fatCalories, 1)} kcal ×{' '}
-                      2% = {formatNumber(smartTefDetails.fatTefCalories, 1)}{' '}
-                      kcal
+                      Fat: {detailText(smartTefDetails.fatCalories)}{' '}
+                      {energy.unit} × 2% ={' '}
+                      {detailText(smartTefDetails.fatTefCalories)} {energy.unit}
                     </p>
                   </div>
                   {smartTefMode === 'target' && (
                     <>
                       <p>
                         Target intake used:{' '}
-                        {formatWhole(smartTefDetails.targetCalories)} kcal • P{' '}
+                        {roundedText(smartTefDetails.targetCalories)} • P{' '}
                         {formatNumber(smartTefDetails.proteinGrams, 1)}g • C{' '}
                         {formatNumber(smartTefDetails.carbsGrams, 1)}g • F{' '}
                         {formatNumber(smartTefDetails.fatsGrams, 1)}g
@@ -579,18 +620,14 @@ export const CalorieBreakdownModal = ({
                 metabolic adaptation.
               </p>
               <p className="text-muted text-xs mt-2">
-                Baseline TDEE: {Math.round(baselineTdee).toLocaleString()} kcal
+                Baseline TDEE: {kcalText(baselineTdee)}
                 <br />
-                Correction: {adaptiveThermogenesisCorrection > 0 ? '+' : ''}
-                {Math.round(
-                  adaptiveThermogenesisCorrection
-                ).toLocaleString()}{' '}
-                kcal
+                Correction:{' '}
+                {energy.format(adaptiveThermogenesisCorrection, {
+                  signed: true,
+                })}
                 <br />
-                Adjusted TDEE: {Math.round(
-                  breakdown.total
-                ).toLocaleString()}{' '}
-                kcal
+                Adjusted TDEE: {kcalText(breakdown.total)}
               </p>
               {adaptiveThermogenesis?.details && (
                 <p className="text-muted text-xs mt-2">
@@ -614,7 +651,7 @@ export const CalorieBreakdownModal = ({
           <div className="border border-border rounded-lg px-4 py-3 flex items-center justify-between">
             <span className="text-muted font-semibold">Total TDEE</span>
             <span className="text-foreground font-bold text-lg">
-              {breakdown.total.toLocaleString()} kcal
+              {kcalText(breakdown.total)}
             </span>
           </div>
         </div>
@@ -650,8 +687,9 @@ const BreakdownItem = ({
   onToggle,
   children,
 }) => {
+  const { energy } = useUnits();
   const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-  const displayValue = value.toLocaleString();
+  const displayValue = energy.value(value);
 
   return (
     <div className="bg-surface-highlight/40 rounded-lg overflow-hidden">
@@ -677,7 +715,7 @@ const BreakdownItem = ({
         </span>
         <span className="text-foreground font-semibold flex items-center gap-3">
           <span className="text-muted text-xs">{percentage}%</span>
-          {displayValue} kcal
+          {displayValue} {energy.unit}
         </span>
       </button>
       {/* Animate the real content height (0fr -> 1fr) instead of a max-height

@@ -8,6 +8,7 @@
 } from 'react';
 import { ChevronLeft, Footprints, Target } from 'lucide-react';
 import { resolveScrollBehavior } from '../../../../utils/visuals/motionPreference';
+import { useUnits } from '../../../../hooks/useUnits';
 import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
 import { ModalShell } from '../../common/ModalShell';
 import {
@@ -253,6 +254,7 @@ export const StepTrackerModal = ({
   const panelDate = selectedDate ?? lastSelectedDate;
 
   const prefersReducedMotion = useReducedMotionPreference();
+  const units = useUnits();
 
   const clearGraphAnimationTimeout = useCallback(() => {
     if (graphAnimationTimeoutRef.current) {
@@ -1782,12 +1784,12 @@ export const StepTrackerModal = ({
                   </p>
                   <p className="text-foreground text-2xl font-bold">
                     {todayStepDetails.distanceKm > 0
-                      ? `${todayStepDetails.distanceKm.toFixed(1)} km`
+                      ? units.distance.format(todayStepDetails.distanceKm)
                       : '\u2014'}
                   </p>
                   <p className="text-muted text-[11px] mt-1">
                     {todayStepDetails.calories > 0
-                      ? `${Math.round(todayStepDetails.calories)} cal burned`
+                      ? `${units.energy.value(todayStepDetails.calories, { grouping: false })} ${units.energy.shortUnit} burned`
                       : 'from steps'}
                   </p>
                 </div>
@@ -1822,12 +1824,12 @@ export const StepTrackerModal = ({
                   </p>
                   <p className="text-foreground text-2xl font-bold">
                     {pageStepDetails.distanceKm > 0
-                      ? `${pageStepDetails.distanceKm.toFixed(1)} km`
+                      ? units.distance.format(pageStepDetails.distanceKm)
                       : '\u2014'}
                   </p>
                   <p className="text-muted text-[11px] mt-1">
                     {pageStepDetails.calories > 0
-                      ? `${Math.round(pageStepDetails.calories)} kcal`
+                      ? `${units.energy.value(pageStepDetails.calories, { grouping: false })} ${units.energy.unit}`
                       : 'from steps'}
                   </p>
                 </div>
@@ -1985,13 +1987,14 @@ export const StepTrackerModal = ({
                     <>
                       <TrackerCardMetric
                         label="Distance"
-                        value={`${panelStepDetails.distanceKm.toFixed(
-                          isMonthSelection ? 1 : 2
-                        )} km`}
+                        value={units.distance.format(
+                          panelStepDetails.distanceKm,
+                          { digits: isMonthSelection ? 1 : 2 }
+                        )}
                       />
                       <TrackerCardMetric
                         label="Burned"
-                        value={`${Math.round(panelStepDetails.calories)} kcal`}
+                        value={`${units.energy.value(panelStepDetails.calories, { grouping: false })} ${units.energy.unit}`}
                       />
                     </>
                   )}

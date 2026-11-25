@@ -5,6 +5,7 @@ import { ModalShell } from '../../common/ModalShell';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../common/ConfirmActionModal';
+import { useUnits } from '../../../../hooks/useUnits';
 
 const getTrainingLabel = (trainingTypes, type) =>
   trainingTypes?.[type]?.label ?? 'Custom Training';
@@ -31,7 +32,7 @@ const formatEffortSummary = (session) => {
   return `${intensity.charAt(0).toUpperCase()}${intensity.slice(1)} intensity`;
 };
 
-const getCaloriesSummary = (calculateCalories, session) => {
+const getCaloriesSummary = (calculateCalories, session, energy) => {
   if (typeof calculateCalories !== 'function') {
     return null;
   }
@@ -39,7 +40,7 @@ const getCaloriesSummary = (calculateCalories, session) => {
   if (!Number.isFinite(value) || value <= 0) {
     return null;
   }
-  return `~${Math.round(value)} calories`;
+  return `~${energy.value(value, { grouping: false })} ${energy.longUnit}`;
 };
 
 const normalizeFavouriteSession = (session) => {
@@ -120,6 +121,7 @@ export const TrainingFavouritesModal = ({
   onClose,
   calculateTrainingCalories,
 }) => {
+  const units = useUnits();
   const {
     trainingTypes: storeTrainingTypes,
     trainingFavourites,
@@ -239,7 +241,8 @@ export const TrainingFavouritesModal = ({
               const effortSummary = formatEffortSummary(normalizedFavourite);
               const caloriesSummary = getCaloriesSummary(
                 resolvedCalculateCalories,
-                normalizedFavourite
+                normalizedFavourite,
+                units.energy
               );
 
               // Kept for accessibility, no longer used for visual styling differences

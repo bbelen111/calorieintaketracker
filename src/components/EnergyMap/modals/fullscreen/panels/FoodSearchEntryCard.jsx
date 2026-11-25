@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, Flame, Info } from 'lucide-react';
 import { formatOne } from '../../../../../utils/formatting/format';
+import { useUnits } from '../../../../../hooks/useUnits';
 import { FoodTagBadges } from '../../../common/FoodTagBadges';
 import { buildFinalizedEntryCardState } from '../../../../../utils/food/aiFinalizedEntryState';
 import { resolveAiEntryCategory } from '../../../../../utils/food/aiCategory';
@@ -120,6 +121,7 @@ export const FoodSearchEntryCard = ({
   handleSaveAiFavourite,
   getFoodSearchSourceLabel,
 }) => {
+  const { food: foodUnit, energy } = useUnits();
   const isExpanded = expandedAiEntryKeys[entryKey] === true;
   const isTraceExpanded = expandedTraceKeys[entryKey] === true;
   const isTechnicalTraceExpanded =
@@ -186,7 +188,7 @@ export const FoodSearchEntryCard = ({
           </p>
           {Number.isFinite(Number(entry.grams)) && (
             <span className="shrink-0 text-[11px] font-medium text-muted bg-surface-highlight rounded-full px-2 py-0.5">
-              {formatOne(entry.grams)}g
+              {foodUnit.format(entry.grams, { space: false })}
             </span>
           )}
         </div>
@@ -208,9 +210,11 @@ export const FoodSearchEntryCard = ({
           <div className="flex items-center gap-1 pr-2.5 border-r border-border/60">
             <Flame size={13} className="text-accent-emerald" />
             <span className="text-[14px] font-bold text-foreground tabular-nums">
-              {formatOne(entry.calories)}
+              {energy.compact(entry.calories)}
             </span>
-            <span className="text-[9.5px] text-muted font-medium">kcal</span>
+            <span className="text-[9.5px] text-muted font-medium">
+              {energy.unit}
+            </span>
           </div>
           <div className="flex flex-1 items-center pl-2.5">
             <MacroChip

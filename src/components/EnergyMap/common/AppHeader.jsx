@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { getNutritionTotalsForDate } from '../../../utils/phases/phases';
 import { useCarouselDragVarSink } from '../../../hooks/useCarouselDragVarSink';
+import { useUnits } from '../../../hooks/useUnits';
 import {
   calculateWeightTrend,
   sortWeightEntries,
@@ -113,6 +114,7 @@ export const AppHeader = ({
   onOpenLiveHeartRate,
 }) => {
   const [now, setNow] = useState(() => new Date());
+  const units = useUnits();
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), MINUTE_MS);
@@ -162,24 +164,24 @@ export const AppHeader = ({
       }
       case 1: {
         // Tracker
-        const intake = Math.round(trackerTotals.calories);
-        const target = Math.round(calorieTargetCalories ?? 0);
+        const intake = units.energy.value(trackerTotals.calories);
+        const target = units.energy.value(calorieTargetCalories ?? 0);
         return {
           key: 'tracker',
           icon: Flame,
           iconClass: 'text-accent-amber',
-          text: `${intake.toLocaleString()} / ${target.toLocaleString()} kcal`,
+          text: `${intake} / ${target} ${units.energy.unit}`,
         };
       }
       case 2: {
         // Home
         const isTrainingDay = todaySnapshot?.isTrainingDay === true;
-        const tdee = Math.round(todaySnapshot?.tdee ?? 0);
+        const tdee = units.energy.value(todaySnapshot?.tdee ?? 0);
         return {
           key: 'home',
           icon: isTrainingDay ? Dumbbell : BedDouble,
           iconClass: isTrainingDay ? 'text-accent-blue' : 'text-accent-indigo',
-          text: `${isTrainingDay ? 'Training day' : 'Rest day'} · ≈${tdee.toLocaleString()} kcal TDEE`,
+          text: `${isTrainingDay ? 'Training day' : 'Rest day'} · ≈${tdee} ${units.energy.unit} TDEE`,
         };
       }
       case 3: {
@@ -212,7 +214,7 @@ export const AppHeader = ({
           icon: direction,
           iconClass: directionClass,
           text: hasRate
-            ? `${weightTrend.label} · ${formatOne(Math.abs(rate))} kg/wk`
+            ? `${weightTrend.label} · ${formatOne(units.bodyWeight.toNumber(Math.abs(rate)))} ${units.bodyWeight.linearUnit}/wk`
             : (weightTrend?.label ?? 'No data yet'),
         };
       }
@@ -225,6 +227,7 @@ export const AppHeader = ({
     phases,
     todaySnapshot,
     trackerTotals.calories,
+    units,
     weightTrend,
   ]);
 

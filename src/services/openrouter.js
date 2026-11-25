@@ -1,4 +1,7 @@
 /* eslint-disable no-undef */
+// This file has its own manual chunk, which absorbs whatever it imports. Never
+// import app modules the boot bundle also uses: the chunk would then load at
+// launch. Callers pass in anything derived from app code (e.g. `unitsNote`).
 import { Capacitor } from '@capacitor/core';
 import { RAG_GROUNDING_BATCH_MAX_NAMES } from './ragBudget.js';
 
@@ -990,11 +993,16 @@ export async function sendOpenRouterExtraction({
   files = [],
   history = [],
   foodContextSummary = '',
+  unitsNote = '',
   model,
   signal,
   timeoutMs = 30000,
 }) {
-  const composedMessage = composeExtractionMessage(message, foodContextSummary);
+  const composedMessage = composeExtractionMessage(
+    message,
+    foodContextSummary,
+    unitsNote
+  );
 
   return sendOpenRouterMessage({
     message: composedMessage,
@@ -1009,21 +1017,28 @@ export async function sendOpenRouterExtraction({
   });
 }
 
-export function composeExtractionMessage(message, foodContextSummary = '') {
+export function composeExtractionMessage(
+  message,
+  foodContextSummary = '',
+  unitsNote = ''
+) {
   const baseMessage = String(message ?? '').trim();
   const normalizedContext = String(foodContextSummary ?? '').trim();
 
-  if (!normalizedContext) {
-    return baseMessage;
-  }
-
-  return `${baseMessage}\n\n[RECENT_FOOD_CONTEXT]\n${normalizedContext}`;
+  return [
+    baseMessage,
+    normalizedContext ? `[RECENT_FOOD_CONTEXT]\n${normalizedContext}` : '',
+    unitsNote,
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export async function sendOpenRouterPresentation({
   message,
   systemData,
   history = [],
+  unitsNote = '',
   model,
   signal,
   timeoutMs = 30000,
@@ -1032,9 +1047,12 @@ export async function sendOpenRouterPresentation({
     systemData && typeof systemData === 'object'
       ? `\n\n[SYSTEM_DATA]: ${JSON.stringify(systemData)}`
       : '';
+  const baseMessage = [String(message ?? '').trim(), unitsNote]
+    .filter(Boolean)
+    .join('\n\n');
 
   return sendOpenRouterMessage({
-    message: `${String(message ?? '').trim()}${systemDataBlock}`.trim(),
+    message: `${baseMessage}${systemDataBlock}`.trim(),
     files: [],
     history,
     model,

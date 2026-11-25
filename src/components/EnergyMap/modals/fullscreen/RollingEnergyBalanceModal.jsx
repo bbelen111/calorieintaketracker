@@ -43,6 +43,7 @@ import {
 } from '../../../../utils/measurements/weight';
 import { sortBodyFatEntries } from '../../../../utils/measurements/bodyFat';
 import { formatWeeklyRate } from '../../../../utils/visuals/trackerHelpers';
+import { useUnits } from '../../../../hooks/useUnits';
 
 const WINDOW_LABELS = {
   3: '3D',
@@ -109,32 +110,30 @@ const SMART_ANALYSIS_MAX_SPAN_DAYS = 28;
  * bar growth + transformOrigin branches swapped. goalDailyBalanceTarget and the
  * expected/variance comparison keep using positive=deficit internally.
  */
-const formatSignedKcal = (value) => {
+const formatSignedKcal = (value, energy) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '\u2014';
-  const rounded = Math.round(numeric);
-  const sign = rounded > 0 ? '+' : '';
-  return `${sign}${rounded.toLocaleString()} kcal`;
+  return energy.format(numeric, { signed: true });
 };
 
-const formatKcal = (value) => {
+const formatKcal = (value, energy) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '\u2014';
-  return `${Math.round(numeric).toLocaleString()} kcal`;
+  return energy.format(numeric);
 };
 
-const formatAverage = (value) => {
+const formatAverage = (value, energy) => {
   if (value == null || !Number.isFinite(Number(value))) return '\u2014';
-  const numeric = Number(value);
+  const numeric = energy.toNumber(value);
   const sign = numeric > 0 ? '+' : '';
-  return `${sign}${numeric.toFixed(1)} kcal/day`;
+  return `${sign}${numeric.toFixed(1)} ${energy.unit}/day`;
 };
 
-const formatEstimateKg = (value) => {
-  if (value == null || !Number.isFinite(Number(value))) return '\u2014';
-  const numeric = Number(value);
+const formatEstimateWeight = (kg, bodyWeight) => {
+  if (kg == null || !Number.isFinite(Number(kg))) return '\u2014';
+  const numeric = Number(kg);
   const sign = numeric > 0 ? '+' : numeric < 0 ? '-' : '+';
-  return `${sign}${Math.abs(numeric).toFixed(2)} kg`;
+  return `${sign}${bodyWeight.formatAmount(numeric, { digits: 2 })}`;
 };
 
 const formatEstimatePercent = (value) => {
@@ -145,11 +144,10 @@ const formatEstimatePercent = (value) => {
 };
 
 // Compact signed value for axis labels (units implied by the modal context).
-const formatAxisKcal = (value) => {
+const formatAxisKcal = (value, energy) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return '\u2014';
-  const rounded = Math.round(numeric);
-  return `${rounded > 0 ? '+' : ''}${rounded.toLocaleString()}`;
+  return energy.value(numeric, { signed: true });
 };
 
 const formatTimelineLabel = (dateStr) => {
@@ -272,6 +270,7 @@ export const RollingEnergyBalanceModal = ({
     DEFAULT_ROLLING_BALANCE_WINDOW_DAYS
   );
 
+  const units = useUnits();
   const store = useEnergyMapStore(
     (state) => ({
       dailySnapshots: state.userData?.dailySnapshots,
@@ -1080,18 +1079,21 @@ export const RollingEnergyBalanceModal = ({
               <div className="px-4 pt-1 pb-3 grid grid-cols-2 gap-3 shrink-0">
                 <Stat label="Total Balance">
                   <p className={`text-3xl font-bold ${balanceTone}`}>
-                    {formatSignedKcal(-data.rollingBalance)}
+                    {formatSignedKcal(-data.rollingBalance, units.energy)}
                   </p>
                   <p className="text-muted text-[11px] mt-1">
                     Avg{' '}
                     <span className="text-foreground font-semibold">
-                      {formatAverage(-data.averageDailyBalance)}
+                      {formatAverage(-data.averageDailyBalance, units.energy)}
                     </span>
                   </p>
                 </Stat>
                 <Stat label="Estimated Change">
                   <p className="text-foreground text-3xl font-bold">
-                    {formatEstimateKg(-data.estimatedWeightChangeKg)}
+                    {formatEstimateWeight(
+                      -data.estimatedWeightChangeKg,
+                      units.bodyWeight
+                    )}
                   </p>
                   <p className="text-foreground text-[11px] mt-1">
                     {estimatedBodyFatChangePercent == null
@@ -1104,12 +1106,12 @@ export const RollingEnergyBalanceModal = ({
                 <Stat label="Expected">
                   <p className="text-foreground text-lg font-semibold">
                     {hasExpected
-                      ? formatSignedKcal(-data.expectedBalance)
+                      ? formatSignedKcal(-data.expectedBalance, units.energy)
                       : '\u2014'}
                   </p>
                   <p className="text-muted text-[11px] mt-1">
                     {hasExpected
-                      ? `Variance: ${formatSignedKcal(-data.balanceVariance)}`
+                      ? `Variance: ${formatSignedKcal(-data.balanceVariance, units.energy)}`
                       : 'no goal target set'}
                   </p>
                 </Stat>
@@ -1135,7 +1137,11 @@ export const RollingEnergyBalanceModal = ({
                   </p>
                   <p className="text-foreground text-lg font-semibold">
                     {hasWeightTrend
-                      ? formatWeeklyRate(weightTrend.weeklyRate, 'weight')
+                      ? formatWeeklyRate(
+                          weightTrend.weeklyRate,
+                          'weight',
+                          units
+                        )
                       : 'Insufficient data'}
                   </p>
                   <p className="text-muted text-[11px] mt-1">comparison only</p>
@@ -1283,7 +1289,7 @@ export const RollingEnergyBalanceModal = ({
                             transition: 'top 0.3s ease-out',
                           }}
                         >
-                          {formatAxisKcal(value)}
+                          {formatAxisKcal(value, units.energy)}
                         </div>
                       ))}
                       {showAvgPill && avgY != null && (
@@ -1296,7 +1302,7 @@ export const RollingEnergyBalanceModal = ({
                             backgroundColor: 'rgb(var(--accent-blue))',
                           }}
                         >
-                          {`avg ${formatAxisKcal(avgValue)}`}
+                          {`avg ${formatAxisKcal(avgValue, units.energy)}`}
                         </div>
                       )}
                     </div>
@@ -1322,16 +1328,26 @@ export const RollingEnergyBalanceModal = ({
                         KIND_META[panelKind].textClass
                       }`}
                     >
-                      {panelBar ? formatSignedKcal(panelBar.balance) : ''}
+                      {panelBar
+                        ? formatSignedKcal(panelBar.balance, units.energy)
+                        : ''}
                     </p>
                     <span className="flex items-center gap-2 flex-wrap pb-0.5">
                       <TrackerCardMetric
                         label="TDEE"
-                        value={panelBar ? formatKcal(panelBar.tdee) : ''}
+                        value={
+                          panelBar
+                            ? formatKcal(panelBar.tdee, units.energy)
+                            : ''
+                        }
                       />
                       <TrackerCardMetric
                         label="Intake"
-                        value={panelBar ? formatKcal(panelBar.intake) : ''}
+                        value={
+                          panelBar
+                            ? formatKcal(panelBar.intake, units.energy)
+                            : ''
+                        }
                       />
                     </span>
                   </div>

@@ -34,6 +34,7 @@ import {
   calculateTrainingSessionCalories,
 } from '../calculations/calculations.js';
 import { normalizeDateKey } from '../measurements/weight.js';
+import { createUnitFormatter } from '../units/unitFormatter.js';
 import { cardioTypes as baseCardioTypes } from '../../constants/cardio/cardioTypes.js';
 
 const MS_PER_MINUTE = 60_000;
@@ -255,13 +256,15 @@ const createScheduledItem = ({
   };
 };
 
-const formatSignedKcal = (value) => {
+const formatSignedKcal = (value, energy) => {
   const rounded = Math.round(Number(value) || 0);
-  if (rounded === 0) return '0 kcal';
-  return `${rounded > 0 ? '+' : '-'}${Math.abs(rounded).toLocaleString()} kcal`;
+  if (rounded === 0) return `0 ${energy.unit}`;
+  const sign = rounded > 0 ? '+' : '-';
+  return `${sign}${energy.format(Math.abs(Number(value)))}`;
 };
 
 const buildWeeklyDigestBody = ({ userData, derivedState, todayKey }) => {
+  const { energy } = createUnitFormatter(userData?.unitPreferences);
   const goalTarget = Number(derivedState?.goalDailyBalanceTarget);
   const summary = calculateRollingEnergyBalance({
     snapshots: userData?.dailySnapshots ?? {},
@@ -281,15 +284,15 @@ const buildWeeklyDigestBody = ({ userData, derivedState, todayKey }) => {
     Math.abs(avg) <= 50
       ? 'near maintenance'
       : avg > 0
-        ? `${avg.toLocaleString()} kcal/day deficit`
-        : `${Math.abs(avg).toLocaleString()} kcal/day surplus`;
+        ? `${energy.value(summary.averageDailyBalance)} ${energy.unit}/day deficit`
+        : `${energy.value(Math.abs(summary.averageDailyBalance))} ${energy.unit}/day surplus`;
 
   const daysLabel = `${summary.trackedDays}/7 days logged`;
   if (Number.isFinite(goalTarget) && Math.abs(goalTarget) > 0) {
     const targetPhrase =
       goalTarget > 0
-        ? `${Math.round(goalTarget).toLocaleString()} deficit`
-        : `${Math.abs(Math.round(goalTarget)).toLocaleString()} surplus`;
+        ? `${energy.value(goalTarget)} deficit`
+        : `${energy.value(Math.abs(goalTarget))} surplus`;
     return `7-day avg: ${avgPhrase} vs ${targetPhrase} target (${daysLabel}).`;
   }
 
@@ -474,6 +477,7 @@ export const buildNotificationPlan = ({
     const { loggedMealSlots } = countTodayLoggedMeals(nutritionData, todayKey);
     const todayIntake = getTodayIntakeCalories(nutritionData, todayKey);
     const todaySnapshot = userData?.dailySnapshots?.[todayKey];
+    const { energy } = createUnitFormatter(userData?.unitPreferences);
     const targetCalories = Number(
       derivedState?.goalCalories ?? todaySnapshot?.targetCalories ?? NaN
     );
@@ -491,11 +495,11 @@ export const buildNotificationPlan = ({
           const remaining = Math.round(targetCalories - todayIntake);
           const gapText =
             remaining > 0
-              ? `${remaining.toLocaleString()} kcal remaining vs target`
-              : `${Math.abs(remaining).toLocaleString()} kcal over target`;
-          body = `${loggedMealSlots} ${loggedMealSlots === 1 ? 'meal' : 'meals'} logged (${todayIntake.toLocaleString()} kcal) · ${gapText}.`;
+              ? `${energy.format(remaining)} remaining vs target`
+              : `${energy.format(Math.abs(remaining))} over target`;
+          body = `${loggedMealSlots} ${loggedMealSlots === 1 ? 'meal' : 'meals'} logged (${energy.format(todayIntake)}) · ${gapText}.`;
         } else {
-          body = `${loggedMealSlots} ${loggedMealSlots === 1 ? 'meal' : 'meals'} logged today (${todayIntake.toLocaleString()} kcal). Review your ledger before midnight.`;
+          body = `${loggedMealSlots} ${loggedMealSlots === 1 ? 'meal' : 'meals'} logged today (${energy.format(todayIntake)}). Review your ledger before midnight.`;
         }
       }
       pushCandidate(
@@ -818,7 +822,7 @@ export const buildNotificationPlan = ({
       const item = createScheduledItem({
         id: NOTIFICATION_ID_RANGES.EPOC_REFUEL + epocOffset,
         title: 'Post-workout EPOC refuel window',
-        body: `Your ${kind} session added ${formatSignedKcal(epoc.totalCalories)} EPOC burn. Log your recovery meal while expenditure is elevated.`,
+        body: `Your ${kind} session added ${formatSignedKcal(epoc.totalCalories, createUnitFormatter(userData?.unitPreferences).energy)} EPOC burn. Log your recovery meal while expenditure is elevated.`,
         at: new Date(targetMs),
         channelId: NOTIFICATION_CHANNEL_IDS.WORKOUTS,
         route: NOTIFICATION_ROUTES.OPEN_HOME,

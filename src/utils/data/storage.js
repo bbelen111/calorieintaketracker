@@ -25,6 +25,10 @@ import {
   normalizeOnTargetTolerance,
 } from '../../constants/goals/onTarget.js';
 import {
+  DEFAULT_UNIT_PREFERENCES,
+  normalizeUnitPreferences,
+} from '../../constants/units/units.js';
+import {
   deleteHistoryDocumentsFromDexie,
   loadAllHistoryDocuments,
   saveHistoryToDexie,
@@ -1490,6 +1494,7 @@ export const getDefaultEnergyMapData = () => ({
   fontScale: DEFAULT_FONT_SCALE_KEY, // 'small' | 'default' | 'large' | 'xlarge' (text only)
   uiDensity: DEFAULT_UI_DENSITY_KEY, // 'compact' | 'default' | 'comfortable' (spacing/size unit)
   onTargetToleranceKcal: DEFAULT_ON_TARGET_TOLERANCE_KCAL, // 50 | 100 | 150 | 250: Daily Ledger "on target" band
+  unitPreferences: { ...DEFAULT_UNIT_PREFERENCES }, // Display / input units only; data stays metric
   motionPreference: DEFAULT_MOTION_PREFERENCE_KEY, // 'system' | 'full' | 'reduced' | 'off' (animations)
   heroActionMetric: DEFAULT_HERO_ACTION_METRIC, // Home hero pill readout (a HERO_ACTION_METRICS key)
   heroTileLeftMetric: DEFAULT_HERO_TILE_LEFT_METRIC, // Home left tile (Weight by default)
@@ -1773,6 +1778,7 @@ function mergeWithDefaults(data) {
     motionPreference: normalizeMotionPreferenceKey(
       normalizedInput.motionPreference
     ),
+    unitPreferences: normalizeUnitPreferences(normalizedInput.unitPreferences),
     // The three Home slots are settled together so a corrupt or hand-edited
     // profile can never load with one metric in two slots. Body Fat is NOT
     // dropped here (tracking may be switched back on); Home steps it aside at

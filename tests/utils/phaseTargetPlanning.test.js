@@ -40,6 +40,55 @@ test('estimateRequiredDailyEnergyDelta supports body-fat-only targeting when wei
   assert.ok(Number.isFinite(result.totalDeltaCalories));
 });
 
+test('an empty target weight is no weight target, never 0 kg', () => {
+  const plan = {
+    startDate: '2026-01-01',
+    endDate: '2026-04-01',
+    startWeightKg: 80,
+    startBodyFatPercent: 20,
+    targetBodyFatPercent: 17,
+  };
+
+  // The forms pass null, and an untouched draft is an empty string.
+  for (const targetWeightKg of [null, undefined, '', 0]) {
+    const result = estimateRequiredDailyEnergyDelta({
+      ...plan,
+      targetWeightKg,
+    });
+    const label = `target weight: ${String(targetWeightKg)}`;
+
+    assert.equal(result.targetMetric, 'bodyFat', label);
+    assert.equal(result.components.weightDeltaKcal, null, label);
+    assert.equal(result.requiredDailyDeltaCalories, -205, label);
+    assert.equal(result.aggressivenessBand, 'strict', label);
+  }
+
+  const bands = buildFeasibleDateBands({
+    ...plan,
+    targetWeightKg: null,
+    minEndDate: '2026-01-02',
+    maxEndDate: '2026-12-31',
+  });
+  assert.ok(bands.strictCount > 0);
+});
+
+test('a plan without a starting weight is not planned from 0 kg', () => {
+  const diagnostics = {};
+  const result = estimateRequiredDailyEnergyDelta({
+    startDate: '2026-01-01',
+    endDate: '2026-04-01',
+    startWeightKg: null,
+    targetWeightKg: 76,
+    diagnostics,
+  });
+
+  assert.equal(result, null);
+  assert.equal(
+    diagnostics.errorCode,
+    PHASE_TARGET_PLANNING_ERROR.NO_METRIC_INPUT
+  );
+});
+
 test('estimateRequiredDailyEnergyDelta treats slow long-horizon targets as lenient', () => {
   const result = estimateRequiredDailyEnergyDelta({
     startDate: '2026-04-01',

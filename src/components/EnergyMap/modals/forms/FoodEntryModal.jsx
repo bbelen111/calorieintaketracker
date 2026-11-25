@@ -8,7 +8,11 @@ import {
   TEF_CARB_RATE,
   TEF_FAT_RATE,
 } from '../../../../utils/calculations/calculations';
-import { formatPickerDisplayValue } from '../../../../utils/food/nutrientPicker';
+import {
+  formatEnergyFieldValue,
+  formatPickerDisplayValue,
+} from '../../../../utils/food/nutrientPicker';
+import { useUnits } from '../../../../hooks/useUnits';
 
 export const FoodEntryModal = ({
   isOpen,
@@ -66,6 +70,8 @@ export const FoodEntryModal = ({
       return () => clearTimeout(timer);
     }
   }, [alreadyExists]);
+
+  const units = useUnits();
 
   const handleSave = (options = {}) => {
     if (!foodName.trim()) {
@@ -194,7 +200,7 @@ export const FoodEntryModal = ({
         {/* Calories */}
         <div>
           <label className="block text-foreground text-sm font-semibold mb-2">
-            Calories
+            {units.energy.noun}
           </label>
           <button
             type="button"
@@ -203,7 +209,7 @@ export const FoodEntryModal = ({
             aria-label="Open calories picker"
           >
             <span className="font-medium text-base">
-              {formatPickerDisplayValue(calories, 'kcal')}
+              {formatEnergyFieldValue(calories, units.energy)}
             </span>
             <ChevronsUpDown size={16} className="text-muted shrink-0" />
           </button>

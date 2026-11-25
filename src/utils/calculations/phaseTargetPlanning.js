@@ -90,9 +90,11 @@ const addDaysUtc = (dateKey, days) => {
   return formatDateKeyUtc(next);
 };
 
-const toRoundedNullableNumber = (value) => {
+// An empty weight must stay null: `Number(null)` and `Number('')` are 0, which
+// would plan towards a body weight of 0 kg.
+const toNullableWeight = (value) => {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
+  if (!Number.isFinite(numeric) || numeric <= 0) {
     return null;
   }
   return Math.round(numeric * 10) / 10;
@@ -199,8 +201,8 @@ const resolveMetricEnergyDelta = ({
   startBodyFatPercent,
   targetBodyFatPercent,
 }) => {
-  const safeStartWeight = toRoundedNullableNumber(startWeightKg);
-  const safeTargetWeight = toRoundedNullableNumber(targetWeightKg);
+  const safeStartWeight = toNullableWeight(startWeightKg);
+  const safeTargetWeight = toNullableWeight(targetWeightKg);
   const safeStartBodyFat = toNullablePercent(startBodyFatPercent);
   const safeTargetBodyFat = toNullablePercent(targetBodyFatPercent);
 
@@ -818,6 +820,7 @@ export const deriveTargetCreationModePayload = ({
  *  dailyDelta: number,
  *  totalDeltaCalories: number,
  *  predictedWeightDeltaKg: number,
+ *  predictedWeightDeltaKgExact: number,
  *  predictedWeightDeltaPercent: number | null,
  *  predictedBodyFatDeltaPercent: number | null,
  * }}
@@ -864,6 +867,8 @@ export const estimateGoalModeProjection = ({
     dailyDelta,
     totalDeltaCalories: Math.round(totalDeltaCalories),
     predictedWeightDeltaKg: roundedWeightDelta,
+    // Unrounded, for converting into other display units before rounding.
+    predictedWeightDeltaKgExact: predictedWeightDeltaKg,
     predictedWeightDeltaPercent,
     // Deprecated alias retained for backward compatibility.
     predictedBodyFatDeltaPercent: predictedWeightDeltaPercent,

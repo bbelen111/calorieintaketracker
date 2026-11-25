@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Edit3, Trash2, Utensils, X } from 'lucide-react';
 import { useReducedMotionPreference } from '../../../../../hooks/useMotionMode';
 import { formatOne } from '../../../../../utils/formatting/format';
+import { useUnits } from '../../../../../hooks/useUnits';
 import { formatFoodDisplayName } from '../../../../../utils/food/foodPresentation';
 
 const shortenName = (name, maxLength = 36) => {
@@ -28,6 +29,7 @@ export const FoodSearchMealPreviewPanel = ({
   icon: Icon = Utensils,
 }) => {
   const prefersReducedMotion = useReducedMotionPreference();
+  const { food: foodUnit, energy } = useUnits();
 
   if (!isOpen) {
     return null;
@@ -133,13 +135,13 @@ export const FoodSearchMealPreviewPanel = ({
                       </span>
                       {entry && entry.grams != null && (
                         <span className="ml-2 text-muted text-xs align-middle">
-                          {formatOne(entry.grams)} g
+                          {foodUnit.format(entry.grams)}
                         </span>
                       )}
                     </p>
                     <p className="text-muted text-xs">
                       <span className="text-accent-emerald">
-                        {formatOne(entry?.calories || 0)} kcal
+                        {energy.compact(entry?.calories || 0)} {energy.unit}
                       </span>
                       {' - '}
                       <span className="text-accent-red">

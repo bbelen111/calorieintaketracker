@@ -37,8 +37,12 @@ const FILTER_ACTIVE_CLASS_BY_COLOR = {
 export const getFilterActiveClass = (color) =>
   `${FILTER_ACTIVE_CLASS_BY_COLOR[color] || 'bg-accent-slate'} text-primary-foreground`;
 
-export const getSortLabel = (sortBy, sortOrder) =>
-  `${SORT_LABELS[sortBy]} ${sortOrder === 'asc' ? '↑' : '↓'}`;
+/** `energyNoun` names the calories sort in the user's energy unit. */
+export const getSortLabel = (sortBy, sortOrder, energyNoun) => {
+  const label =
+    sortBy === 'calories' && energyNoun ? energyNoun : SORT_LABELS[sortBy];
+  return `${label} ${sortOrder === 'asc' ? '↑' : '↓'}`;
+};
 
 export const normalizeSearchText = (value) =>
   String(value ?? '')

@@ -6,6 +6,8 @@ import { SegmentedToggle } from '../../common/SegmentedToggle';
 import { SmoothHeight } from '../../common/SmoothHeight';
 import { GoalModal } from './GoalModal';
 import { WeightPickerModal } from './WeightEntryModal';
+import { useUnits } from '../../../../hooks/useUnits';
+import { describeGoal } from '../../../../utils/units/goalDescription';
 import { BodyFatPickerModal } from './BodyFatEntryModal';
 import { useAnimatedModal } from '../../../../hooks/useAnimatedModal';
 import { goals } from '../../../../constants/goals/goals';
@@ -57,6 +59,15 @@ const parseOptionalNumber = (value) => {
   return Number.isFinite(numeric) ? numeric : null;
 };
 
+// Kg shows the projection's own one-decimal figure; other units convert the
+// unrounded one.
+const describePredictedChange = (projection, bodyWeight) =>
+  bodyWeight.formatDelta(
+    bodyWeight.linearUnit === 'kg'
+      ? projection.predictedWeightDeltaKg
+      : projection.predictedWeightDeltaKgExact
+  );
+
 export const PhaseCreationModal = ({
   isOpen,
   isClosing,
@@ -82,6 +93,8 @@ export const PhaseCreationModal = ({
   onSave,
   error,
 }) => {
+  const units = useUnits();
+  const { bodyWeight } = units;
   const goalPickerModal = useAnimatedModal(false);
   const targetWeightPickerModal = useAnimatedModal(false);
   const targetBodyFatPickerModal = useAnimatedModal(false);
@@ -251,6 +264,7 @@ export const PhaseCreationModal = ({
       return {
         ...window,
         predictedWeightDeltaKg,
+        predictedWeightDeltaKgExact: predictedWeightDeltaKgRaw,
         predictedWeightDeltaPercent,
       };
     });
@@ -370,7 +384,7 @@ export const PhaseCreationModal = ({
                       {selectedGoalConfig.label}
                     </span>
                     <span className="text-[11px] md:text-xs opacity-90 block truncate whitespace-nowrap leading-tight">
-                      {selectedGoalConfig.desc}
+                      {describeGoal(goalType, selectedGoalConfig, units)}
                     </span>
                   </span>
                 </span>
@@ -389,7 +403,7 @@ export const PhaseCreationModal = ({
               >
                 <div>
                   <label className="block text-foreground text-sm font-semibold mb-2">
-                    Target Weight (kg)
+                    Target Weight ({bodyWeight.unit})
                   </label>
                   <button
                     type="button"
@@ -398,9 +412,9 @@ export const PhaseCreationModal = ({
                   >
                     <span className="font-medium text-base">
                       {hasTargetWeight
-                        ? `${parsedTargetWeight.toFixed(1)} kg`
+                        ? bodyWeight.format(parsedTargetWeight, { fixed: 1 })
                         : parsedCurrentWeight != null
-                          ? `Current: ${parsedCurrentWeight.toFixed(1)} kg`
+                          ? `Current: ${bodyWeight.format(parsedCurrentWeight, { fixed: 1 })}`
                           : 'Tap to set target weight'}
                     </span>
                     <ChevronsUpDown size={16} className="text-muted shrink-0" />
@@ -479,13 +493,15 @@ export const PhaseCreationModal = ({
                 <>
                   <p className="text-xs text-muted">
                     {goalPrediction.daySpan} days •{' '}
-                    {goalPrediction.dailyDelta > 0 ? '+' : ''}
-                    {goalPrediction.dailyDelta} kcal/day
+                    {units.energy.value(goalPrediction.dailyDelta, {
+                      signed: true,
+                      grouping: false,
+                    })}{' '}
+                    {units.energy.unit}/day
                   </p>
                   <p className="text-xs mt-2 font-semibold text-foreground">
                     Weight:{' '}
-                    {goalPrediction.predictedWeightDeltaKg > 0 ? '+' : ''}
-                    {goalPrediction.predictedWeightDeltaKg.toFixed(1)} kg
+                    {describePredictedChange(goalPrediction, bodyWeight)}
                   </p>
                   {isBodyFatTrackingEnabled &&
                     Number.isFinite(
@@ -511,8 +527,7 @@ export const PhaseCreationModal = ({
                         {window.weeks}w ({window.days}d)
                       </p>
                       <p className="text-[11px] mt-2 font-semibold leading-tight text-foreground">
-                        Wt: {window.predictedWeightDeltaKg > 0 ? '+' : ''}
-                        {window.predictedWeightDeltaKg.toFixed(1)} kg
+                        Wt: {describePredictedChange(window, bodyWeight)}
                       </p>
                       {isBodyFatTrackingEnabled &&
                         Number.isFinite(window.predictedWeightDeltaPercent) && (
@@ -553,8 +568,11 @@ export const PhaseCreationModal = ({
               {targetPlan && (
                 <p className={`text-xs mt-2 font-semibold ${currentBandClass}`}>
                   Smart target:{' '}
-                  {targetPlan.requiredDailyDeltaCalories > 0 ? '+' : ''}
-                  {targetPlan.requiredDailyDeltaCalories} kcal/day (
+                  {units.energy.value(targetPlan.requiredDailyDeltaCalories, {
+                    signed: true,
+                    grouping: false,
+                  })}{' '}
+                  {units.energy.unit}/day (
                   {getAggressivenessBandDisplayLabel({
                     aggressivenessBand: targetPlan.aggressivenessBand,
                     requiredDailyDeltaCalories:

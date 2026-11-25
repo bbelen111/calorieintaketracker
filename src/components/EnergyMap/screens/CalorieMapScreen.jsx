@@ -16,6 +16,7 @@ import {
   getHealthSourceName,
 } from '../../../constants/health/healthSources.js';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
+import { useUnits } from '../../../hooks/useUnits';
 
 // Module-scope static map (hoisted out of the component body so the screen's
 // render does not rebuild the literal per render).
@@ -53,6 +54,7 @@ const LiveStepsCard = ({
   onOpenStepTracker,
   stepGoal = 10000,
 }) => {
+  const { energy } = useUnits();
   const isConnected = healthConnectStatus === HealthConnectStatus.CONNECTED;
   const isUnavailable =
     healthConnectStatus === HealthConnectStatus.UNAVAILABLE ||
@@ -230,9 +232,11 @@ const LiveStepsCard = ({
               className="absolute top-2 right-2 text-primary-foreground/70"
             />
             <p className="text-primary-foreground font-bold text-2xl">
-              {targetCalories.toLocaleString()}
+              {energy.value(targetCalories)}
             </p>
-            <p className="text-primary-foreground/90 text-xs">calories</p>
+            <p className="text-primary-foreground/90 text-xs">
+              {energy.longUnit}
+            </p>
           </button>
         </div>
 
@@ -268,11 +272,10 @@ const LiveStepsCard = ({
 
         <div className="flex items-center justify-between mt-2 pt-3 border-t border-border/50">
           <p className="text-muted text-xs">
-            TDEE: {breakdown.total.toLocaleString()} cal
+            TDEE: {energy.value(breakdown.total)} {energy.shortUnit}
             {difference !== 0 && (
               <span className={`ml-1 font-semibold text-muted`}>
-                {difference > 0 ? '+' : ''}
-                {difference.toLocaleString()} cal
+                {energy.value(difference, { signed: true })} {energy.shortUnit}
               </span>
             )}
           </p>
@@ -327,6 +330,7 @@ export const CalorieMapScreen = memo(function CalorieMapScreen({
   onOpenStepTracker,
   stepGoal,
 }) {
+  const units = useUnits();
   const store = useEnergyMapStore(
     (state) => ({
       stepRanges: state.userData.stepRanges ?? [],
@@ -442,16 +446,18 @@ export const CalorieMapScreen = memo(function CalorieMapScreen({
                 </div>
                 <div className="bg-primary rounded-lg p-3 mb-2 text-center">
                   <p className="text-primary-foreground text-2xl font-bold">
-                    {targetCalories.toLocaleString()}
+                    {units.energy.value(targetCalories)}
                   </p>
-                  <p className="text-primary-foreground/90 text-xs">calories</p>
+                  <p className="text-primary-foreground/90 text-xs">
+                    {units.energy.longUnit}
+                  </p>
                 </div>
                 <p className="text-muted text-xs">
-                  TDEE: {breakdown.total.toLocaleString()}
+                  TDEE: {units.energy.value(breakdown.total)}
                   {difference !== 0 && (
                     <span className={`ml-1 font-semibold text-muted`}>
-                      {difference > 0 ? '+' : ''}
-                      {difference.toLocaleString()} cal
+                      {units.energy.value(difference, { signed: true })}{' '}
+                      {units.energy.shortUnit}
                     </span>
                   )}
                 </p>

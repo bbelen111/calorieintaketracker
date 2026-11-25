@@ -15,6 +15,8 @@ import {
   Scale,
 } from 'lucide-react';
 import { resolveScrollBehavior } from '../../../../utils/visuals/motionPreference';
+import { useUnits } from '../../../../hooks/useUnits';
+import { roundTo } from '../../../../utils/units/unitFormatter';
 import { useReducedMotionPreference } from '../../../../hooks/useMotionMode';
 import { ModalShell } from '../../common/ModalShell';
 import {
@@ -23,13 +25,11 @@ import {
 } from '../../common/TrackerSelectionCard';
 import {
   calculateWeightTrend,
-  formatWeight,
   sortWeightEntries,
   calculateNDayWeightAverage,
   groupWeightEntriesByMonth,
   getPreviousEntryDelta,
   getWindowAverageDeviation,
-  formatSignedDelta,
 } from '../../../../utils/measurements/weight';
 import {
   getGoalAlignedStyle,
@@ -235,6 +235,9 @@ export const WeightTrackerModal = ({
   );
   const resolvedEntries = entries ?? store.weightEntries;
   const resolvedLatestWeight = latestWeight ?? store.latestWeight;
+  const units = useUnits();
+  const { bodyWeight } = units;
+  const precision = bodyWeight.mathPrecision;
 
   // --- State ---
   const [viewMode, setViewMode] = useState('7d'); // '7d' | '30d' | '12m'
@@ -342,18 +345,18 @@ export const WeightTrackerModal = ({
 
   // Rolling averages (global, not per-page)
   const avg7 = useMemo(
-    () => calculateNDayWeightAverage(sortedEntries, 7),
-    [sortedEntries]
+    () => calculateNDayWeightAverage(sortedEntries, 7, null, precision),
+    [sortedEntries, precision]
   );
   const avg14 = useMemo(
-    () => calculateNDayWeightAverage(sortedEntries, 14),
-    [sortedEntries]
+    () => calculateNDayWeightAverage(sortedEntries, 14, null, precision),
+    [sortedEntries, precision]
   );
 
   // Monthly groups for 12m mode
   const monthGroups = useMemo(
-    () => groupWeightEntriesByMonth(sortedEntries),
-    [sortedEntries]
+    () => groupWeightEntriesByMonth(sortedEntries, precision),
+    [sortedEntries, precision]
   );
 
   // Fill month groups to always span at least 12 months ending at the latest data month
@@ -839,17 +842,14 @@ export const WeightTrackerModal = ({
     [latestDate]
   );
 
-  const currentWeightDisplay = (() => {
-    const formatted = formatWeight(latestWeight_);
-    return formatted ? `${formatted} kg` : '—';
-  })();
+  const currentWeightDisplay = bodyWeight.format(latestWeight_);
 
   const weeklyRate7dDisplay = hasTrendData(trend7d)
-    ? formatWeeklyRate(trend7d.weeklyRate, 'weight')
+    ? formatWeeklyRate(trend7d.weeklyRate, 'weight', units)
     : '—';
 
   const weeklyRateDisplay = hasTrendData(trend)
-    ? formatWeeklyRate(trend.weeklyRate, 'weight')
+    ? formatWeeklyRate(trend.weeklyRate, 'weight', units)
     : '—';
 
   // Per-page dynamic stat for 30d and 12m
@@ -864,9 +864,7 @@ export const WeightTrackerModal = ({
       );
       const vals = windowDays.filter((d) => d.entry).map((d) => d.entry.weight);
       if (!vals.length) return null;
-      return (
-        Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
-      );
+      return roundTo(vals.reduce((a, b) => a + b, 0) / vals.length, precision);
     }
     if (viewMode === '12m') {
       const { months } = timeline12m;
@@ -881,12 +879,17 @@ export const WeightTrackerModal = ({
       const windowMonths = months.slice(startIdx, startIdx + 12);
       const vals = windowMonths.filter((m) => m.avg != null).map((m) => m.avg);
       if (!vals.length) return null;
-      return (
-        Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10
-      );
+      return roundTo(vals.reduce((a, b) => a + b, 0) / vals.length, precision);
     }
     return null;
-  }, [viewMode, timeline30d, timeline12m, settledPageIndex, windowSize30d]);
+  }, [
+    viewMode,
+    timeline30d,
+    timeline12m,
+    settledPageIndex,
+    windowSize30d,
+    precision,
+  ]);
 
   const visibleWindowTrackedDays = useMemo(() => {
     if (viewMode !== '12m') return 0;
@@ -1125,16 +1128,18 @@ export const WeightTrackerModal = ({
       previousEntryDelta: getPreviousEntryDelta(
         sortedEntries,
         panelEntry.date,
-        'weight'
+        'weight',
+        precision
       ),
       trendDeviation: getWindowAverageDeviation(
         sortedEntries,
         panelEntry.date,
         7,
-        'weight'
+        'weight',
+        precision
       ),
     };
-  }, [isMonthSelection, panelEntry, sortedEntries]);
+  }, [isMonthSelection, panelEntry, sortedEntries, precision]);
 
   const previousMonthGroup = useMemo(() => {
     if (!isMonthSelection || !panelMonth) return null;
@@ -1147,7 +1152,7 @@ export const WeightTrackerModal = ({
 
   const monthOverMonthDelta =
     previousMonthGroup?.avg != null && panelMonth?.avg != null
-      ? Math.round((panelMonth.avg - previousMonthGroup.avg) * 10) / 10
+      ? roundTo(panelMonth.avg - previousMonthGroup.avg, precision)
       : null;
 
   // --- Mode-specific point sizing ---
@@ -1706,13 +1711,13 @@ export const WeightTrackerModal = ({
                         <div className="flex items-baseline gap-2">
                           <span className="text-muted text-[11px]">7d</span>
                           <span className="text-foreground text-lg font-semibold">
-                            {avg7 != null ? `${formatWeight(avg7)} kg` : '—'}
+                            {avg7 != null ? bodyWeight.format(avg7) : '—'}
                           </span>
                         </div>
                         <div className="flex items-baseline gap-2">
                           <span className="text-muted text-[11px]">14d</span>
                           <span className="text-foreground text-sm font-semibold">
-                            {avg14 != null ? `${formatWeight(avg14)} kg` : '—'}
+                            {avg14 != null ? bodyWeight.format(avg14) : '—'}
                           </span>
                         </div>
                       </div>
@@ -1777,7 +1782,8 @@ export const WeightTrackerModal = ({
                         {weeklyRate7dDisplay}
                       </p>
                       <p className="text-muted text-xs mt-1">
-                        Goal: {getGoalWeeklyTarget(selectedGoal, 'weight')}
+                        Goal:{' '}
+                        {getGoalWeeklyTarget(selectedGoal, 'weight', units)}
                       </p>
                     </div>
                   </>
@@ -1819,7 +1825,7 @@ export const WeightTrackerModal = ({
                           </p>
                           <p className="text-foreground text-2xl font-bold">
                             {pageAverage != null
-                              ? `${formatWeight(pageAverage)} kg`
+                              ? bodyWeight.format(pageAverage)
                               : '—'}
                           </p>
                           <p className="text-muted text-[11px] mt-1">
@@ -1836,7 +1842,7 @@ export const WeightTrackerModal = ({
                           </p>
                           <p className="text-foreground text-2xl font-bold">
                             {pageAverage != null
-                              ? `${formatWeight(pageAverage)} kg`
+                              ? bodyWeight.format(pageAverage)
                               : '—'}
                           </p>
                           <p className="text-muted text-[11px] mt-1">
@@ -1919,7 +1925,8 @@ export const WeightTrackerModal = ({
                             {weeklyRateDisplay}
                           </p>
                           <p className="text-muted text-xs mt-1">
-                            Goal: {getGoalWeeklyTarget(selectedGoal, 'weight')}
+                            Goal:{' '}
+                            {getGoalWeeklyTarget(selectedGoal, 'weight', units)}
                           </p>
                         </div>
                       </>
@@ -1988,21 +1995,29 @@ export const WeightTrackerModal = ({
                         ? yTickPositions.map(({ weight, index, lineY }) => (
                             <div
                               key={`tick-${index}`}
-                              className="absolute right-2 text-sm font-semibold text-foreground/70 tracking-tight text-right"
+                              className={`absolute font-semibold text-foreground/70 tracking-tight text-right ${
+                                bodyWeight.isStone
+                                  ? 'right-1 text-[11px] whitespace-nowrap'
+                                  : 'right-2 text-sm'
+                              }`}
                               style={{
                                 top: `${lineY}px`,
                                 transform: 'translateY(-50%)',
                                 transition: 'top 0.3s ease-out',
                               }}
                             >
-                              {formatWeight(weight)}
+                              {bodyWeight.formatTick(weight)}
                             </div>
                           ))
                         : null}
                       {currentWeightTick &&
                         (viewMode === '7d' || viewMode === '30d') && (
                           <div
-                            className="absolute right-0.5 px-2.5 py-1 rounded-lg text-[12px] font-bold text-primary-foreground shadow-md flex items-center justify-center leading-none"
+                            className={`absolute right-0.5 py-1 rounded-lg font-bold text-primary-foreground shadow-md flex items-center justify-center leading-none whitespace-nowrap ${
+                              bodyWeight.isStone
+                                ? 'px-1 text-[11px]'
+                                : 'px-2.5 text-[12px]'
+                            }`}
                             style={{
                               top: `${currentWeightTick.yPx}px`,
                               transform: 'translateY(-50%)',
@@ -2012,7 +2027,7 @@ export const WeightTrackerModal = ({
                               borderWidth: '1px',
                             }}
                           >
-                            {formatWeight(currentWeightTick.weight)}
+                            {bodyWeight.formatTick(currentWeightTick.weight)}
                           </div>
                         )}
                     </div>
@@ -2041,17 +2056,17 @@ export const WeightTrackerModal = ({
                     <p className="text-foreground text-xl font-bold leading-tight">
                       {isMonthSelection
                         ? panelMonth?.avg != null
-                          ? `${formatWeight(panelMonth.avg)} kg`
+                          ? bodyWeight.format(panelMonth.avg)
                           : 'No entries'
                         : panelEntry
-                          ? `${formatWeight(panelEntry.weight)} kg`
+                          ? bodyWeight.format(panelEntry.weight)
                           : 'No entry'}
                     </p>
                     <span className="flex items-center gap-2 flex-wrap pb-0.5">
                       {monthOverMonthDelta != null && (
                         <TrackerCardMetric
                           label="vs prev month"
-                          value={formatSignedDelta(monthOverMonthDelta, 'kg')}
+                          value={bodyWeight.formatDelta(monthOverMonthDelta)}
                         />
                       )}
                       {previousEntryDelta && (
@@ -2061,16 +2076,15 @@ export const WeightTrackerModal = ({
                               ? `vs prev (${previousEntryDelta.spanDays}d)`
                               : 'vs prev'
                           }
-                          value={formatSignedDelta(
-                            previousEntryDelta.delta,
-                            'kg'
+                          value={bodyWeight.formatDelta(
+                            previousEntryDelta.delta
                           )}
                         />
                       )}
                       {trendDeviation != null && (
                         <TrackerCardMetric
                           label="vs 7d avg"
-                          value={formatSignedDelta(trendDeviation, 'kg')}
+                          value={bodyWeight.formatDelta(trendDeviation)}
                         />
                       )}
                       {isMonthSelection && panelMonth?.avg != null && (

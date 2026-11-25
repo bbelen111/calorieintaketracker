@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   __resetOpenRouterRateLimitQueueForTests,
@@ -10,6 +11,7 @@ import {
   OPENROUTER_REQUEST_MODE,
   parseFoodParserPayloadFromText,
   sendOpenRouterMessage,
+  sendOpenRouterPresentation,
 } from '../../src/services/openrouter.js';
 
 test.beforeEach(() => {
@@ -213,4 +215,69 @@ test('fetchMacrosWithGrounding rescales portion-aware responses and passes micro
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('a units note follows the prompt, and metric requests carry none', async () => {
+  const originalFetch = globalThis.fetch;
+  const prompts = [];
+  globalThis.fetch = async (_url, options = {}) => {
+    const body = JSON.parse(options.body);
+    prompts.push(body.messages.at(-1).content[0].text);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: `Logged.\n<food_parser_json>${JSON.stringify({
+                version: FOOD_PARSER_SCHEMA_VERSION,
+                messageType: 'error',
+                assistantMessage: 'Logged.',
+                entries: [],
+              })}</food_parser_json>`,
+            },
+          },
+        ],
+      }),
+    };
+  };
+  const systemData = { entries: [{ name: 'Rice', calories: 221 }] };
+  const data = `[SYSTEM_DATA]: ${JSON.stringify(systemData)}`;
+
+  try {
+    await sendOpenRouterPresentation({ message: 'rice', systemData });
+    await sendOpenRouterPresentation({
+      message: 'rice',
+      systemData,
+      unitsNote: '[DISPLAY_UNITS]',
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.deepEqual(prompts, [
+    `rice\n\n${data}`,
+    `rice\n\n[DISPLAY_UNITS]\n\n${data}`,
+  ]);
+  assert.equal(composeExtractionMessage('rice', '', ''), 'rice');
+  assert.equal(
+    composeExtractionMessage('rice', '1. Oats', '[DISPLAY_UNITS]'),
+    'rice\n\n[RECENT_FOOD_CONTEXT]\n1. Oats\n\n[DISPLAY_UNITS]'
+  );
+});
+
+// The client has its own manual chunk, which absorbs its imports: pulling in
+// app code would make the chunk load at launch.
+test('the OpenRouter client imports no app code the boot bundle uses', () => {
+  const source = readFileSync(
+    new URL('../../src/services/openrouter.js', import.meta.url),
+    'utf8'
+  );
+  const imports = [...source.matchAll(/\bfrom '([^']+)';/g)];
+
+  assert.deepEqual(
+    imports.map((match) => match[1]),
+    ['@capacitor/core', './ragBudget.js']
+  );
 });
