@@ -6,6 +6,7 @@ import {
   SCREEN_DRAG_DURATION_VAR,
   SCREEN_DRAG_PROGRESS_VAR,
 } from '../../../utils/visuals/carouselLoop';
+import { GLASS_ACCENT_STYLE, GLASS_PILL_CLASS } from './glassStyles';
 
 const CIRCLE_SIZE_PX = 44; // in the 54px bar
 const BAR_HEIGHT_PX = 54;
@@ -95,7 +96,7 @@ export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
       >
         <div
           ref={dragVarSinkRef}
-          className="relative flex items-stretch rounded-full border border-border/50 bg-surface/35 shadow-lg shadow-background/30 inset-shadow-[0_1px_0_rgb(255_255_255/0.07)] backdrop-blur-2xl"
+          className={`relative flex items-stretch ${GLASS_PILL_CLASS}`}
           style={{ height: BAR_HEIGHT_PX }}
         >
           {/* Ring tracker: clipped (rounded) so a copy gliding off one end and
@@ -119,13 +120,9 @@ export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
                 <div
                   className="absolute rounded-full bg-primary"
                   style={{
-                    // Glassy top-light + a soft primary glow. The glow is clipped
-                    // by the rounded tracker, so it halos along the pill rather
-                    // than spilling outside it.
-                    backgroundImage:
-                      'linear-gradient(to bottom, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 55%, rgb(0 0 0 / 0.06))',
-                    boxShadow:
-                      'inset 0 1px 0 rgb(255 255 255 / 0.22), 0 0 14px rgb(var(--primary) / 0.5)',
+                    // The glow is clipped by the rounded tracker, so it halos
+                    // along the pill rather than spilling outside it.
+                    ...GLASS_ACCENT_STYLE,
                     width: CIRCLE_SIZE_PX,
                     height: CIRCLE_SIZE_PX,
                     top: `calc(50% - ${CIRCLE_SIZE_PX / 2}px)`,
