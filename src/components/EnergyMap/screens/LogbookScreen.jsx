@@ -12,7 +12,10 @@ import {
   Flame,
 } from 'lucide-react';
 import { goals } from '../../../constants/goals/goals';
-import { formatWeight } from '../../../utils/measurements/weight';
+import {
+  formatSignedDelta,
+  formatWeight,
+} from '../../../utils/measurements/weight';
 import { calculatePhaseMetrics } from '../../../utils/phases/phases';
 import {
   buildDayLedgerCardSummary,
@@ -96,7 +99,7 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
   const weightChangeDisplay =
     weightChange === 0
       ? '—'
-      : `${weightChange > 0 ? '+' : ''}${formatWeight(weightChange)} kg`;
+      : formatSignedDelta(weightChange, 'kg');
 
   return (
     <button

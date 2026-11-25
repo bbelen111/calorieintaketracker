@@ -11,7 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { goals } from '../../../constants/goals/goals';
-import { formatWeight } from '../../../utils/measurements/weight';
+import { formatSignedDelta } from '../../../utils/measurements/weight';
 import {
   calculatePhaseMetrics,
   getNutritionTotalsForDate,
@@ -332,7 +332,7 @@ export const PhaseDetailScreen = ({
   const weightChangeDisplay =
     metrics.weightChange === 0
       ? '—'
-      : `${metrics.weightChange > 0 ? '+' : ''}${formatWeight(Math.abs(metrics.weightChange))} kg`;
+      : formatSignedDelta(metrics.weightChange, 'kg');
 
   const weeklyRateDisplay =
     metrics.avgWeeklyRate === 0
