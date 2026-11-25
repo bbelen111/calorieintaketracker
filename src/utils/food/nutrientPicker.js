@@ -70,6 +70,31 @@ export const PORTION_GRAMS_PICKER_FIELD = {
   step: 1,
 };
 
+// The same custom-portion weight in ounces (up to the same 1000 g).
+const PORTION_OUNCES_PICKER_FIELD = {
+  title: 'Portion Weight',
+  unitLabel: 'ounces',
+  min: 0.1,
+  max: 35.3,
+  step: 0.1,
+};
+
+/** Portion-weight field for a food unit (`units.food`). */
+export const getPortionWeightField = (foodUnit) =>
+  foodUnit?.isOunce ? PORTION_OUNCES_PICKER_FIELD : PORTION_GRAMS_PICKER_FIELD;
+
+/**
+ * Whether a picker save leaves a field as it was: the wheel still shows the
+ * existing value (snapped to its step), so keep that value's exact text. An
+ * unset field is never "unchanged" - picking 0 records a measured zero.
+ */
+export const isPickerValueUnchanged = (currentText, picked, config) => {
+  const current = Number.parseFloat(currentText);
+  return (
+    Number.isFinite(current) && normalizePickerValue(current, config) === picked
+  );
+};
+
 // Recipe builder weights. Capped at 1000 g / 5000 g so the wheel stays a
 // reasonable number of rows (an ingredient above 1 kg is added as two lines).
 export const RECIPE_INGREDIENT_GRAMS_PICKER_FIELD = {

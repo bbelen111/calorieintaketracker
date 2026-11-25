@@ -100,10 +100,17 @@ import { FoodEntryModal } from './modals/forms/FoodEntryModal';
 import { MealTypePickerModal } from './modals/pickers/MealTypePickerModal';
 import { StepGoalPickerModal } from './modals/pickers/StepGoalPickerModal';
 import { NumericValuePickerModal } from './modals/pickers/NumericValuePickerModal';
+import { EnergyPickerModal } from './modals/pickers/EnergyPickerModal';
+import { createUnitFormatter } from '../../utils/units/unitFormatter';
 import { CalorieTargetModal } from './modals/lists/CalorieTargetModal';
 // ...existing code...
 import { ConfirmActionModal } from './modals/common/ConfirmActionModal';
-import { clampWeight, normalizeDateKey } from '../../utils/measurements/weight';
+import {
+  MAX_WEIGHT_KG,
+  MIN_WEIGHT_KG,
+  clampWeight,
+  normalizeDateKey,
+} from '../../utils/measurements/weight';
 import { clampBodyFat } from '../../utils/measurements/bodyFat';
 import { exportPhaseAsCSV, exportPhaseAsJSON } from '../../utils/export';
 import { describeFullExportSummary } from '../../utils/data/fullExport';
@@ -127,6 +134,7 @@ import {
 import { estimateRequiredDailyEnergyDelta } from '../../utils/calculations/phaseTargetPlanning';
 import {
   NUTRIENT_PICKER_FIELDS,
+  isPickerValueUnchanged,
   formatPickerValueForState,
   normalizePickerValue,
 } from '../../utils/food/nutrientPicker';
@@ -642,6 +650,8 @@ export const EnergyMapCalculator = () => {
     }),
     shallow
   );
+  // Display / input units (stable until the preference object changes).
+  const units = createUnitFormatter(userData.unitPreferences);
 
   // Health Connect integration for live step tracking
   const healthConnect = useHealthConnect();
@@ -3197,10 +3207,17 @@ export const EnergyMapCalculator = () => {
         currentValue = Number.parseFloat(foodSugars);
       }
 
+      // Energy in kJ has its own picker, so a label's value can be entered to
+      // the unit; it works in kcal on both sides.
+      const isEnergy = fieldKey === 'calories' && units.energy.isKj;
       setFoodNutrientPickerConfig({
         ...fieldConfig,
         fieldKey,
-        value: normalizePickerValue(currentValue, fieldConfig),
+        isEnergy,
+        value: isEnergy
+          ? currentValue || 0
+          : normalizePickerValue(currentValue, fieldConfig),
+        currentValue,
       });
       foodNutrientPickerModal.open();
     },
@@ -3214,6 +3231,7 @@ export const EnergyMapCalculator = () => {
       foodSaturatedFats,
       foodSodium,
       foodSugars,
+      units,
     ]
   );
 
@@ -3224,14 +3242,27 @@ export const EnergyMapCalculator = () => {
         return;
       }
 
-      const normalizedValue = normalizePickerValue(
-        Number(nextValue),
-        foodNutrientPickerConfig
-      );
-      const formattedValue = formatPickerValueForState(
-        normalizedValue,
-        foodNutrientPickerConfig.step
-      );
+      const { isEnergy, currentValue } = foodNutrientPickerConfig;
+      const normalizedValue = isEnergy
+        ? Number(nextValue)
+        : normalizePickerValue(Number(nextValue), foodNutrientPickerConfig);
+      const isUnchanged = isEnergy
+        ? normalizedValue === currentValue
+        : isPickerValueUnchanged(
+            currentValue,
+            normalizedValue,
+            foodNutrientPickerConfig
+          );
+      if (isUnchanged) {
+        foodNutrientPickerModal.requestClose();
+        return;
+      }
+      const formattedValue = isEnergy
+        ? String(normalizedValue)
+        : formatPickerValueForState(
+            normalizedValue,
+            foodNutrientPickerConfig.step
+          );
 
       if (foodNutrientPickerConfig.fieldKey === 'calories') {
         setFoodCalories(formattedValue);
@@ -4222,8 +4253,17 @@ export const EnergyMapCalculator = () => {
     }
 
     const targetWeight = parseNullablePhaseNumber(phaseDraft.targetWeight);
-    if (targetWeight != null && (targetWeight < 30 || targetWeight > 210)) {
-      setPhaseError('Target weight must be between 30 and 210 kg');
+    if (
+      targetWeight != null &&
+      (targetWeight < MIN_WEIGHT_KG || targetWeight > MAX_WEIGHT_KG)
+    ) {
+      const { bodyWeight } = units;
+      const lowest = bodyWeight.isStone
+        ? bodyWeight.format(MIN_WEIGHT_KG)
+        : bodyWeight.parts(MIN_WEIGHT_KG).value;
+      setPhaseError(
+        `Target weight must be between ${lowest} and ${bodyWeight.format(MAX_WEIGHT_KG)}`
+      );
       return;
     }
 
@@ -5355,8 +5395,21 @@ export const EnergyMapCalculator = () => {
         onSave={handleEpocWindowSave}
       />
 
+      <EnergyPickerModal
+        isOpen={
+          foodNutrientPickerModal.isOpen &&
+          Boolean(foodNutrientPickerConfig?.isEnergy)
+        }
+        isClosing={foodNutrientPickerModal.isClosing}
+        value={foodNutrientPickerConfig?.value ?? 0}
+        onCancel={handleFoodNutrientPickerCancel}
+        onSave={handleFoodNutrientPickerSave}
+      />
+
       <NumericValuePickerModal
-        isOpen={foodNutrientPickerModal.isOpen}
+        isOpen={
+          foodNutrientPickerModal.isOpen && !foodNutrientPickerConfig?.isEnergy
+        }
         isClosing={foodNutrientPickerModal.isClosing}
         title={foodNutrientPickerConfig?.title ?? 'Select Value'}
         value={foodNutrientPickerConfig?.value ?? 0}
