@@ -144,7 +144,10 @@ export const CaloriesPerHourPickerModal = ({
         {energy.noun} Per Hour
       </h3>
       <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
-        {energy.unit} / hr
+        <span className={energy.isKj ? 'normal-case' : undefined}>
+          {energy.unit}
+        </span>{' '}
+        / hr
       </p>
 
       <div className="flex justify-center">

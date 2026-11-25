@@ -31,7 +31,8 @@ export const EnergyPickerModal = ({
       isOpen={isOpen}
       isClosing={isClosing}
       title={title ?? energy.noun}
-      unitLabel={energy.unit}
+      // Spelled out: the label style would turn "kJ" into "KJ".
+      unitLabel={energy.isKj ? 'Kilojoules' : energy.unit}
       value={energy.toPicker(original)}
       config={config}
       preview={(picked) => `${picked.toLocaleString()} ${energy.unit}`}

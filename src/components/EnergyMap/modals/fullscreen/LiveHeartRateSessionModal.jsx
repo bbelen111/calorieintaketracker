@@ -258,7 +258,11 @@ export const LiveHeartRateSessionModal = ({
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted text-[11px] uppercase tracking-wide">
+                  <p
+                    className={`text-muted text-[11px] tracking-wide ${
+                      liveKcal != null && energy.isKj ? '' : 'uppercase'
+                    }`}
+                  >
                     {liveKcal != null ? energy.unit : 'Peak'}
                   </p>
                   <p className="text-foreground text-xl font-bold">
