@@ -26,6 +26,7 @@ import {
 } from './foodLookupContext.js';
 import { mergePresentationEntriesWithVerified } from '../utils/food/aiPresentationMerge.js';
 import { scaleMacrosFromPer100g } from '../utils/food/portionNormalization.js';
+import { buildDisplayUnitsBlock } from '../utils/units/aiDisplayUnits.js';
 import {
   RAG_GROUNDING_BATCH_MAX_NAMES,
   RAG_TIMING,
@@ -292,6 +293,7 @@ export const runRagChatPipeline = async ({
   assistantMessageId = null,
   isOnline = true,
   enableRag = false,
+  displayUnits,
   signal,
   modules = {},
   lookupOptions = {},
@@ -362,6 +364,7 @@ export const runRagChatPipeline = async ({
       sendOpenRouterExtraction({
         message: messageOverride,
         foodContextSummary: rollingFoodContextSummary,
+        displayUnits,
         files: safeFiles,
         history: historyForRequest,
         signal,
@@ -638,6 +641,7 @@ export const runRagChatPipeline = async ({
               entries: verifiedEntries,
             },
             history: historyForRequest,
+            displayUnits,
             signal,
             timeoutMs: resolveStageTimeout('presentation'),
           });
@@ -792,8 +796,12 @@ export const runRagChatPipeline = async ({
       throw new Error('OpenRouter message module is unavailable.');
     }
 
+    // This single-call path composes its own message, so it carries the units
+    // note itself.
     result = await sendOpenRouterMessage({
-      message: trimmedText,
+      message: [trimmedText, buildDisplayUnitsBlock(displayUnits)]
+        .filter(Boolean)
+        .join('\n\n'),
       files: safeFiles,
       history: historyForRequest,
       signal,

@@ -10,6 +10,7 @@ import {
   OPENROUTER_REQUEST_MODE,
   parseFoodParserPayloadFromText,
   sendOpenRouterMessage,
+  sendOpenRouterPresentation,
 } from '../../src/services/openrouter.js';
 
 test.beforeEach(() => {
@@ -213,4 +214,82 @@ test('fetchMacrosWithGrounding rescales portion-aware responses and passes micro
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('extraction prompts name the display units only for kJ or oz users', () => {
+  const plain = composeExtractionMessage('6 oz steak', '1. Rice');
+  assert.equal(
+    composeExtractionMessage('6 oz steak', '1. Rice', {
+      energy: 'kcal',
+      foodWeight: 'g',
+      bodyWeight: 'lb',
+    }),
+    plain
+  );
+
+  const converted = composeExtractionMessage('6 oz steak', '1. Rice', {
+    energy: 'kJ',
+    foodWeight: 'oz',
+  });
+  assert.equal(
+    converted,
+    `${plain}\n\n[DISPLAY_UNITS]\nenergy: kJ (1 kcal = 4.184 kJ)\nfood weight: oz (1 oz = 28.35 g)`
+  );
+});
+
+test('presentation sends preconverted display values beside kcal entries', async () => {
+  const originalFetch = globalThis.fetch;
+  const prompts = [];
+  globalThis.fetch = async (_url, options = {}) => {
+    const body = JSON.parse(options.body);
+    prompts.push(body.messages.at(-1).content[0].text);
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: `Logged.
+<food_parser_json>${JSON.stringify({
+                version: FOOD_PARSER_SCHEMA_VERSION,
+                messageType: 'error',
+                assistantMessage: 'Logged.',
+                entries: [],
+              })}</food_parser_json>`,
+            },
+          },
+        ],
+      }),
+    };
+  };
+  const entries = [{ name: 'Rice', grams: 170, calories: 221 }];
+  const readSystemData = (prompt) =>
+    JSON.parse(prompt.split('[SYSTEM_DATA]: ')[1]);
+
+  try {
+    await sendOpenRouterPresentation({
+      message: 'rice',
+      systemData: { entries },
+      displayUnits: { energy: 'kcal', foodWeight: 'g' },
+    });
+    await sendOpenRouterPresentation({
+      message: 'rice',
+      systemData: { entries },
+      displayUnits: { energy: 'kJ', foodWeight: 'oz' },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    prompts[0],
+    `rice\n\n[SYSTEM_DATA]: ${JSON.stringify({ entries })}`
+  );
+  assert.match(prompts[1], /\[DISPLAY_UNITS\]/);
+  const data = readSystemData(prompts[1]);
+  assert.deepEqual(data.entries, entries);
+  assert.deepEqual(data.displayValues, [
+    { name: 'Rice', energy: '925 kJ', weight: '6 oz' },
+  ]);
 });

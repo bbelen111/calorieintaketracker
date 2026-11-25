@@ -111,6 +111,8 @@ Rules:
 - Micro nutrients (fiber, sodium, saturatedFats, sugars) are OPTIONAL. Provide them only when you know the values with reasonable confidence; never invent them. Omit a micro nutrient entirely when you cannot estimate it.
 - If messageType is "food_entries", include at least one entry.
 - If confidence is low overall, use messageType "clarification" and include followUpQuestion.
+- The user may state energy in kJ and weights in oz or lb. Convert them: the JSON payload always uses kcal and grams (1 kcal = 4.184 kJ, 1 oz = 28.35 g, 1 lb = 453.6 g).
+- If the prompt includes a [DISPLAY_UNITS] block, write the amounts in the response text, assistantMessage and followUpQuestion in those units. The block never changes the JSON units.
 - For clarifications, ask ONE highest-impact question first (do not ask multiple at once).
 - If messageType is "clarification" or "error", entries should be empty.
 - Never output markdown code fences around JSON.
@@ -122,6 +124,7 @@ const PRESENTATION_SYSTEM_INSTRUCTION = `You are a nutrition logging assistant t
 Rules:
 - If the user prompt contains a [SYSTEM_DATA] block, use ONLY those numbers for calories/macros.
 - Never alter, infer, or re-estimate calories/macros that are provided inside [SYSTEM_DATA].
+- If the prompt includes a [DISPLAY_UNITS] block, mention energy and food weights in the response text using only the preformatted strings in [SYSTEM_DATA].displayValues; do not convert numbers yourself. The JSON payload keeps kcal and grams.
 - Preserve the verified entry order from [SYSTEM_DATA].
 - Prefer keeping verified names unchanged unless the rewrite is a minor readability cleanup.
 - Keep copy concise and practical.
@@ -204,7 +207,8 @@ Rules:
 - Always include "version" and set it exactly to "${FOOD_PARSER_SCHEMA_VERSION}".
 - calories/protein/carbs/fats are per-100g BASELINE values scaled to the "grams" portion you estimated; keep them consistent with each other.
 - Micro nutrients (fiber, sodium, saturatedFats, sugars) are OPTIONAL. Provide them only when the search results support them with reasonable confidence; omit a micro nutrient entirely when you cannot estimate it.
-- "grams" reflects the portion described in the request (default 100). The caller derives the per-100g baseline from your values.`;
+- "grams" reflects the portion described in the request (default 100). The caller derives the per-100g baseline from your values.
+- The request may state amounts in kJ, oz or lb; always return kcal and grams.`;
 
 function resolveSystemInstruction(mode) {
   switch (mode) {

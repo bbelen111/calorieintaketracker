@@ -2468,6 +2468,7 @@ export const FoodSearchModal = ({
           assistantMessageId,
           isOnline,
           enableRag: isAiChatRagEnabled,
+          displayUnits: units.preferences,
           signal: controller.signal,
           modules: {
             fetchMacrosWithGrounding,
@@ -2592,6 +2593,7 @@ export const FoodSearchModal = ({
       isAiChatRagEnabled,
       isSendingChat,
       queueChatMessageForReplay,
+      units.preferences,
       updateMessageById,
     ]
   );

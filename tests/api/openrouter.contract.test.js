@@ -454,3 +454,30 @@ test('rate limit: fail-open (the default) lets the request through when the back
     restoreEnv({ ...envSnapshot, OPENROUTER_API_KEY: originalKey });
   }
 });
+
+test('OpenRouter system prompts keep the payload in kcal and grams for other units', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.OPENROUTER_API_KEY;
+  process.env.OPENROUTER_API_KEY = 'test-key';
+  const prompts = {};
+  try {
+    for (const mode of ['extraction', 'presentation', 'grounding_lookup']) {
+      globalThis.fetch = async (_url, options) => {
+        prompts[mode] = JSON.stringify(JSON.parse(options.body).messages[0]);
+        return { ok: true, status: 200, json: async () => ({ choices: [] }) };
+      };
+      await handler(
+        { method: 'POST', body: { mode, messages }, headers: {} },
+        createResponse()
+      );
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.OPENROUTER_API_KEY = originalKey;
+  }
+
+  assert.match(prompts.extraction, /JSON payload always uses kcal and grams/);
+  assert.match(prompts.extraction, /\[DISPLAY_UNITS\]/);
+  assert.match(prompts.presentation, /\[SYSTEM_DATA\]\.displayValues/);
+  assert.match(prompts.grounding_lookup, /always return kcal and grams/);
+});

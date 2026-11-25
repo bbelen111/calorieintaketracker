@@ -1,6 +1,10 @@
 /* eslint-disable no-undef */
 import { Capacitor } from '@capacitor/core';
 import { RAG_GROUNDING_BATCH_MAX_NAMES } from './ragBudget.js';
+import {
+  buildDisplayUnitsBlock,
+  buildDisplayValues,
+} from '../utils/units/aiDisplayUnits.js';
 
 export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_IMAGE_COUNT = 3;
@@ -990,11 +994,16 @@ export async function sendOpenRouterExtraction({
   files = [],
   history = [],
   foodContextSummary = '',
+  displayUnits,
   model,
   signal,
   timeoutMs = 30000,
 }) {
-  const composedMessage = composeExtractionMessage(message, foodContextSummary);
+  const composedMessage = composeExtractionMessage(
+    message,
+    foodContextSummary,
+    displayUnits
+  );
 
   return sendOpenRouterMessage({
     message: composedMessage,
@@ -1009,32 +1018,50 @@ export async function sendOpenRouterExtraction({
   });
 }
 
-export function composeExtractionMessage(message, foodContextSummary = '') {
+export function composeExtractionMessage(
+  message,
+  foodContextSummary = '',
+  displayUnits
+) {
   const baseMessage = String(message ?? '').trim();
   const normalizedContext = String(foodContextSummary ?? '').trim();
 
-  if (!normalizedContext) {
-    return baseMessage;
-  }
-
-  return `${baseMessage}\n\n[RECENT_FOOD_CONTEXT]\n${normalizedContext}`;
+  return [
+    baseMessage,
+    normalizedContext ? `[RECENT_FOOD_CONTEXT]\n${normalizedContext}` : '',
+    buildDisplayUnitsBlock(displayUnits),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export async function sendOpenRouterPresentation({
   message,
   systemData,
   history = [],
+  displayUnits,
   model,
   signal,
   timeoutMs = 30000,
 }) {
+  const unitsBlock = buildDisplayUnitsBlock(displayUnits);
+  const data =
+    unitsBlock && systemData && typeof systemData === 'object'
+      ? {
+          ...systemData,
+          displayValues: buildDisplayValues(systemData.entries, displayUnits),
+        }
+      : systemData;
   const systemDataBlock =
-    systemData && typeof systemData === 'object'
-      ? `\n\n[SYSTEM_DATA]: ${JSON.stringify(systemData)}`
+    data && typeof data === 'object'
+      ? `\n\n[SYSTEM_DATA]: ${JSON.stringify(data)}`
       : '';
+  const baseMessage = [String(message ?? '').trim(), unitsBlock]
+    .filter(Boolean)
+    .join('\n\n');
 
   return sendOpenRouterMessage({
-    message: `${String(message ?? '').trim()}${systemDataBlock}`.trim(),
+    message: `${baseMessage}${systemDataBlock}`.trim(),
     files: [],
     history,
     model,
