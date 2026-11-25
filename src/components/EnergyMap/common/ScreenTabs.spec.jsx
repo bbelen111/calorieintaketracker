@@ -137,6 +137,16 @@ describe('ScreenTabs', () => {
     }
   });
 
+  it('renders a single indicator when the screens do not loop', () => {
+    const { container } = renderTabs({ loop: false });
+
+    const tracker = container.querySelector('[aria-hidden="true"]');
+    expect(tracker.children).toHaveLength(1);
+    expect(tracker.children[0].style.transform).toContain(
+      `var(${SCREEN_DRAG_PROGRESS_VAR}, 1) - 1 + 0)`
+    );
+  });
+
   it('receives the live drag variables on its own element, never :root', () => {
     const { container } = renderTabs({ activeScreen: 2 });
 

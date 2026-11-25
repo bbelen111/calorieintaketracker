@@ -22,10 +22,11 @@ import {
 import { formatOne } from '../../../utils/formatting/format';
 import { LiveHeartRatePill } from './LiveHeartRatePill';
 import {
-  RING_COPY_OFFSETS,
   SCREEN_DRAG_DURATION_VAR,
   SCREEN_DRAG_PROGRESS_VAR,
+  getRingCopyOffsets,
 } from '../../../utils/visuals/carouselLoop';
+import { SCREEN_KEYS } from '../../../constants/navigation/screens';
 
 const MINUTE_MS = 60_000;
 
@@ -41,7 +42,7 @@ const getGreeting = (hour) => {
 const DOT_SIZE_PX = 6;
 const DOT_STEP_PX = 12; // 6px dot + 6px spacing
 
-const SwipeDots = ({ count, activeScreen }) => {
+const SwipeDots = ({ count, activeScreen, loop }) => {
   // The dots row (and its ring copies) reads the live drag variables; they are
   // written onto this element instead of `:root` so a drag frame only invalidates
   // this tiny subtree — see utils/visuals/carouselDragVars.js.
@@ -72,7 +73,7 @@ const SwipeDots = ({ count, activeScreen }) => {
       {/* Same ring trick as the tab-bar circle: three copies one track apart, so a
           loop-seam crossing glides the moving dot off one end and the next copy in
           at the other (clipped by this row) instead of snapping back. */}
-      {RING_COPY_OFFSETS.map((copy) => (
+      {getRingCopyOffsets(loop).map((copy) => (
         <span
           key={copy}
           className="carousel-drag-sync absolute left-0 top-0 rounded-full bg-primary"
@@ -101,7 +102,9 @@ const SwipeDots = ({ count, activeScreen }) => {
  */
 export const AppHeader = ({
   activeScreen,
+  activeScreenKey,
   screenCount,
+  loopScreens = true,
   nutritionData,
   trackerSelectedDate,
   calorieTargetCalories,
@@ -151,9 +154,9 @@ export const AppHeader = ({
       (phase) => phase?.status === 'completed'
     ).length;
 
-    switch (activeScreen) {
-      case 0: {
-        // Logbook
+    // Keyed on the screen, not its slot: the user can re-order the screens.
+    switch (activeScreenKey) {
+      case SCREEN_KEYS.LOGBOOK: {
         const phaseCount = activePhases + completedPhases;
         return {
           key: 'logbook',
@@ -162,8 +165,7 @@ export const AppHeader = ({
           text: `${activePhases} active · ${completedPhases} completed phase${phaseCount === 1 ? '' : 's'}`,
         };
       }
-      case 1: {
-        // Tracker
+      case SCREEN_KEYS.TRACKER: {
         const intake = units.energy.value(trackerTotals.calories);
         const target = units.energy.value(calorieTargetCalories ?? 0);
         return {
@@ -173,8 +175,7 @@ export const AppHeader = ({
           text: `${intake} / ${target} ${units.energy.unit}`,
         };
       }
-      case 2: {
-        // Home
+      case SCREEN_KEYS.HOME: {
         const isTrainingDay = todaySnapshot?.isTrainingDay === true;
         const tdee = units.energy.value(todaySnapshot?.tdee ?? 0);
         return {
@@ -184,8 +185,7 @@ export const AppHeader = ({
           text: `${isTrainingDay ? 'Training day' : 'Rest day'} · ≈${tdee} ${units.energy.unit} TDEE`,
         };
       }
-      case 3: {
-        // Calorie Map
+      case SCREEN_KEYS.CALORIE_MAP: {
         const steps = Math.round(todaySnapshot?.stepCount ?? 0);
         return {
           key: 'calorie-map',
@@ -194,8 +194,8 @@ export const AppHeader = ({
           text: `${steps.toLocaleString()} steps today`,
         };
       }
-      case 4: {
-        // Insights — data-honest: fall back to the trend label verbatim
+      case SCREEN_KEYS.INSIGHTS: {
+        // Data-honest: fall back to the trend label verbatim
         const rate = weightTrend?.weeklyRate ?? 0;
         const hasRate =
           weightTrend &&
@@ -222,7 +222,7 @@ export const AppHeader = ({
         return null;
     }
   }, [
-    activeScreen,
+    activeScreenKey,
     calorieTargetCalories,
     phases,
     todaySnapshot,
@@ -306,7 +306,11 @@ export const AppHeader = ({
           ) : null}
         </div>
 
-        <SwipeDots count={screenCount} activeScreen={activeScreen} />
+        <SwipeDots
+          count={screenCount}
+          activeScreen={activeScreen}
+          loop={loopScreens}
+        />
       </div>
     </header>
   );

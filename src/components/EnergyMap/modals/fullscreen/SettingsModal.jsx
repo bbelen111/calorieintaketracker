@@ -39,7 +39,9 @@ import {
   Share2,
   Bell,
   Ruler,
+  PanelBottom,
 } from 'lucide-react';
+import { NavigationSettingsSection } from './NavigationSettingsSection';
 import { UnitsSettingsSection } from './UnitsSettingsSection';
 import { useUnits } from '../../../../hooks/useUnits';
 import { NotificationsSettingsSection } from './NotificationsSettingsSection';
@@ -173,6 +175,11 @@ const SETTINGS_PAGES = [
     id: HOME_LAYOUT_PAGE,
     title: 'Home & Tips',
     icon: LayoutGrid,
+  },
+  {
+    id: 'navigation',
+    title: 'Navigation',
+    icon: PanelBottom,
   },
   {
     id: 'activity',
@@ -769,6 +776,15 @@ const SettingsPageContent = ({
           bodyFatTrackingEnabled={bodyFatTrackingEnabled}
           onSelectSlot={(slot) => onNavigate?.(makeHomeSlotPickerPage(slot))}
           onFieldChange={onFieldChange}
+        />
+      )}
+
+      {page === 'navigation' && (
+        <NavigationSettingsSection
+          userData={userData}
+          onFieldChange={onFieldChange}
+          BinarySwitch={BinarySwitch}
+          SettingLabel={SettingLabel}
         />
       )}
 

@@ -29,6 +29,10 @@ import {
   normalizeUnitPreferences,
 } from '../../constants/units/units.js';
 import {
+  DEFAULT_SCREEN_ORDER,
+  normalizeScreenOrder,
+} from '../../constants/navigation/screens.js';
+import {
   deleteHistoryDocumentsFromDexie,
   loadAllHistoryDocuments,
   saveHistoryToDexie,
@@ -1499,6 +1503,8 @@ export const getDefaultEnergyMapData = () => ({
   heroActionMetric: DEFAULT_HERO_ACTION_METRIC, // Home hero pill readout (a HERO_ACTION_METRICS key)
   heroTileLeftMetric: DEFAULT_HERO_TILE_LEFT_METRIC, // Home left tile (Weight by default)
   heroTileRightMetric: DEFAULT_HERO_TILE_RIGHT_METRIC, // Home right tile (Body Fat by default; steps in for it while tracking is off)
+  screenOrder: [...DEFAULT_SCREEN_ORDER], // Main screens, in tab-bar order
+  screenLoopEnabled: true, // Swiping past the first / last screen wraps around
   selectedGoal: 'maintenance',
   goalChangedAt: Date.now(),
   hasSeenSwipeHint: false,
@@ -1779,6 +1785,8 @@ function mergeWithDefaults(data) {
       normalizedInput.motionPreference
     ),
     unitPreferences: normalizeUnitPreferences(normalizedInput.unitPreferences),
+    screenOrder: normalizeScreenOrder(normalizedInput.screenOrder),
+    screenLoopEnabled: normalizedInput.screenLoopEnabled !== false,
     // The three Home slots are settled together so a corrupt or hand-edited
     // profile can never load with one metric in two slots. Body Fat is NOT
     // dropped here (tracking may be switched back on); Home steps it aside at

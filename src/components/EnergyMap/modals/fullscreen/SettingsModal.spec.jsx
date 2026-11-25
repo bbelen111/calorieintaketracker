@@ -123,6 +123,7 @@ describe('SettingsModal segmented navigation', () => {
       ['Open Units', 'Units', 'Body weight'],
       ['Open Appearance', 'Appearance', 'Color theme'],
       ['Open Home & Tips', 'Home & Tips', 'Live preview'],
+      ['Open Navigation', 'Navigation', 'Page order'],
       ['Open Activity & Steps', 'Activity & Steps', /Daily NEAT/],
       [
         'Open Metabolic Adjustments',

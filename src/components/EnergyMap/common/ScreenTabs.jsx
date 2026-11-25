@@ -2,9 +2,9 @@ import React from 'react';
 import { useKeyboardVisible } from '../../../hooks/useKeyboardVisible';
 import { useCarouselDragVarSink } from '../../../hooks/useCarouselDragVarSink';
 import {
-  RING_COPY_OFFSETS,
   SCREEN_DRAG_DURATION_VAR,
   SCREEN_DRAG_PROGRESS_VAR,
+  getRingCopyOffsets,
 } from '../../../utils/visuals/carouselLoop';
 import { GLASS_ACCENT_STYLE, GLASS_PILL_CLASS } from './glassStyles';
 
@@ -42,7 +42,8 @@ export const SCREEN_TABS_BOTTOM_CLEARANCE_PX =
  *   (both clipped by the tracker) — the indicator "continues and re-appears"
  *   instead of jumping backwards across every tab. At rest the copy owning the
  *   active tab is on-screen and the wrapped ones are clipped off; normalizing a
- *   wrap leaves the rendered set byte-identical.
+ *   wrap leaves the rendered set byte-identical. With `loop` off there is no
+ *   seam, so only the on-track copy is rendered.
  * - Motion is a composited `transform`: the tracker's own width is the bar
  *   width, so `100% / tabs.length` resolves to exactly one tab pitch with no
  *   measurement. Animating `left` (a layout property) instead would run the pill
@@ -64,7 +65,7 @@ export const SCREEN_TABS_BOTTOM_CLEARANCE_PX =
  *   but on iOS (`resize: "none"`, so the keyboard overlays) it would otherwise sit
  *   right on top of the keyboard.
  */
-export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
+export const ScreenTabs = ({ tabs, activeScreen, onSelect, loop = true }) => {
   const { isKeyboardVisible } = useKeyboardVisible();
   // The bar (and its descendants: the ring copies + the icon buttons' colour
   // transitions) reads the live drag variables. They are written onto this
@@ -107,7 +108,7 @@ export const ScreenTabs = ({ tabs, activeScreen, onSelect }) => {
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
           >
-            {RING_COPY_OFFSETS.map((copy) => (
+            {getRingCopyOffsets(loop).map((copy) => (
               <div
                 key={copy}
                 className="carousel-drag-sync absolute inset-0"

@@ -15,12 +15,19 @@ export const useHardwareBackButton = ({
   const exitHintTimeoutRef = useRef(null);
   const lastBackPressAtRef = useRef(0);
   const currentScreenRef = useRef(currentScreen);
+  // Home moves when the user re-orders the screens. A ref keeps the one plugin
+  // listener registered instead of racing an async remove/add.
+  const homeIndexRef = useRef(homeIndex);
   const goToScreenRef = useRef(goToScreen);
   const closeTopmostModalRef = useRef(closeTopmostModal);
 
   useEffect(() => {
     currentScreenRef.current = currentScreen;
   }, [currentScreen]);
+
+  useEffect(() => {
+    homeIndexRef.current = homeIndex;
+  }, [homeIndex]);
 
   useEffect(() => {
     goToScreenRef.current = goToScreen;
@@ -91,9 +98,9 @@ export const useHardwareBackButton = ({
           return;
         }
 
-        if (currentScreenRef.current !== homeIndex) {
+        if (currentScreenRef.current !== homeIndexRef.current) {
           resetExitHintState();
-          goToScreenRef.current?.(homeIndex);
+          goToScreenRef.current?.(homeIndexRef.current);
           return;
         }
 
@@ -117,7 +124,7 @@ export const useHardwareBackButton = ({
     return () => {
       listener?.remove?.();
     };
-  }, [exitConfirmWindowMs, homeIndex, resetExitHintState, showExitHintMessage]);
+  }, [exitConfirmWindowMs, resetExitHintState, showExitHintMessage]);
 
   return { showExitHint };
 };

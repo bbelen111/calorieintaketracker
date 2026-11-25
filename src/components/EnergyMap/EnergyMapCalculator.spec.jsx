@@ -259,6 +259,54 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
     expect(await findHeaderStat('No data yet')).toBeInTheDocument();
   });
 
+  it('re-orders the tab bar and pages from Settings, staying on the same page', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    const tabBar = await findTabBar();
+
+    const tabNames = () =>
+      within(tabBar)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'));
+
+    await tapTab(user, 'Tracker');
+
+    await act(async () => {
+      get().handleUserDataChange('screenOrder', [
+        'insights',
+        'home',
+        'calorie-map',
+        'logbook',
+        'tracker',
+      ]);
+    });
+
+    expect(tabNames()).toEqual([
+      'Insights',
+      'Home',
+      'Calorie Map',
+      'Logbook',
+      'Tracker',
+    ]);
+    // Still on the Tracker, now in the last slot, with its own header stat.
+    expect(
+      within(tabBar).getByRole('button', { name: 'Tracker' })
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(await findHeaderStat(/[\d,]+ \/ [\d,]+ kcal/)).toBeInTheDocument();
+
+    // The pages move with their tabs.
+    const slides = document.querySelectorAll('.carousel-slide');
+    expect(slides).toHaveLength(5);
+    expect(
+      within(slides[1]).getByRole('heading', { name: 'Energy Map' })
+    ).toBeInTheDocument();
+
+    // Tabs lead to the page they name.
+    await tapTab(user, 'Insights');
+    expect(await findHeaderStat('No data yet')).toBeInTheDocument();
+  });
+
   it('propagates a logged food into the Tracker’s rendered totals', async () => {
     const user = userEvent.setup();
     renderApp();

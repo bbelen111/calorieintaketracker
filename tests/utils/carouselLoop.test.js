@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   CAROUSEL_SETTLE_MS,
+  EDGE_RESISTANCE,
   RING_COPY_OFFSETS,
   SCREEN_DRAG_DURATION_ANIMATED,
   SCREEN_DRAG_DURATION_INSTANT,
@@ -17,10 +18,14 @@ import {
   SLIDE_SETTLE_TRANSITION,
   SLIDE_SETTLE_TRANSITION_SET,
   alignPositionToReference,
+  applyEdgeResistance,
   buildSlideTransform,
   carouselEase,
+  clampPosition,
+  getRingCopyOffsets,
   isSlideTeleport,
   normalizePosition,
+  removeEdgeResistance,
   resolveCarouselStride,
   resolveSettlePositionAt,
   resolveSettleTarget,
@@ -601,4 +606,76 @@ test('carouselEase is a monotonic cubic-bezier(0.22, 1, 0.36, 1)', () => {
   // Strong ease-out: most of the distance is covered early in the duration.
   assert.ok(carouselEase(0.5) > 0.75);
   assert.ok(CAROUSEL_SETTLE_MS > 0);
+});
+
+test('without the loop, offsets never wrap around the ring', () => {
+  assert.deepEqual(
+    resolveSlideOffsets(1, SCREEN_COUNT, { loop: false }),
+    [0, 1, 2, 3, 4]
+  );
+  assert.deepEqual(
+    resolveSlideOffsets(SCREEN_COUNT, SCREEN_COUNT, { loop: false }),
+    [-4, -3, -2, -1, 0]
+  );
+});
+
+test('without the loop, positions clamp to the first and last screen', () => {
+  const bounded = { loop: false };
+
+  assert.deepEqual(normalizePosition(0.2, SCREEN_COUNT, bounded), {
+    position: 1,
+    screenIndex: 0,
+  });
+  assert.deepEqual(normalizePosition(6.4, SCREEN_COUNT, bounded), {
+    position: 5,
+    screenIndex: 4,
+  });
+  assert.equal(alignPositionToReference(1, 4.8, SCREEN_COUNT, bounded), 1);
+});
+
+test('without the loop, a release can never settle past an end', () => {
+  const settle = (position, restPosition) =>
+    resolveSettleTarget({
+      position,
+      restPosition,
+      thresholdSlides: 0.25,
+      totalScreens: SCREEN_COUNT,
+      loop: false,
+    });
+
+  assert.deepEqual(settle(0.4, 1), { targetPosition: 1, screenIndex: 0 });
+  assert.deepEqual(settle(5.6, 5), { targetPosition: 5, screenIndex: 4 });
+  // Ordinary swipes inside the track are unchanged.
+  assert.deepEqual(settle(2.3, 2), { targetPosition: 3, screenIndex: 2 });
+});
+
+test('without the loop, a tab jump takes the direct way', () => {
+  const bounded = { loop: false };
+
+  assert.equal(resolveShortestScreenDelta(4, 0, SCREEN_COUNT, bounded), -4);
+  assert.equal(resolveShortestScreenDelta(0, 4, SCREEN_COUNT, bounded), 4);
+  assert.equal(resolveShortestScreenDelta(4, 0, SCREEN_COUNT), 1);
+});
+
+test('end resistance damps only the overshoot and can be undone', () => {
+  assert.equal(applyEdgeResistance(2.5, SCREEN_COUNT), 2.5);
+  assert.equal(applyEdgeResistance(0, SCREEN_COUNT), 1 - EDGE_RESISTANCE);
+  assert.equal(applyEdgeResistance(6, SCREEN_COUNT), 5 + EDGE_RESISTANCE);
+
+  for (const raw of [-0.5, 1, 3.3, 5, 6.2]) {
+    const shown = applyEdgeResistance(raw, SCREEN_COUNT);
+    assert.ok(
+      Math.abs(removeEdgeResistance(shown, SCREEN_COUNT) - raw) < 1e-9,
+      `round trip for ${raw}`
+    );
+  }
+
+  assert.equal(clampPosition(0.4, SCREEN_COUNT), 1);
+  assert.equal(clampPosition(7, SCREEN_COUNT), 5);
+});
+
+test('only a looping affordance needs ring copies', () => {
+  assert.deepEqual(getRingCopyOffsets(true), RING_COPY_OFFSETS);
+  assert.deepEqual(getRingCopyOffsets(), RING_COPY_OFFSETS);
+  assert.deepEqual(getRingCopyOffsets(false), [0]);
 });

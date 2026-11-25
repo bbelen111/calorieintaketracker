@@ -21,6 +21,11 @@
  * i.e. ~2 slides off-screen behind the clipped viewport; `isSlideTeleport` tells
  * the writer to drop that slide's transition so the jump stays invisible.
  *
+ * The loop is optional (Settings -> Navigation -> Loop pages). Helpers that
+ * depend on it take `{ loop }` (default `true`); with `loop: false` the track has
+ * two ends: offsets are not wrapped, targets are clamped to the first and last
+ * screen, and a drag past an end meets resistance.
+ *
  * No React imports here on purpose: these helpers are unit-tested directly with
  * the Node test runner (tests/utils/carouselLoop.test.js).
  */
@@ -52,6 +57,16 @@ export const SLIDE_FADE_WINDOW_PX = 20;
 // and the wrapped copies are always the same distance apart as the track, so
 // normalizing a wrap leaves the rendered *set* byte-identical.
 export const RING_COPY_OFFSETS = [-1, 0, 1];
+const SINGLE_COPY_OFFSETS = [0];
+
+// Without the loop there is no seam to cross, so one copy is enough (the spare
+// copies would bleed their glow in at the far end of the track).
+export const getRingCopyOffsets = (loop = true) =>
+  loop ? RING_COPY_OFFSETS : SINGLE_COPY_OFFSETS;
+
+// Share of the finger's travel the track follows once dragged past an end of a
+// non-looping carousel.
+export const EDGE_RESISTANCE = 0.3;
 
 // Settle duration. The shell hands settles to CSS (`SLIDE_SETTLE_TRANSITION`)
 // so the animation runs on the compositor thread instead of a main-thread rAF
@@ -173,16 +188,46 @@ export const wrapSlideOffset = (offset, totalScreens) => {
 };
 
 /**
- * Per-slide wrapped offsets for a continuous carousel position. At rest for
- * screen `s` the position is `s + 1`, which puts offset 0 on slide `s`.
+ * Per-slide offsets for a continuous carousel position. At rest for screen `s`
+ * the position is `s + 1`, which puts offset 0 on slide `s`. Offsets wrap around
+ * the ring only while looping.
  */
-export const resolveSlideOffsets = (position, totalScreens) => {
+export const resolveSlideOffsets = (
+  position,
+  totalScreens,
+  { loop = true } = {}
+) => {
   const count = toScreenCount(totalScreens);
   const safePosition = toFinite(position, 1);
 
-  return Array.from({ length: count }, (_, index) =>
-    wrapSlideOffset(index + 1 - safePosition, count)
-  );
+  return Array.from({ length: count }, (_, index) => {
+    const offset = index + 1 - safePosition;
+    return loop ? wrapSlideOffset(offset, count) : offset;
+  });
+};
+
+/** Keep a position between the first (1) and last (N) screen. */
+export const clampPosition = (position, totalScreens) =>
+  Math.min(Math.max(toFinite(position, 1), 1), toScreenCount(totalScreens));
+
+/**
+ * Where a non-looping track sits when the finger asks for `position`: unchanged
+ * between the ends, and only `EDGE_RESISTANCE` of the overshoot past them.
+ */
+export const applyEdgeResistance = (position, totalScreens) => {
+  const raw = toFinite(position, 1);
+  const clamped = clampPosition(raw, totalScreens);
+  return clamped + (raw - clamped) * EDGE_RESISTANCE;
+};
+
+/**
+ * Inverse of `applyEdgeResistance`: lets a finger grab a track that is springing
+ * back from past an end without it jumping.
+ */
+export const removeEdgeResistance = (position, totalScreens) => {
+  const shown = toFinite(position, 1);
+  const clamped = clampPosition(shown, totalScreens);
+  return clamped + (shown - clamped) / EDGE_RESISTANCE;
 };
 
 /**
@@ -232,14 +277,21 @@ export const resolveCarouselStride = (viewportWidth) => {
 };
 
 /**
- * Collapse a wrapped carousel position (e.g. 6 or 0) onto the canonical
- * `screen + 1` position. Transform values are periodic, so callers may rewrite
- * the transforms from the normalized value with zero visual change.
+ * Collapse a carousel position onto the canonical `screen + 1` position of its
+ * nearest screen. While looping, a wrapped position (e.g. 6 or 0) maps around the
+ * ring; transform values are periodic, so callers may rewrite the transforms from
+ * the normalized value with zero visual change. Otherwise it clamps to the ends.
  */
-export const normalizePosition = (position, totalScreens) => {
+export const normalizePosition = (
+  position,
+  totalScreens,
+  { loop = true } = {}
+) => {
   const count = toScreenCount(totalScreens);
   const rounded = Math.round(toFinite(position, 1));
-  const screenIndex = mod(rounded - 1, count);
+  const screenIndex = loop
+    ? mod(rounded - 1, count)
+    : clampPosition(rounded, count) - 1;
 
   return { position: screenIndex + 1, screenIndex };
 };
@@ -249,7 +301,17 @@ export const normalizePosition = (position, totalScreens) => {
  * sit outside [1, N] (mid-wrap, e.g. 6.2); its nearest rest position must be
  * brought into the same period (6) so a settle animates the short way.
  */
-export const alignPositionToReference = (position, reference, totalScreens) => {
+export const alignPositionToReference = (
+  position,
+  reference,
+  totalScreens,
+  { loop = true } = {}
+) => {
+  // A track with ends has a single period: there is nothing to align to.
+  if (!loop) {
+    return toPrecision(toFinite(position, 1));
+  }
+
   const count = toScreenCount(totalScreens);
   const safeReference = toFinite(reference, 1);
   // Rounded to kill float noise: aligning an integer position always lands on an
@@ -266,7 +328,8 @@ export const alignPositionToReference = (position, reference, totalScreens) => {
  * - below the threshold   -> snap back to the drag's rest screen
  * - past the threshold    -> exactly one screen in the drag direction
  * - a full slide or more  -> `Math.round(position)` (multi-screen drags land
- *   where the finger left them; the loop has no ends to clamp against)
+ *   where the finger left them)
+ * - without the loop      -> never past the first or last screen
  *
  * `targetPosition` stays in the caller's period (no clamping, no wrapping) so
  * the settle animation is always the short way; `screenIndex` is the normalized
@@ -277,6 +340,7 @@ export const resolveSettleTarget = ({
   restPosition,
   thresholdSlides = 0.5,
   totalScreens,
+  loop = true,
 }) => {
   const count = toScreenCount(totalScreens);
   const rest = toFinite(restPosition, 1);
@@ -292,21 +356,26 @@ export const resolveSettleTarget = ({
       absSlides >= safeThreshold ? rest + (dragSlides >= 0 ? 1 : -1) : rest;
   }
 
+  if (!loop) {
+    targetPosition = clampPosition(targetPosition, count);
+  }
+
   return {
     targetPosition,
-    screenIndex: normalizePosition(targetPosition, count).screenIndex,
+    screenIndex: normalizePosition(targetPosition, count, { loop }).screenIndex,
   };
 };
 
 /**
- * Shortest signed screen delta (in screens) between two tabs, so a tab tap
- * always travels the wrapped way around (4 -> 0 goes forward one screen, not
- * backward four).
+ * Shortest signed screen delta (in screens) between two tabs. While looping a
+ * tab tap travels the wrapped way around (4 -> 0 goes forward one screen, not
+ * backward four); without the loop there is only the direct way.
  */
 export const resolveShortestScreenDelta = (
   currentScreen,
   targetScreen,
-  totalScreens
+  totalScreens,
+  { loop = true } = {}
 ) => {
   const count = toScreenCount(totalScreens);
   if (count <= 1) {
@@ -315,6 +384,10 @@ export const resolveShortestScreenDelta = (
 
   const from = mod(Math.round(toFinite(currentScreen, 0)), count);
   const to = mod(Math.round(toFinite(targetScreen, 0)), count);
+  if (!loop) {
+    return to - from;
+  }
+
   const half = count / 2;
 
   return half - mod(half - (to - from), count);

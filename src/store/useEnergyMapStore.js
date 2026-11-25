@@ -64,6 +64,10 @@ import {
   normalizeUnitPreferences,
 } from '../constants/units/units.js';
 import { normalizeRecipe } from '../utils/food/recipe.js';
+import {
+  isSameScreenOrder,
+  normalizeScreenOrder,
+} from '../constants/navigation/screens.js';
 import { collectDayEntryIds, resolveEntryId } from '../utils/food/entryIds.js';
 import {
   HERO_SLOT_FIELDS,
@@ -793,6 +797,13 @@ export const useEnergyMapStore = createWithEqualityFn(
           return next === prev.onTargetToleranceKcal
             ? prev
             : { ...prev, onTargetToleranceKcal: next };
+        }
+
+        if (field === 'screenOrder') {
+          const next = normalizeScreenOrder(value);
+          return isSameScreenOrder(next, prev.screenOrder)
+            ? prev
+            : { ...prev, screenOrder: next };
         }
 
         if (field === 'unitPreferences') {

@@ -17,6 +17,7 @@ const SCREEN_COUNT = 5;
 
 const baseProps = {
   activeScreen: 0,
+  activeScreenKey: 'logbook',
   screenCount: SCREEN_COUNT,
   nutritionData: {},
   trackerSelectedDate: '2026-09-13',
@@ -77,7 +78,7 @@ describe('AppHeader', () => {
   describe('per-screen stat line', () => {
     it('summarises phase progress on the Logbook', () => {
       renderHeader({
-        activeScreen: 0,
+        activeScreenKey: 'logbook',
         phases: [
           { status: 'active' },
           { status: 'completed' },
@@ -91,7 +92,10 @@ describe('AppHeader', () => {
     });
 
     it('uses the singular phase label for a single phase', () => {
-      renderHeader({ activeScreen: 0, phases: [{ status: 'active' }] });
+      renderHeader({
+        activeScreenKey: 'logbook',
+        phases: [{ status: 'active' }],
+      });
 
       expect(
         screen.getByText('1 active · 0 completed phase')
@@ -100,7 +104,7 @@ describe('AppHeader', () => {
 
     it('shows intake against target on the Tracker', () => {
       renderHeader({
-        activeScreen: 1,
+        activeScreenKey: 'tracker',
         nutritionData: {
           '2026-09-13': {
             breakfast: [{ calories: 500, protein: 30, carbs: 40, fats: 20 }],
@@ -114,7 +118,7 @@ describe('AppHeader', () => {
 
     it('shows the day type and TDEE on Home', () => {
       renderHeader({
-        activeScreen: 2,
+        activeScreenKey: 'home',
         todaySnapshot: { isTrainingDay: true, tdee: 2400 },
       });
 
@@ -125,7 +129,7 @@ describe('AppHeader', () => {
 
     it('shows a rest day on Home when not a training day', () => {
       renderHeader({
-        activeScreen: 2,
+        activeScreenKey: 'home',
         todaySnapshot: { isTrainingDay: false, tdee: 2100 },
       });
 
@@ -136,7 +140,7 @@ describe('AppHeader', () => {
 
     it('shows today’s steps on the Calorie Map', () => {
       renderHeader({
-        activeScreen: 3,
+        activeScreenKey: 'calorie-map',
         todaySnapshot: { stepCount: 8500 },
       });
 
@@ -144,14 +148,14 @@ describe('AppHeader', () => {
     });
 
     it('stays data-honest about an absent weight trend on Insights', () => {
-      renderHeader({ activeScreen: 4, weightEntries: [] });
+      renderHeader({ activeScreenKey: 'insights', weightEntries: [] });
 
       expect(screen.getByText('No data yet')).toBeInTheDocument();
     });
 
     it('shows the weekly rate on Insights when a trend exists', () => {
       renderHeader({
-        activeScreen: 4,
+        activeScreenKey: 'insights',
         weightEntries: [
           { date: '2026-09-07', weight: 80 },
           { date: '2026-09-13', weight: 79 },

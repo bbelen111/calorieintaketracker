@@ -115,6 +115,19 @@ describe('useHardwareBackButton', () => {
     expect(result.current.showExitHint).toBe(false);
   });
 
+  it('follows Home when it moves, without registering a second listener', () => {
+    const goToScreen = vi.fn();
+    const { rerender } = renderBackButton({ currentScreen: 4, goToScreen });
+
+    act(() => {
+      rerender({ currentScreen: 4, homeIndex: 0, goToScreen });
+    });
+    pressBack();
+
+    expect(goToScreen).toHaveBeenCalledWith(0);
+    expect(AppMock.addListener).toHaveBeenCalledTimes(1);
+  });
+
   it('shows the exit hint on the first press from Home', () => {
     const { result } = renderBackButton();
 

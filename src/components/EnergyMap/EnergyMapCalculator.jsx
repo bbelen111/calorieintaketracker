@@ -7,7 +7,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Home, Map, BarChart3, ClipboardList, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
@@ -48,6 +47,11 @@ import {
   ScreenTabs,
   SCREEN_TABS_BOTTOM_CLEARANCE_PX,
 } from './common/ScreenTabs';
+import { buildScreenTabs } from './common/screenIcons';
+import {
+  SCREEN_KEYS,
+  normalizeScreenOrder,
+} from '../../constants/navigation/screens';
 import { AppHeader } from './common/AppHeader';
 import { LogbookScreen } from './screens/LogbookScreen';
 import { TrackerScreen } from './screens/TrackerScreen';
@@ -258,16 +262,9 @@ const MODAL_CLOSE_DELAY = 180; // Match CSS animation duration (150ms) + buffer
 const TRACKER_CROSSFADE_MS = 220;
 const DEFAULT_TRAINING_INTENSITY = 'moderate';
 const FALLBACK_TRAINING_TYPE = 'trainingtype_1';
-const screenTabs = [
-  { key: 'logbook', label: 'Logbook', icon: ClipboardList },
-  { key: 'tracker', label: 'Tracker', icon: Target },
-  { key: 'home', label: 'Home', icon: Home },
-  { key: 'calorie-map', label: 'Calorie Map', icon: Map },
-  { key: 'insights', label: 'Insights', icon: BarChart3 },
-];
-
-const homeIndex = screenTabs.findIndex((tab) => tab.key === 'home');
-const trackerIndex = screenTabs.findIndex((tab) => tab.key === 'tracker');
+// Static promotion hint: toggling it with the drag state demoted the slide
+// layers exactly when a settle started.
+const SLIDE_STYLE = { willChange: 'transform', backfaceVisibility: 'hidden' };
 
 const defaultCardioSession = {
   date: '',
@@ -666,6 +663,18 @@ export const EnergyMapCalculator = () => {
   // hooks/useFoodCatalogWarmUp.js.
   useFoodCatalogWarmUp();
 
+  // Screen arrangement (Settings -> Navigation). Slot numbers move with the
+  // user's order, so look screens up by key.
+  const screenOrder = useMemo(
+    () => normalizeScreenOrder(userData.screenOrder),
+    [userData.screenOrder]
+  );
+  const screenTabs = useMemo(() => buildScreenTabs(screenOrder), [screenOrder]);
+  const loopScreens = userData.screenLoopEnabled !== false;
+  const homeIndex = screenOrder.indexOf(SCREEN_KEYS.HOME);
+  const logbookIndex = screenOrder.indexOf(SCREEN_KEYS.LOGBOOK);
+  const trackerIndex = screenOrder.indexOf(SCREEN_KEYS.TRACKER);
+
   const viewportRef = useRef(null);
   const {
     currentScreen,
@@ -674,7 +683,10 @@ export const EnergyMapCalculator = () => {
     handlers,
     goToScreen,
     isSwiping,
-  } = useSwipeableScreens(screenTabs.length, viewportRef, homeIndex);
+  } = useSwipeableScreens(screenTabs.length, viewportRef, homeIndex, {
+    loop: loopScreens,
+    screenKeys: screenOrder,
+  });
 
   // Swipe-affordance coach mark: shown until the user swipes or taps a tab
   const hasSeenSwipeHint = userData.hasSeenSwipeHint === true;
@@ -4416,11 +4428,11 @@ export const EnergyMapCalculator = () => {
   const openActivePhaseFromHome = useCallback(() => {
     const allPhases = useEnergyMapStore.getState().phases ?? [];
     const match = allPhases.find((phase) => phase.status === 'active') ?? null;
-    goToScreen(0);
+    goToScreen(logbookIndex);
     if (match) {
       setSelectedPhase(match);
     }
-  }, [goToScreen]);
+  }, [goToScreen, logbookIndex]);
 
   const heroActionOpeners = useMemo(
     () => ({
@@ -4481,7 +4493,7 @@ export const EnergyMapCalculator = () => {
             allPhases.find((p) => String(p.id) === String(extra.phaseId)) ??
             allPhases.find((p) => p.status === 'active') ??
             null;
-          goToScreen(0);
+          goToScreen(logbookIndex);
           if (match) {
             setSelectedPhase(match);
           }
@@ -4515,6 +4527,7 @@ export const EnergyMapCalculator = () => {
       goToScreen,
       handleOpenDayLedgerDetail,
       homeIndex,
+      logbookIndex,
       openAddBodyFatEntryModal,
       openAddWeightEntryModal,
       openCardioModal,
@@ -4643,10 +4656,8 @@ export const EnergyMapCalculator = () => {
   const handleManageDailyLogNutrition = useCallback(() => {
     setTrackerSelectedDate(dailyLogDate || getTodayDateString());
     dailyLogModal.requestClose();
-    if (trackerIndex >= 0) {
-      goToScreen(trackerIndex);
-    }
-  }, [dailyLogDate, dailyLogModal, goToScreen]);
+    goToScreen(trackerIndex);
+  }, [dailyLogDate, dailyLogModal, goToScreen, trackerIndex]);
 
   const handleDailyLogDelete = useCallback(() => {
     if (!selectedPhase || !dailyLogDate) {
@@ -4885,6 +4896,146 @@ export const EnergyMapCalculator = () => {
     );
   }
 
+  // One entry per screen; the carousel renders them in the user's order.
+  const screenContent = {
+    [SCREEN_KEYS.LOGBOOK]: (
+      <div className="relative overflow-hidden">
+        <AnimatePresence mode="wait" initial={false}>
+          {selectedPhase ? (
+            <motion.div
+              key="phase-detail"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{
+                duration: 0.25,
+                ease: [0.4, 0, 0.2, 1],
+              }}
+            >
+              <PhaseDetailScreen
+                phase={selectedPhase}
+                weightEntries={weightEntries}
+                nutritionData={nutritionData}
+                onBack={handleBackToLogbook}
+                onAddLog={openDailyLogModal}
+                onEditLog={openEditDailyLogModal}
+                // onViewInsights removed
+                onExport={() => handleExportPhase('csv')}
+                onArchive={handleArchivePhase}
+                onDelete={handleDeletePhase}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="logbook"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{
+                duration: 0.25,
+                ease: [0.4, 0, 0.2, 1],
+              }}
+            >
+              <LogbookScreen
+                phases={phases}
+                weightEntries={weightEntries}
+                nutritionData={nutritionData}
+                onCreatePhase={openPhaseCreationModal}
+                onPhaseClick={handlePhaseClick}
+                onOpenDayLedger={dayLedgerListModal.open}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    ),
+    [SCREEN_KEYS.TRACKER]: (
+      <TrackerScreen
+        nutritionData={nutritionData}
+        onAddMealEntry={startMealEntryFlow}
+        onAddFoodToMeal={openFoodSearchForMeal}
+        onEditFoodEntry={handleEditFoodEntry}
+        onDeleteFoodEntry={deleteFoodEntry}
+        onDeleteMeal={deleteMeal}
+        macroRecommendationSplit={userData.macroRecommendationSplit}
+        macroLocks={userData.macroLocks}
+        calendarModal={calendarPickerModal}
+        selectedDate={trackerSelectedDate}
+        onSelectedDateChange={setTrackerSelectedDate}
+        calorieTargetLabel={selectedCalorieTargetData.label}
+        calorieTargetCalories={selectedCalorieTargetData.targetCalories}
+        onOpenCalorieTargetModal={openCalorieTargetPicker}
+        onOpenMacroPicker={openMacroPickerModal}
+        isScreenActive={visibleScreen === trackerIndex}
+        macroHintSeen={userData.hasSeenMacroHint === true}
+        onMacroHintSeen={markMacroHintSeen}
+      />
+    ),
+    [SCREEN_KEYS.HOME]: (
+      <HomeScreen
+        userData={userData}
+        goals={goals}
+        selectedGoal={selectedGoal}
+        isGoalLocked={isGoalLockedByActivePhase}
+        goalLockPhaseName={activePhase?.name ?? ''}
+        onGoalClick={openGoalModal}
+        calorieTargetCalories={selectedCalorieTargetData?.targetCalories}
+        onTrainingDayClick={handleTrainingDayClick}
+        onEditTrainingSession={handleEditTrainingSession}
+        onRemoveTrainingSession={handleRemoveTrainingSession}
+        trainingCalories={trainingCalories}
+        trainingSessions={trainingSessions}
+        trainingTypes={trainingTypes}
+        cardioTypes={cardioTypes}
+        hasCardioSessions={hasCardioSessions}
+        onAddCardioClick={openCardioModal}
+        onEditCardioSession={handleEditCardioSession}
+        cardioSessions={userData.cardioSessions}
+        calculateCardioCalories={calculateCardioSessionCalories}
+        onRemoveCardioSession={handleRemoveCardioSession}
+        totalCardioBurn={totalCardioBurn}
+        onOpenDailyActivityOverride={openDailyNeatOverrideModal}
+        onOpenTodayBreakdown={openTodayCalorieBreakdown}
+        heroActionOpeners={heroActionOpeners}
+      />
+    ),
+    [SCREEN_KEYS.CALORIE_MAP]: (
+      <CalorieMapScreen
+        stepRanges={userData.stepRanges}
+        selectedGoal={selectedGoal}
+        selectedDay={selectedDay}
+        goals={goals}
+        onManageStepRanges={stepRangesModal.open}
+        onOpenBreakdown={openCalorieBreakdown}
+        rangeDetailsBySteps={stepRangeDetailsBySteps}
+        isSelectedRange={isSelectedRange}
+        liveStepData={liveStepData}
+        healthConnectStatus={healthConnect.status}
+        healthConnectLoading={healthConnect.isLoading}
+        healthConnectError={healthConnect.error}
+        onConnectHealth={healthConnect.connect}
+        onRefreshSteps={healthConnect.refresh}
+        onOpenStepTracker={openStepTracker}
+      />
+    ),
+    [SCREEN_KEYS.INSIGHTS]: (
+      <InsightsScreen
+        userData={userData}
+        selectedGoal={selectedGoal}
+        weightEntries={weightEntries}
+        onOpenWeightTracker={openWeightTracker}
+        bodyFatEntries={bodyFatEntries}
+        bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
+        onOpenBodyFatTracker={openBodyFatTracker}
+        onOpenBmiInfo={bmiModal.open}
+        onOpenFfmiInfo={ffmiModal.open}
+        onOpenAdaptiveThermogenesis={adaptiveThermogenesisModal.open}
+        onOpenRollingEnergyBalance={rollingEnergyBalanceModal.open}
+        onOpenHeartRateTracker={openHeartRateTracker}
+      />
+    ),
+  };
+
   return (
     <div
       className="app-backdrop min-h-screen p-4 md:p-6"
@@ -4930,13 +5081,16 @@ export const EnergyMapCalculator = () => {
         tabs={screenTabs}
         activeScreen={visibleScreen}
         onSelect={handleTabSelect}
+        loop={loopScreens}
       />
 
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Top header zone: greeting + per-screen glanceable stat + swipe dots */}
         <AppHeader
           activeScreen={visibleScreen}
+          activeScreenKey={screenOrder[visibleScreen]}
           screenCount={screenTabs.length}
+          loopScreens={loopScreens}
           nutritionData={nutritionData}
           trackerSelectedDate={trackerSelectedDate}
           calorieTargetCalories={selectedCalorieTargetData?.targetCalories}
@@ -4972,187 +5126,16 @@ export const EnergyMapCalculator = () => {
                 row is never transformed and its height still tracks the tallest
                 screen while the carousel loops in both directions. */}
             <div className="flex w-full">
-              <div
-                {...getSlideProps(0)}
-                className={`carousel-slide shrink-0 px-2 sm:px-4 md:px-6`}
-                style={{
-                  // Static promotion hint: toggling it with the drag state
-                  // demoted these layers exactly when a settle started.
-                  willChange: 'transform',
-                  backfaceVisibility: 'hidden',
-                }}
-              >
-                <div className="relative overflow-hidden">
-                  <AnimatePresence mode="wait" initial={false}>
-                    {selectedPhase ? (
-                      <motion.div
-                        key="phase-detail"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{
-                          duration: 0.25,
-                          ease: [0.4, 0, 0.2, 1],
-                        }}
-                      >
-                        <PhaseDetailScreen
-                          phase={selectedPhase}
-                          weightEntries={weightEntries}
-                          nutritionData={nutritionData}
-                          onBack={handleBackToLogbook}
-                          onAddLog={openDailyLogModal}
-                          onEditLog={openEditDailyLogModal}
-                          // onViewInsights removed
-                          onExport={() => handleExportPhase('csv')}
-                          onArchive={handleArchivePhase}
-                          onDelete={handleDeletePhase}
-                        />
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="logbook"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{
-                          duration: 0.25,
-                          ease: [0.4, 0, 0.2, 1],
-                        }}
-                      >
-                        <LogbookScreen
-                          phases={phases}
-                          weightEntries={weightEntries}
-                          nutritionData={nutritionData}
-                          onCreatePhase={openPhaseCreationModal}
-                          onPhaseClick={handlePhaseClick}
-                          onOpenDayLedger={dayLedgerListModal.open}
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+              {screenOrder.map((screenKey, index) => (
+                <div
+                  key={screenKey}
+                  {...getSlideProps(index)}
+                  className="carousel-slide shrink-0 px-2 sm:px-4 md:px-6"
+                  style={SLIDE_STYLE}
+                >
+                  {screenContent[screenKey]}
                 </div>
-              </div>
-
-              <div
-                {...getSlideProps(1)}
-                className={`carousel-slide shrink-0 px-2 sm:px-4 md:px-6`}
-                style={{
-                  willChange: 'transform',
-                  backfaceVisibility: 'hidden',
-                }}
-              >
-                <TrackerScreen
-                  nutritionData={nutritionData}
-                  onAddMealEntry={startMealEntryFlow}
-                  onAddFoodToMeal={openFoodSearchForMeal}
-                  onEditFoodEntry={handleEditFoodEntry}
-                  onDeleteFoodEntry={deleteFoodEntry}
-                  onDeleteMeal={deleteMeal}
-                  macroRecommendationSplit={userData.macroRecommendationSplit}
-                  macroLocks={userData.macroLocks}
-                  calendarModal={calendarPickerModal}
-                  selectedDate={trackerSelectedDate}
-                  onSelectedDateChange={setTrackerSelectedDate}
-                  calorieTargetLabel={selectedCalorieTargetData.label}
-                  calorieTargetCalories={
-                    selectedCalorieTargetData.targetCalories
-                  }
-                  onOpenCalorieTargetModal={openCalorieTargetPicker}
-                  onOpenMacroPicker={openMacroPickerModal}
-                  isScreenActive={visibleScreen === trackerIndex}
-                  macroHintSeen={userData.hasSeenMacroHint === true}
-                  onMacroHintSeen={markMacroHintSeen}
-                />
-              </div>
-
-              <div
-                {...getSlideProps(2)}
-                className={`carousel-slide shrink-0 px-2 sm:px-4 md:px-6`}
-                style={{
-                  willChange: 'transform',
-                  backfaceVisibility: 'hidden',
-                }}
-              >
-                <HomeScreen
-                  userData={userData}
-                  goals={goals}
-                  selectedGoal={selectedGoal}
-                  isGoalLocked={isGoalLockedByActivePhase}
-                  goalLockPhaseName={activePhase?.name ?? ''}
-                  onGoalClick={openGoalModal}
-                  calorieTargetCalories={
-                    selectedCalorieTargetData?.targetCalories
-                  }
-                  onTrainingDayClick={handleTrainingDayClick}
-                  onEditTrainingSession={handleEditTrainingSession}
-                  onRemoveTrainingSession={handleRemoveTrainingSession}
-                  trainingCalories={trainingCalories}
-                  trainingSessions={trainingSessions}
-                  trainingTypes={trainingTypes}
-                  cardioTypes={cardioTypes}
-                  hasCardioSessions={hasCardioSessions}
-                  onAddCardioClick={openCardioModal}
-                  onEditCardioSession={handleEditCardioSession}
-                  cardioSessions={userData.cardioSessions}
-                  calculateCardioCalories={calculateCardioSessionCalories}
-                  onRemoveCardioSession={handleRemoveCardioSession}
-                  totalCardioBurn={totalCardioBurn}
-                  onOpenDailyActivityOverride={openDailyNeatOverrideModal}
-                  onOpenTodayBreakdown={openTodayCalorieBreakdown}
-                  heroActionOpeners={heroActionOpeners}
-                />
-              </div>
-
-              <div
-                {...getSlideProps(3)}
-                className={`carousel-slide shrink-0 px-2 sm:px-4 md:px-6`}
-                style={{
-                  willChange: 'transform',
-                  backfaceVisibility: 'hidden',
-                }}
-              >
-                <CalorieMapScreen
-                  stepRanges={userData.stepRanges}
-                  selectedGoal={selectedGoal}
-                  selectedDay={selectedDay}
-                  goals={goals}
-                  onManageStepRanges={stepRangesModal.open}
-                  onOpenBreakdown={openCalorieBreakdown}
-                  rangeDetailsBySteps={stepRangeDetailsBySteps}
-                  isSelectedRange={isSelectedRange}
-                  liveStepData={liveStepData}
-                  healthConnectStatus={healthConnect.status}
-                  healthConnectLoading={healthConnect.isLoading}
-                  healthConnectError={healthConnect.error}
-                  onConnectHealth={healthConnect.connect}
-                  onRefreshSteps={healthConnect.refresh}
-                  onOpenStepTracker={openStepTracker}
-                />
-              </div>
-
-              <div
-                {...getSlideProps(4)}
-                className={`carousel-slide shrink-0 px-2 sm:px-4 md:px-6`}
-                style={{
-                  willChange: 'transform',
-                  backfaceVisibility: 'hidden',
-                }}
-              >
-                <InsightsScreen
-                  userData={userData}
-                  selectedGoal={selectedGoal}
-                  weightEntries={weightEntries}
-                  onOpenWeightTracker={openWeightTracker}
-                  bodyFatEntries={bodyFatEntries}
-                  bodyFatTrackingEnabled={userData.bodyFatTrackingEnabled}
-                  onOpenBodyFatTracker={openBodyFatTracker}
-                  onOpenBmiInfo={bmiModal.open}
-                  onOpenFfmiInfo={ffmiModal.open}
-                  onOpenAdaptiveThermogenesis={adaptiveThermogenesisModal.open}
-                  onOpenRollingEnergyBalance={rollingEnergyBalanceModal.open}
-                  onOpenHeartRateTracker={openHeartRateTracker}
-                />
-              </div>
+              ))}
             </div>
           </div>
         </div>

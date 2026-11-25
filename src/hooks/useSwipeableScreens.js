@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   CAROUSEL_SETTLE_MS,
   SCREEN_DRAG_DURATION_ANIMATED,
@@ -8,9 +15,12 @@ import {
   SLIDE_FADE_RIGHT_VAR,
   SLIDE_SETTLE_TRANSITION_SET,
   alignPositionToReference,
+  applyEdgeResistance,
   buildSlideTransform,
+  clampPosition,
   isSlideTeleport,
   normalizePosition,
+  removeEdgeResistance,
   resolveCarouselStride,
   resolveSettlePositionAt,
   resolveSettleTarget,
@@ -49,19 +59,31 @@ const FADE_QUANTIZATION_STEPS = 50;
 const quantizeFade = (value) =>
   Math.round(value * FADE_QUANTIZATION_STEPS) / FADE_QUANTIZATION_STEPS;
 
+const createIdleGesture = () => ({
+  startX: null,
+  startY: null,
+  isActive: false,
+  hasDirection: false,
+  lockedAxis: null,
+});
+
 // The 5-screen swipe carousel is direct-manipulation navigation: its slides
 // track the finger live, so collapsing the release/tab settle to 0ms makes
 // switching screens snap abruptly. Like spinners in index.css, the carousel
 // settle stays animated across `full`, `reduced`, and `off` motion modes.
 
 /**
- * Looping, clone-free carousel for the five app screens.
+ * Clone-free carousel for the five app screens, looping by default.
  *
- * Every screen is rendered exactly once and positioned by its own wrapped
- * transform (see utils/visuals/carouselLoop.js), so the carousel loops in both
- * directions without duplicated slides, ghost cells or normalization timers.
- * The position is a single continuous, unbounded value; normalizing it after a
- * wrap is invisible because the transforms are periodic.
+ * Every screen is rendered exactly once and positioned by its own transform (see
+ * utils/visuals/carouselLoop.js). While looping the offsets wrap, so the carousel
+ * loops in both directions without duplicated slides, ghost cells or
+ * normalization timers; the position is a single continuous, unbounded value and
+ * normalizing it after a wrap is invisible because the transforms are periodic.
+ * With `loop: false` the track has two ends and a drag past one meets resistance.
+ *
+ * `screenKeys` names the screens in slide order. When that order changes, the
+ * screen in view stays in view at its new slot.
  *
  * All motion (drag frames and settles) is written imperatively to the slide
  * elements — never through React style props. Drag frames are px `translate3d`
@@ -79,7 +101,8 @@ const quantizeFade = (value) =>
 export const useSwipeableScreens = (
   totalScreens,
   viewportRef,
-  initialScreen = 0
+  initialScreen = 0,
+  { loop = true, screenKeys } = {}
 ) => {
   const screenCount = Math.max(Math.floor(Number(totalScreens)) || 0, 1);
   const clampedInitialScreen = Math.max(
@@ -96,6 +119,21 @@ export const useSwipeableScreens = (
   const [visibleScreen, setVisibleScreen] = useState(clampedInitialScreen);
   const [isSwiping, setIsSwiping] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(1);
+
+  // A new screen order (or a loop toggle) is settled during render, so the chrome
+  // never shows a frame with the old index against the new order. The slides are
+  // rewritten by the layout effect below.
+  const layoutKey = `${loop}:${screenKeys?.join(',') ?? ''}`;
+  const [layout, setLayout] = useState(() => ({ key: layoutKey, screenKeys }));
+  if (layout.key !== layoutKey) {
+    const heldKey = layout.screenKeys?.[visibleScreen];
+    const movedTo = screenKeys?.indexOf(heldKey) ?? -1;
+    const nextScreen = movedTo >= 0 ? movedTo : visibleScreen;
+    setLayout({ key: layoutKey, screenKeys });
+    setCurrentScreen(nextScreen);
+    setVisibleScreen(nextScreen);
+    setIsSwiping(false);
+  }
 
   const resizeFrameIdRef = useRef(null);
   const swipeFrameIdRef = useRef(null);
@@ -130,39 +168,40 @@ export const useSwipeableScreens = (
     }
     return measured;
   }, [viewportRef]);
-  const gestureRef = useRef({
-    startX: null,
-    startY: null,
-    isActive: false,
-    hasDirection: false,
-    lockedAxis: null,
-  });
+  const gestureRef = useRef(createIdleGesture());
+  const appliedLayoutRef = useRef(layoutKey);
 
-  const publishProgress = useCallback((position, { animate = false } = {}) => {
-    // The published value is the *1-based, unclamped* carousel position. The
-    // tab-bar pill and the header dot are ring affordances (three copies each,
-    // see RING_COPY_OFFSETS), so a loop-seam crossing must be free to glide one
-    // copy off the end of the track while the next enters from the other end.
-    // Clamping here (and swapping at normalize) is what made a wrap jump.
-    //
-    // The variables are written onto the drag-linked chrome elements themselves
-    // (registered sinks), NOT `:root`: a `:root` custom-property write invalidates
-    // style for the whole document on every drag frame, so that was an O(all
-    // mounted DOM) recalc per frame. The shell also owns the affordances'
-    // transition duration so they follow the finger (0s), glide in lockstep with
-    // the slides on a settle, or jump instantly when a wrap normalizes — the ring
-    // copies land on byte-identical positions there, so that swap must not
-    // animate.
-    const value = Number.isFinite(position) ? position : 1;
-    publishCarouselDragVars(
-      value,
-      animate ? SCREEN_DRAG_DURATION_ANIMATED : SCREEN_DRAG_DURATION_INSTANT
-    );
-  }, []);
+  const publishProgress = useCallback(
+    (position, { animate = false } = {}) => {
+      // The published value is the *1-based* carousel position, unclamped while
+      // looping. The tab-bar pill and the header dot are then ring affordances
+      // (three copies each, see RING_COPY_OFFSETS), so a loop-seam crossing must be
+      // free to glide one copy off the end of the track while the next enters from
+      // the other end. Clamping there (and swapping at normalize) is what made a
+      // wrap jump. Without the loop they stay pinned to the end during an
+      // overscroll.
+      //
+      // The variables are written onto the drag-linked chrome elements themselves
+      // (registered sinks), NOT `:root`: a `:root` custom-property write invalidates
+      // style for the whole document on every drag frame, so that was an O(all
+      // mounted DOM) recalc per frame. The shell also owns the affordances'
+      // transition duration so they follow the finger (0s), glide in lockstep with
+      // the slides on a settle, or jump instantly when a wrap normalizes — the ring
+      // copies land on byte-identical positions there, so that swap must not
+      // animate.
+      const finite = Number.isFinite(position) ? position : 1;
+      const value = loop ? finite : clampPosition(finite, screenCount);
+      publishCarouselDragVars(
+        value,
+        animate ? SCREEN_DRAG_DURATION_ANIMATED : SCREEN_DRAG_DURATION_INSTANT
+      );
+    },
+    [loop, screenCount]
+  );
 
   const writeSlideTransforms = useCallback(
     (position, { animate = false } = {}) => {
-      const offsets = resolveSlideOffsets(position, screenCount);
+      const offsets = resolveSlideOffsets(position, screenCount, { loop });
       const transition = animate ? SLIDE_SETTLE_TRANSITION_SET : 'none';
 
       for (let index = 0; index < screenCount; index += 1) {
@@ -172,11 +211,11 @@ export const useSwipeableScreens = (
         }
 
         const offset = offsets[index];
-        const teleport = isSlideTeleport(
-          slideOffsetsRef.current[index],
-          offset,
-          screenCount
-        );
+        // Only a looping track teleports: without the loop, a long tab jump is a
+        // real slide across the screens in between.
+        const teleport =
+          loop &&
+          isSlideTeleport(slideOffsetsRef.current[index], offset, screenCount);
 
         // `transition` and `transform` are always written together, in one task,
         // on every path (mount, drag frame, settle, normalize, resize). That
@@ -207,7 +246,7 @@ export const useSwipeableScreens = (
         slideOffsetsRef.current[index] = offset;
       }
     },
-    [screenCount]
+    [loop, screenCount]
   );
 
   const commitPosition = useCallback(
@@ -234,7 +273,9 @@ export const useSwipeableScreens = (
         // Refs commit before paint, so this first write (instant, no transition)
         // prevents a flash of the un-shifted flex layout on mount. It needs no
         // viewport measurement: the percentage transform is stride-agnostic.
-        const offsets = resolveSlideOffsets(positionRef.current, screenCount);
+        const offsets = resolveSlideOffsets(positionRef.current, screenCount, {
+          loop,
+        });
         const strengths = resolveSlideFadeStrengths(offsets[index]);
         node.style.transition = 'none';
         node.style.transform = buildSlideTransform(offsets[index], index);
@@ -252,7 +293,7 @@ export const useSwipeableScreens = (
           right: quantizeFade(strengths.right),
         };
       }),
-    [screenCount]
+    [loop, screenCount]
   );
 
   const getSlideProps = useCallback(
@@ -276,7 +317,7 @@ export const useSwipeableScreens = (
   // screen state (fade masks, tab pill, header dots, hardware-back logic).
   const applyNormalizedPosition = useCallback(
     (position) => {
-      const normalized = normalizePosition(position, screenCount);
+      const normalized = normalizePosition(position, screenCount, { loop });
       // Byte-identical transforms (the loop is periodic) written without a
       // transition, and the affordances are published instantly too, so a seam
       // crossing swaps the tab pill / header dot onto the wrapped tab instead of
@@ -290,7 +331,7 @@ export const useSwipeableScreens = (
       );
       return normalized.screenIndex;
     },
-    [commitPosition, publishProgress, screenCount]
+    [commitPosition, loop, publishProgress, screenCount]
   );
 
   // Lands the in-flight settle: normalize the position (transforms are periodic,
@@ -415,6 +456,31 @@ export const useSwipeableScreens = (
       durationMs: CAROUSEL_SETTLE_MS,
     });
   }, []);
+
+  // Rewrite the track after a re-order or loop toggle: the screen in view lands
+  // on its new slot with no animation.
+  useLayoutEffect(() => {
+    if (appliedLayoutRef.current === layoutKey) {
+      return;
+    }
+    appliedLayoutRef.current = layoutKey;
+
+    cancelPendingDragFrame();
+    cancelSettleAnimation();
+    gestureRef.current = createIdleGesture();
+
+    const position = currentScreen + 1;
+    restPositionRef.current = position;
+    dragStartPositionRef.current = position;
+    pendingPositionRef.current = position;
+    commitPosition(position, { animate: false });
+  }, [
+    cancelPendingDragFrame,
+    cancelSettleAnimation,
+    commitPosition,
+    currentScreen,
+    layoutKey,
+  ]);
 
   // Keep the swipe-affordance custom property in sync after screen changes,
   // hydration and resizes. Only the custom property is published here — slide
@@ -545,14 +611,18 @@ export const useSwipeableScreens = (
         hasDirection: false,
         lockedAxis: null,
       };
-      dragStartPositionRef.current = livePosition;
+      // Drag math runs on the finger's own track, before any end resistance.
+      dragStartPositionRef.current = loop
+        ? livePosition
+        : removeEdgeResistance(livePosition, screenCount);
       // Keep the rest position in the live position's period (an interrupted
       // wrap settle can sit at e.g. 6.2 -> rest 6, not 1) so the release
       // animation always travels the short way.
       restPositionRef.current = alignPositionToReference(
-        normalizePosition(livePosition, screenCount).position,
+        normalizePosition(livePosition, screenCount, { loop }).position,
         livePosition,
-        screenCount
+        screenCount,
+        { loop }
       );
       pendingPositionRef.current = livePosition;
       setIsSwiping(false);
@@ -561,6 +631,7 @@ export const useSwipeableScreens = (
       cancelPendingDragFrame,
       cancelSettleAnimation,
       commitPosition,
+      loop,
       resolveInterruptedPosition,
       resolveViewportWidth,
       screenCount,
@@ -628,9 +699,19 @@ export const useSwipeableScreens = (
       }
 
       const stride = resolveCarouselStride(width);
-      queueDragPosition(dragStartPositionRef.current - deltaX / stride);
+      const dragged = dragStartPositionRef.current - deltaX / stride;
+      queueDragPosition(
+        loop ? dragged : applyEdgeResistance(dragged, screenCount)
+      );
     },
-    [cancelPendingDragFrame, queueDragPosition, resolveViewportWidth, settleTo]
+    [
+      cancelPendingDragFrame,
+      loop,
+      queueDragPosition,
+      resolveViewportWidth,
+      screenCount,
+      settleTo,
+    ]
   );
 
   const finishSwipe = useCallback(() => {
@@ -666,6 +747,7 @@ export const useSwipeableScreens = (
       restPosition: restPositionRef.current,
       thresholdSlides: Math.min(thresholdPx / stride, 0.5),
       totalScreens: screenCount,
+      loop,
     });
 
     // The chrome (header stat line, tab icon colours) presents the destination
@@ -678,6 +760,7 @@ export const useSwipeableScreens = (
   }, [
     cancelPendingDragFrame,
     getLatestPosition,
+    loop,
     resolveViewportWidth,
     screenCount,
     settleTo,
@@ -747,29 +830,25 @@ export const useSwipeableScreens = (
       // Plan from the position the user is actually looking at: a settle already
       // in flight is interrupted at its live (clock-derived) position.
       const livePosition = resolveInterruptedPosition();
-      const rest = normalizePosition(livePosition, screenCount);
+      const rest = normalizePosition(livePosition, screenCount, { loop });
       const delta = resolveShortestScreenDelta(
         rest.screenIndex,
         targetScreen,
-        screenCount
+        screenCount,
+        { loop }
       );
       // Same period as the live position so the tick always animates the short
       // way (a tab tap during a wrap settle must not spin the whole track).
       const restInPeriod = alignPositionToReference(
         rest.position,
         livePosition,
-        screenCount
+        screenCount,
+        { loop }
       );
 
       cancelPendingDragFrame();
       cancelSettleAnimation();
-      gestureRef.current = {
-        startX: null,
-        startY: null,
-        isActive: false,
-        hasDirection: false,
-        lockedAxis: null,
-      };
+      gestureRef.current = createIdleGesture();
       setIsSwiping(false);
       // Freeze the running animation on the frame it is showing before replanning.
       commitPosition(livePosition, { animate: false });
@@ -790,6 +869,7 @@ export const useSwipeableScreens = (
       cancelPendingDragFrame,
       cancelSettleAnimation,
       commitPosition,
+      loop,
       resolveInterruptedPosition,
       screenCount,
       settleTo,
