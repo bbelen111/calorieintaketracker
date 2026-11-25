@@ -1,10 +1,9 @@
 /* eslint-disable no-undef */
+// This file has its own manual chunk, which absorbs whatever it imports. Never
+// import app modules the boot bundle also uses: the chunk would then load at
+// launch. Callers pass in anything derived from app code (e.g. `unitsNote`).
 import { Capacitor } from '@capacitor/core';
 import { RAG_GROUNDING_BATCH_MAX_NAMES } from './ragBudget.js';
-import {
-  buildDisplayUnitsBlock,
-  buildDisplayValues,
-} from '../utils/units/aiDisplayUnits.js';
 
 export const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_IMAGE_COUNT = 3;
@@ -994,7 +993,7 @@ export async function sendOpenRouterExtraction({
   files = [],
   history = [],
   foodContextSummary = '',
-  displayUnits,
+  unitsNote = '',
   model,
   signal,
   timeoutMs = 30000,
@@ -1002,7 +1001,7 @@ export async function sendOpenRouterExtraction({
   const composedMessage = composeExtractionMessage(
     message,
     foodContextSummary,
-    displayUnits
+    unitsNote
   );
 
   return sendOpenRouterMessage({
@@ -1021,7 +1020,7 @@ export async function sendOpenRouterExtraction({
 export function composeExtractionMessage(
   message,
   foodContextSummary = '',
-  displayUnits
+  unitsNote = ''
 ) {
   const baseMessage = String(message ?? '').trim();
   const normalizedContext = String(foodContextSummary ?? '').trim();
@@ -1029,7 +1028,7 @@ export function composeExtractionMessage(
   return [
     baseMessage,
     normalizedContext ? `[RECENT_FOOD_CONTEXT]\n${normalizedContext}` : '',
-    buildDisplayUnitsBlock(displayUnits),
+    unitsNote,
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -1039,24 +1038,16 @@ export async function sendOpenRouterPresentation({
   message,
   systemData,
   history = [],
-  displayUnits,
+  unitsNote = '',
   model,
   signal,
   timeoutMs = 30000,
 }) {
-  const unitsBlock = buildDisplayUnitsBlock(displayUnits);
-  const data =
-    unitsBlock && systemData && typeof systemData === 'object'
-      ? {
-          ...systemData,
-          displayValues: buildDisplayValues(systemData.entries, displayUnits),
-        }
-      : systemData;
   const systemDataBlock =
-    data && typeof data === 'object'
-      ? `\n\n[SYSTEM_DATA]: ${JSON.stringify(data)}`
+    systemData && typeof systemData === 'object'
+      ? `\n\n[SYSTEM_DATA]: ${JSON.stringify(systemData)}`
       : '';
-  const baseMessage = [String(message ?? '').trim(), unitsBlock]
+  const baseMessage = [String(message ?? '').trim(), unitsNote]
     .filter(Boolean)
     .join('\n\n');
 

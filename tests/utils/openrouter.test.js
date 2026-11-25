@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   __resetOpenRouterRateLimitQueueForTests,
@@ -216,28 +217,7 @@ test('fetchMacrosWithGrounding rescales portion-aware responses and passes micro
   }
 });
 
-test('extraction prompts name the display units only for kJ or oz users', () => {
-  const plain = composeExtractionMessage('6 oz steak', '1. Rice');
-  assert.equal(
-    composeExtractionMessage('6 oz steak', '1. Rice', {
-      energy: 'kcal',
-      foodWeight: 'g',
-      bodyWeight: 'lb',
-    }),
-    plain
-  );
-
-  const converted = composeExtractionMessage('6 oz steak', '1. Rice', {
-    energy: 'kJ',
-    foodWeight: 'oz',
-  });
-  assert.equal(
-    converted,
-    `${plain}\n\n[DISPLAY_UNITS]\nenergy: kJ (1 kcal = 4.184 kJ)\nfood weight: oz (1 oz = 28.35 g)`
-  );
-});
-
-test('presentation sends preconverted display values beside kcal entries', async () => {
+test('a units note follows the prompt, and metric requests carry none', async () => {
   const originalFetch = globalThis.fetch;
   const prompts = [];
   globalThis.fetch = async (_url, options = {}) => {
@@ -250,8 +230,7 @@ test('presentation sends preconverted display values beside kcal entries', async
         choices: [
           {
             message: {
-              content: `Logged.
-<food_parser_json>${JSON.stringify({
+              content: `Logged.\n<food_parser_json>${JSON.stringify({
                 version: FOOD_PARSER_SCHEMA_VERSION,
                 messageType: 'error',
                 assistantMessage: 'Logged.',
@@ -263,33 +242,42 @@ test('presentation sends preconverted display values beside kcal entries', async
       }),
     };
   };
-  const entries = [{ name: 'Rice', grams: 170, calories: 221 }];
-  const readSystemData = (prompt) =>
-    JSON.parse(prompt.split('[SYSTEM_DATA]: ')[1]);
+  const systemData = { entries: [{ name: 'Rice', calories: 221 }] };
+  const data = `[SYSTEM_DATA]: ${JSON.stringify(systemData)}`;
 
   try {
+    await sendOpenRouterPresentation({ message: 'rice', systemData });
     await sendOpenRouterPresentation({
       message: 'rice',
-      systemData: { entries },
-      displayUnits: { energy: 'kcal', foodWeight: 'g' },
-    });
-    await sendOpenRouterPresentation({
-      message: 'rice',
-      systemData: { entries },
-      displayUnits: { energy: 'kJ', foodWeight: 'oz' },
+      systemData,
+      unitsNote: '[DISPLAY_UNITS]',
     });
   } finally {
     globalThis.fetch = originalFetch;
   }
 
-  assert.equal(
-    prompts[0],
-    `rice\n\n[SYSTEM_DATA]: ${JSON.stringify({ entries })}`
-  );
-  assert.match(prompts[1], /\[DISPLAY_UNITS\]/);
-  const data = readSystemData(prompts[1]);
-  assert.deepEqual(data.entries, entries);
-  assert.deepEqual(data.displayValues, [
-    { name: 'Rice', energy: '925 kJ', weight: '6 oz' },
+  assert.deepEqual(prompts, [
+    `rice\n\n${data}`,
+    `rice\n\n[DISPLAY_UNITS]\n\n${data}`,
   ]);
+  assert.equal(composeExtractionMessage('rice', '', ''), 'rice');
+  assert.equal(
+    composeExtractionMessage('rice', '1. Oats', '[DISPLAY_UNITS]'),
+    'rice\n\n[RECENT_FOOD_CONTEXT]\n1. Oats\n\n[DISPLAY_UNITS]'
+  );
+});
+
+// The client has its own manual chunk, which absorbs its imports: pulling in
+// app code would make the chunk load at launch.
+test('the OpenRouter client imports no app code the boot bundle uses', () => {
+  const source = readFileSync(
+    new URL('../../src/services/openrouter.js', import.meta.url),
+    'utf8'
+  );
+  const imports = [...source.matchAll(/\bfrom '([^']+)';/g)];
+
+  assert.deepEqual(
+    imports.map((match) => match[1]),
+    ['@capacitor/core', './ragBudget.js']
+  );
 });

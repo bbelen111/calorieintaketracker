@@ -26,7 +26,10 @@ import {
 } from './foodLookupContext.js';
 import { mergePresentationEntriesWithVerified } from '../utils/food/aiPresentationMerge.js';
 import { scaleMacrosFromPer100g } from '../utils/food/portionNormalization.js';
-import { buildDisplayUnitsBlock } from '../utils/units/aiDisplayUnits.js';
+import {
+  buildDisplayUnitsBlock,
+  buildDisplayValues,
+} from '../utils/units/aiDisplayUnits.js';
 import {
   RAG_GROUNDING_BATCH_MAX_NAMES,
   RAG_TIMING,
@@ -309,6 +312,8 @@ export const runRagChatPipeline = async ({
   } = modules;
 
   const trimmedText = String(message ?? '').trim();
+  // Empty for kcal + grams users, whose requests carry nothing extra.
+  const unitsNote = buildDisplayUnitsBlock(displayUnits);
   const safeFiles = Array.isArray(files) ? files : [];
   const resolvedAssistantMessageId =
     String(assistantMessageId || '').trim() || `assistant-${Date.now()}`;
@@ -364,7 +369,7 @@ export const runRagChatPipeline = async ({
       sendOpenRouterExtraction({
         message: messageOverride,
         foodContextSummary: rollingFoodContextSummary,
-        displayUnits,
+        unitsNote,
         files: safeFiles,
         history: historyForRequest,
         signal,
@@ -639,9 +644,15 @@ export const runRagChatPipeline = async ({
             message: trimmedText,
             systemData: {
               entries: verifiedEntries,
+              ...(unitsNote && {
+                displayValues: buildDisplayValues(
+                  verifiedEntries,
+                  displayUnits
+                ),
+              }),
             },
             history: historyForRequest,
-            displayUnits,
+            unitsNote,
             signal,
             timeoutMs: resolveStageTimeout('presentation'),
           });
@@ -799,9 +810,7 @@ export const runRagChatPipeline = async ({
     // This single-call path composes its own message, so it carries the units
     // note itself.
     result = await sendOpenRouterMessage({
-      message: [trimmedText, buildDisplayUnitsBlock(displayUnits)]
-        .filter(Boolean)
-        .join('\n\n'),
+      message: [trimmedText, unitsNote].filter(Boolean).join('\n\n'),
       files: safeFiles,
       history: historyForRequest,
       signal,
