@@ -20,6 +20,7 @@ import {
   Database,
   Globe,
   AlertCircle,
+  CheckCircle2,
   CloudOff,
   Sparkles,
   Utensils,
@@ -46,7 +47,13 @@ import {
 } from '../../../../constants/meal/mealTypes';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { resolveAiEntryCategory } from '../../../../utils/food/aiCategory';
-import { buildRecipeFood } from '../../../../utils/food/recipe';
+import {
+  buildRecipeFood,
+  favouriteToIngredientFood,
+  getRecipeStartGrams,
+  isRecipeFood,
+} from '../../../../utils/food/recipe';
+import { scaleMacrosFromPer100g } from '../../../../utils/food/portionNormalization';
 import {
   ONLINE_FOOD_CATEGORIES,
   appendUniqueFoodsById,
@@ -335,8 +342,31 @@ export const FoodSearchModal = ({
     }),
     shallow
   );
+  const resolvedFavourites = favourites ?? foodFavourites;
+  const resolvedPinnedFoods = pinnedFoods ?? storePinnedFoods;
+  const resolvedCachedFoods = cachedFoods ?? storeCachedFoods;
+  const resolvedTogglePin = onTogglePin ?? togglePinnedFood;
+  const resolvedUpdateCachedFoods = onUpdateCachedFoods ?? updateCachedFoods;
+  // Saved custom foods persist in `foodFavourites` (auto-favourited on save).
+  // Projecting them back into the local list keeps custom foods searchable
+  // across reloads instead of disappearing once the session ends.
+  const savedCustomFoods = useMemo(
+    () =>
+      (resolvedFavourites ?? [])
+        .filter(
+          (fav) =>
+            fav &&
+            !isRecipeFood(fav) &&
+            fav.source !== 'manual' &&
+            fav.category !== 'manual' &&
+            (fav.source === 'user' || fav.isCustom === true)
+        )
+        .map(favouriteToIngredientFood)
+        .filter(Boolean),
+    [resolvedFavourites]
+  );
   // Saved recipes are derived into ordinary foods and searched alongside the
-  // session's custom foods, so the merge / filter / sort below needs no recipe
+  // user's custom foods, so the merge / filter / sort below needs no recipe
   // special-casing. They are NOT favourited on save (a favourite would freeze a
   // stale copy of the nutrition); the store is their only source of truth.
   const recipeFoods = useMemo(
@@ -348,17 +378,9 @@ export const FoodSearchModal = ({
     [recipeFoods]
   );
   const customFoods = useMemo(
-    () =>
-      recipeFoods.length === 0
-        ? sessionCustomFoods
-        : [...sessionCustomFoods, ...recipeFoods],
-    [recipeFoods, sessionCustomFoods]
+    () => mergeFoodsById(savedCustomFoods, sessionCustomFoods, recipeFoods),
+    [recipeFoods, savedCustomFoods, sessionCustomFoods]
   );
-  const resolvedFavourites = favourites ?? foodFavourites;
-  const resolvedPinnedFoods = pinnedFoods ?? storePinnedFoods;
-  const resolvedCachedFoods = cachedFoods ?? storeCachedFoods;
-  const resolvedTogglePin = onTogglePin ?? togglePinnedFood;
-  const resolvedUpdateCachedFoods = onUpdateCachedFoods ?? updateCachedFoods;
   const resolvedFoodSearchDefaultEntry = normalizeFoodSearchDefaultEntry(
     foodSearchDefaultEntry
   );
@@ -426,7 +448,7 @@ export const FoodSearchModal = ({
   const mealCountFlashTimeoutRef = useRef(null);
   const previousMealEntryCountRef = useRef(null);
   const entryIdRef = useRef(1);
-  const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [pendingDeleteTarget, setPendingDeleteTarget] = useState(null);
   const [pendingManualAdd, setPendingManualAdd] = useState(null);
   const {
     isOpen: isDeleteConfirmOpen,
@@ -453,33 +475,61 @@ export const FoodSearchModal = ({
     forceClose: forceAddCustomFoodClose,
   } = useAnimatedModal(false);
 
-  // The recipe being edited in the same form (null = creating something new).
-  // It is kept until the form has finished closing so its title and fields do
-  // not flip mid-animation.
+  // The recipe or custom food being edited in the same form (null = creating
+  // something new). Both are kept until the form has finished closing so its
+  // title and fields do not flip mid-animation.
   const [editingRecipe, setEditingRecipe] = useState(null);
+  const [editingCustomFood, setEditingCustomFood] = useState(null);
 
   useEffect(() => {
     if (!isAddCustomFoodClosing) {
       return undefined;
     }
-    const timer = setTimeout(() => setEditingRecipe(null), 250);
+    const timer = setTimeout(() => {
+      setEditingRecipe(null);
+      setEditingCustomFood(null);
+    }, 250);
     return () => clearTimeout(timer);
   }, [isAddCustomFoodClosing]);
 
   const handleOpenAddCustomFood = () => {
     setEditingRecipe(null);
+    setEditingCustomFood(null);
+    openAddCustomFood();
+  };
+
+  const handleEditCustomFood = (favourite) => {
+    if (!favourite) {
+      return;
+    }
+    setEditingRecipe(null);
+    setEditingCustomFood(favourite);
     openAddCustomFood();
   };
 
   const handleEditRecipe = (food) => {
     const recipe = (recipes ?? []).find(
-      (item) => item.id === (food?.recipeId ?? food?.id)
+      (item) => item.id === (food?.recipeId ?? food?.foodId ?? food?.id)
     );
     if (!recipe) {
       return;
     }
+    setEditingCustomFood(null);
     setEditingRecipe(recipe);
     openAddCustomFood();
+  };
+
+  const handleDeleteRecipeWithCleanup = (recipeId) => {
+    if (!recipeId) {
+      return;
+    }
+    removeRecipe(recipeId);
+    // Drop any legacy manually-favourited copy pointing at this recipe too.
+    (resolvedFavourites ?? []).forEach((fav) => {
+      if (fav?.foodId === recipeId && fav.id != null) {
+        onDeleteFavourite?.(fav.id);
+      }
+    });
   };
 
   const {
@@ -941,8 +991,21 @@ export const FoodSearchModal = ({
     const uniqueFoodIds = Array.from(
       new Set(
         (resolvedFavourites ?? [])
+          .filter(
+            (favourite) =>
+              favourite &&
+              !isRecipeFood(favourite) &&
+              favourite.source !== 'user' &&
+              favourite.isCustom !== true
+          )
           .map((favourite) => favourite?.foodId)
-          .filter((foodId) => typeof foodId === 'string' && foodId.length > 0)
+          .filter(
+            (foodId) =>
+              typeof foodId === 'string' &&
+              foodId.length > 0 &&
+              !foodId.startsWith('user_') &&
+              !foodId.startsWith('recipe_')
+          )
       )
     );
 
@@ -985,7 +1048,7 @@ export const FoodSearchModal = ({
   useEffect(() => {
     if (!isDeleteConfirmOpen && !isDeleteConfirmClosing) {
       const timeout = setTimeout(() => {
-        setPendingDeleteId(null);
+        setPendingDeleteTarget(null);
       }, 0);
       return () => clearTimeout(timeout);
     }
@@ -1550,10 +1613,55 @@ export const FoodSearchModal = ({
     handleFavouriteEdit(favourite, event);
   };
 
-  const sortedFavourites = useMemo(() => {
-    if (!Array.isArray(resolvedFavourites)) return [];
+  // Project saved recipes live into the Favourites tab alongside normal & custom
+  // food favourites so every user-created item lives in Favourites and stays
+  // editable from one place (without freezing stale recipe nutrition in the
+  // favourites list). Any legacy favourite referencing a live recipe is replaced
+  // by the live projection.
+  const combinedFavourites = useMemo(() => {
+    const baseFavourites = Array.isArray(resolvedFavourites)
+      ? resolvedFavourites.filter(
+          (fav) => fav && !(fav.foodId && recipeFoodsById[fav.foodId])
+        )
+      : [];
 
-    let results = resolvedFavourites.filter(Boolean);
+    const liveRecipeFavourites = recipeFoods.map((recipeFood) => {
+      const perServing = scaleMacrosFromPer100g(
+        recipeFood.per100g,
+        recipeFood.servingGrams
+      );
+      return {
+        id: recipeFood.id,
+        foodId: recipeFood.id,
+        recipeId: recipeFood.id,
+        name: recipeFood.name,
+        brand: null,
+        category: recipeFood.category,
+        tags: recipeFood.tags,
+        grams: getRecipeStartGrams(recipeFood) ?? recipeFood.servingGrams,
+        calories: perServing.calories,
+        protein: perServing.protein,
+        carbs: perServing.carbs,
+        fats: perServing.fats,
+        fiber: perServing.fiber,
+        sodium: perServing.sodium,
+        saturatedFats: perServing.saturatedFats,
+        sugars: perServing.sugars,
+        servings: recipeFood.servings,
+        servingGrams: recipeFood.servingGrams,
+        isCustom: true,
+        isRecipe: true,
+        source: 'recipe',
+        per100g: recipeFood.per100g,
+        portions: recipeFood.portions,
+      };
+    });
+
+    return [...baseFavourites, ...liveRecipeFavourites];
+  }, [recipeFoods, recipeFoodsById, resolvedFavourites]);
+
+  const sortedFavourites = useMemo(() => {
+    let results = combinedFavourites.filter(Boolean);
 
     // Apply search filter
     if (favouritesSearchQuery.trim()) {
@@ -1561,7 +1669,13 @@ export const FoodSearchModal = ({
       results = results.filter(
         (fav) =>
           fav.name?.toLowerCase().includes(query) ||
-          fav.category?.toLowerCase().includes(query)
+          fav.category?.toLowerCase().includes(query) ||
+          (Array.isArray(fav.tags) &&
+            fav.tags.some((tag) =>
+              String(tag ?? '')
+                .toLowerCase()
+                .includes(query)
+            ))
       );
     }
 
@@ -1584,7 +1698,7 @@ export const FoodSearchModal = ({
 
     return results;
   }, [
-    resolvedFavourites,
+    combinedFavourites,
     favouritesSearchQuery,
     favouritesSortBy,
     favouritesSortOrder,
@@ -1734,9 +1848,10 @@ export const FoodSearchModal = ({
     () =>
       buildLocalCategoryOptions(
         FOOD_CATEGORIES,
-        resolvedCachedFoods.length > 0
+        resolvedCachedFoods.length > 0,
+        recipeFoods.length > 0
       ),
-    [resolvedCachedFoods]
+    [recipeFoods.length, resolvedCachedFoods]
   );
 
   const categoryOptions =
@@ -3354,11 +3469,18 @@ export const FoodSearchModal = ({
                 className={`max-w-sm w-full rounded-xl border px-3 py-2.5 shadow-xl backdrop-blur-xs flex items-center gap-2 text-sm leading-tight ${
                   barcodeToast.tone === 'error'
                     ? 'border-accent-red/35 bg-accent-red/10 text-accent-red'
-                    : 'border-accent-blue/30 bg-surface/95 text-foreground'
+                    : barcodeToast.tone === 'success'
+                      ? 'border-accent-green/35 bg-surface/95 text-foreground'
+                      : 'border-accent-blue/30 bg-surface/95 text-foreground'
                 }`}
               >
                 {barcodeToast.tone === 'error' ? (
                   <AlertCircle size={15} className="shrink-0" />
+                ) : barcodeToast.tone === 'success' ? (
+                  <CheckCircle2
+                    size={15}
+                    className="shrink-0 text-accent-green"
+                  />
                 ) : (
                   <ScanBarcode size={15} className="shrink-0" />
                 )}
@@ -3595,7 +3717,7 @@ export const FoodSearchModal = ({
                 visibleResultsCount={visibleDisplayResults.length}
                 sortedFavourites={sortedFavourites}
                 favouritesSearchQuery={favouritesSearchQuery}
-                resolvedFavourites={resolvedFavourites}
+                resolvedFavourites={combinedFavourites}
                 isSearching={isSearching}
                 isLocalSearching={showLocalSkeleton}
                 resolvedCachedFoods={resolvedCachedFoods}
@@ -3691,9 +3813,13 @@ export const FoodSearchModal = ({
                           hasFavourites={hasFavourites}
                           handleFavouriteCardClick={handleFavouriteCardClick}
                           handleFavouriteEdit={handleFavouriteEdit}
+                          onEditCustomFood={handleEditCustomFood}
+                          onEditRecipe={handleEditRecipe}
                           onDeleteFavourite={onDeleteFavourite}
-                          setPendingDeleteId={setPendingDeleteId}
-                          openDeleteConfirm={openDeleteConfirm}
+                          onRequestDeleteFavourite={(favourite) => {
+                            setPendingDeleteTarget(favourite);
+                            openDeleteConfirm();
+                          }}
                           prefersReducedMotion={prefersReducedMotion}
                         />
                       </motion.div>
@@ -3742,7 +3868,6 @@ export const FoodSearchModal = ({
                           performOnlineSearch={performOnlineSearch}
                           animatedFoodIds={animatedFoodIds}
                           prefersReducedMotion={prefersReducedMotion}
-                          onEditRecipe={handleEditRecipe}
                         />
                       </motion.div>
                     )}
@@ -3786,15 +3911,32 @@ export const FoodSearchModal = ({
       <ConfirmActionModal
         isOpen={isDeleteConfirmOpen}
         isClosing={isDeleteConfirmClosing}
-        title="Remove favourite food?"
-        description="This food will be removed from your favourites list. You can add it back anytime."
+        title={
+          isRecipeFood(pendingDeleteTarget)
+            ? 'Delete this recipe?'
+            : 'Remove favourite food?'
+        }
+        description={
+          isRecipeFood(pendingDeleteTarget)
+            ? 'The recipe is removed from your foods. Meals you already logged with it keep their calories and macros.'
+            : 'This food will be removed from your favourites list. You can add it back anytime.'
+        }
         confirmLabel="Delete"
         cancelLabel="Keep"
         tone="danger"
         onConfirm={() => {
           requestDeleteConfirmClose();
-          if (pendingDeleteId != null) {
-            onDeleteFavourite?.(pendingDeleteId);
+          if (!pendingDeleteTarget) {
+            return;
+          }
+          if (isRecipeFood(pendingDeleteTarget)) {
+            handleDeleteRecipeWithCleanup(
+              pendingDeleteTarget.recipeId ??
+                pendingDeleteTarget.foodId ??
+                pendingDeleteTarget.id
+            );
+          } else if (pendingDeleteTarget.id != null) {
+            onDeleteFavourite?.(pendingDeleteTarget.id);
           }
         }}
         onCancel={() => requestDeleteConfirmClose()}
@@ -3823,12 +3965,68 @@ export const FoodSearchModal = ({
         onClose={requestAddCustomFoodClose}
         onSaveFood={(customFood, options) => {
           onAddCustomFood?.(customFood, options);
+          if (!options?.log) {
+            if (options?.isEditing || viewMode === 'favourites') {
+              setViewMode('favourites');
+              if (
+                favouritesSearchQuery.trim() &&
+                !String(customFood?.name ?? '')
+                  .toLowerCase()
+                  .includes(favouritesSearchQuery.toLowerCase().trim())
+              ) {
+                setFavouritesSearchQuery('');
+              }
+            } else {
+              setViewMode('search');
+              setSearchMode('local');
+              setSelectedCategory(null);
+              setSelectedSubcategory(null);
+              setSearchQuery(customFood?.name ?? '');
+            }
+            showBarcodeToast(
+              options?.isEditing
+                ? `Updated "${customFood?.name || 'Custom food'}"`
+                : `Saved "${customFood?.name || 'Custom food'}"`,
+              'success'
+            );
+          }
         }}
         onSaveRecipe={(recipe, options) => {
           onSaveRecipe?.(recipe, options);
+          if (!options?.log) {
+            if (options?.isEditing || viewMode === 'favourites') {
+              setViewMode('favourites');
+              if (
+                favouritesSearchQuery.trim() &&
+                !String(recipe?.name ?? '')
+                  .toLowerCase()
+                  .includes(favouritesSearchQuery.toLowerCase().trim())
+              ) {
+                setFavouritesSearchQuery('');
+              }
+            } else {
+              setViewMode('search');
+              setSearchMode('local');
+              setSelectedCategory(null);
+              setSelectedSubcategory(null);
+              setSearchQuery(recipe?.name ?? '');
+            }
+            showBarcodeToast(
+              options?.isEditing
+                ? `Updated recipe "${recipe?.name || 'Recipe'}"`
+                : `Saved recipe "${recipe?.name || 'Recipe'}"`,
+              'success'
+            );
+          }
         }}
         editingRecipe={editingRecipe}
-        onDeleteRecipe={(recipe) => removeRecipe(recipe.id)}
+        onDeleteRecipe={(recipe) => handleDeleteRecipeWithCleanup(recipe.id)}
+        editingFood={editingCustomFood}
+        onDeleteFood={(food) => {
+          if (food?.id != null) {
+            onDeleteFavourite?.(food.id);
+          }
+        }}
         userFoods={sessionCustomFoods}
       />
 

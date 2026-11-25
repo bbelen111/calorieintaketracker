@@ -72,7 +72,7 @@ test('appendUniqueFoodsById keeps the EXISTING row when a page repeats it', () =
   assert.deepEqual(appendUniqueFoodsById(undefined, undefined), []);
 });
 
-test('buildLocalCategoryOptions adds Cached only when something is cached', () => {
+test('buildLocalCategoryOptions adds Cached and Recipes only when present', () => {
   const base = { protein: { label: 'Proteins', color: 'red' } };
 
   assert.deepEqual(Object.keys(buildLocalCategoryOptions(base, false)), [
@@ -80,6 +80,15 @@ test('buildLocalCategoryOptions adds Cached only when something is cached', () =
   ]);
   assert.deepEqual(Object.keys(buildLocalCategoryOptions(base, true)), [
     'protein',
+    'cached',
+  ]);
+  assert.deepEqual(Object.keys(buildLocalCategoryOptions(base, false, true)), [
+    'protein',
+    'recipe',
+  ]);
+  assert.deepEqual(Object.keys(buildLocalCategoryOptions(base, true, true)), [
+    'protein',
+    'recipe',
     'cached',
   ]);
   assert.deepEqual(Object.keys(base), ['protein'], 'must not mutate the base');
@@ -161,6 +170,47 @@ test('buildLocalFoodList filters by category and subcategory', () => {
     ),
     ['a']
   );
+});
+
+test('buildLocalFoodList filters custom foods and recipes across macro categories and tags', () => {
+  const foods = [
+    food('catalog', 'Catalog chicken', { category: 'protein' }),
+    food('custom_protein', 'My protein shake', {
+      category: 'protein',
+      tags: ['protein', 'supplements', 'custom'],
+      isCustom: true,
+      source: 'user',
+    }),
+    food('recipe_protein', 'Beef bowl', {
+      category: 'protein',
+      tags: ['protein', 'recipe'],
+      isCustom: true,
+      isRecipe: true,
+      source: 'recipe',
+    }),
+  ];
+
+  // Category "Custom" matches custom foods and recipes even when tagged with a macro category.
+  assert.deepEqual(
+    ids(buildLocalFoodList({ foods, category: 'custom' })).sort(),
+    ['custom_protein', 'recipe_protein']
+  );
+
+  // Category "Recipes" matches only recipes.
+  assert.deepEqual(ids(buildLocalFoodList({ foods, category: 'recipe' })), [
+    'recipe_protein',
+  ]);
+
+  // Secondary tags remain filterable too.
+  assert.deepEqual(
+    ids(buildLocalFoodList({ foods, category: 'supplements' })),
+    ['custom_protein']
+  );
+
+  // Querying by tag matches tagged custom foods and recipes.
+  assert.deepEqual(ids(buildLocalFoodList({ foods, query: 'recipe' })), [
+    'recipe_protein',
+  ]);
 });
 
 test('buildLocalFoodList puts pinned foods first and keeps order within each group', () => {

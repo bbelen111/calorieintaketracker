@@ -102,15 +102,46 @@ const getTagClasses = (tagId, isSelected) => {
 
 const CUSTOM_FOOD_TAG_IDS = new Set(CUSTOM_FOOD_TAGS.map((tag) => tag.id));
 
-// Category chips to pre-select when editing a recipe: its saved tags, or its
-// category when it was saved before tags existed. 'custom' is the implicit
-// default, never a chip.
-const getRecipeTagSelection = (recipe) => {
-  const tags = (recipe?.tags ?? []).filter((tag) =>
-    CUSTOM_FOOD_TAG_IDS.has(tag)
-  );
+// Category chips to pre-select when editing a recipe or custom food: its saved
+// tags, or its category when it was saved before tags existed. 'custom' is the
+// implicit default, never a chip.
+const getSavedTagSelection = (item) => {
+  const tags = (item?.tags ?? []).filter((tag) => CUSTOM_FOOD_TAG_IDS.has(tag));
   if (tags.length > 0) return tags;
-  return CUSTOM_FOOD_TAG_IDS.has(recipe?.category) ? [recipe.category] : [];
+  return CUSTOM_FOOD_TAG_IDS.has(item?.category) ? [item.category] : [];
+};
+
+const toNutrientFieldString = (value) => {
+  if (value == null || value === '') return '';
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? String(parsed) : '';
+};
+
+const resolveEditablePer100g = (food) => {
+  if (food?.per100g && typeof food.per100g === 'object') {
+    return food.per100g;
+  }
+  const grams = Number(food?.grams);
+  if (!Number.isFinite(grams) || grams <= 0) {
+    return {};
+  }
+  const scale = (val) => {
+    const parsed = Number(val);
+    return Number.isFinite(parsed)
+      ? Math.round(parsed * (100 / grams) * 10) / 10
+      : null;
+  };
+  return {
+    calories: scale(food.calories),
+    protein: scale(food.protein),
+    carbs: scale(food.carbs),
+    fats: scale(food.fats),
+    fiber: food.fiber == null ? null : scale(food.fiber),
+    sodium: food.sodium == null ? null : scale(food.sodium),
+    saturatedFats:
+      food.saturatedFats == null ? null : scale(food.saturatedFats),
+    sugars: food.sugars == null ? null : scale(food.sugars),
+  };
 };
 
 export const AddCustomFoodModal = ({
@@ -119,16 +150,20 @@ export const AddCustomFoodModal = ({
   onClose,
   onSaveFood,
   // Recipe mode: `onSaveRecipe(recipe, { log, isEditing })` saves a recipe
-  // built from existing foods. `editingRecipe` opens the form pre-filled (the
-  // Food | Recipe switch is hidden then) and enables `onDeleteRecipe`.
+  // built from existing foods. `editingRecipe` or `editingFood` opens the form
+  // pre-filled (the Food | Recipe switch is hidden then) and enables the
+  // corresponding delete action.
   // `userFoods` = the foods the user added this session; the ingredient picker
   // lists them next to favourites, pins and cached foods.
   onSaveRecipe,
   editingRecipe = null,
   onDeleteRecipe,
+  editingFood = null,
+  onDeleteFood,
   userFoods = EMPTY,
 }) => {
   const prefersReducedMotion = useReducedMotionPreference();
+  const isEditingExisting = Boolean(editingRecipe || editingFood);
   const [mode, setMode] = useState(editingRecipe ? 'recipe' : 'food');
   // Which way the last Food | Recipe switch went (null until the user switches,
   // so opening the form - or opening a recipe to edit - plays no swap
@@ -160,17 +195,19 @@ export const AddCustomFoodModal = ({
   const numericPickerModal = useAnimatedModal(false);
   const [numericPickerState, setNumericPickerState] = useState(null);
 
-  // Pre-fill when opened to edit a recipe. Derived during render (keyed by what
-  // is being opened) rather than in an effect, so the first painted frame
-  // already shows the recipe and no state is set from an effect on open.
-  const openKey = isOpen ? (editingRecipe?.id ?? 'new') : null;
+  // Pre-fill when opened to edit a recipe or custom food. Derived during render
+  // (keyed by what is being opened) rather than in an effect, so the first
+  // painted frame already shows the item and no state is set from an effect on open.
+  const openKey = isOpen
+    ? (editingRecipe?.id ?? editingFood?.foodId ?? editingFood?.id ?? 'new')
+    : null;
   const [seededKey, setSeededKey] = useState(null);
   if (seededKey !== openKey) {
     setSeededKey(openKey);
     if (openKey && editingRecipe) {
       setMode('recipe');
       setName(editingRecipe.name ?? '');
-      setSelectedTags(getRecipeTagSelection(editingRecipe));
+      setSelectedTags(getSavedTagSelection(editingRecipe));
       setIngredients(editingRecipe.ingredients ?? []);
       setServings(editingRecipe.servings ?? 1);
       setCookedWeightGrams(
@@ -179,33 +216,53 @@ export const AddCustomFoodModal = ({
           : ''
       );
       setPortions(editingRecipe.portions ?? []);
+    } else if (openKey && editingFood) {
+      const per100g = resolveEditablePer100g(editingFood);
+      setMode('food');
+      setName(editingFood.name ?? '');
+      setSelectedTags(getSavedTagSelection(editingFood));
+      setCalories(toNutrientFieldString(per100g?.calories));
+      setProtein(toNutrientFieldString(per100g?.protein));
+      setCarbs(toNutrientFieldString(per100g?.carbs));
+      setFats(toNutrientFieldString(per100g?.fats));
+      setFiber(toNutrientFieldString(per100g?.fiber));
+      setSodium(toNutrientFieldString(per100g?.sodium));
+      setSaturatedFats(toNutrientFieldString(per100g?.saturatedFats));
+      setSugars(toNutrientFieldString(per100g?.sugars));
+      setPortions(
+        Array.isArray(editingFood.portions) ? editingFood.portions : []
+      );
     }
   }
 
   // Reset form when modal closes
   React.useEffect(() => {
-    if (isClosing) {
-      setTimeout(() => {
-        setMode('food');
-        setSwapDirection(null);
-        setIngredients([]);
-        setServings(1);
-        setCookedWeightGrams('');
-        setName('');
-        setSelectedTags([]);
-        setCalories('');
-        setProtein('');
-        setCarbs('');
-        setFats('');
-        setFiber('');
-        setSodium('');
-        setSaturatedFats('');
-        setSugars('');
-        setPortions([]);
-        setNewPortionLabel('');
-        setNewPortionGrams('');
-      }, 200);
+    if (!isClosing) {
+      return undefined;
     }
+
+    const timer = setTimeout(() => {
+      setMode('food');
+      setSwapDirection(null);
+      setIngredients([]);
+      setServings(1);
+      setCookedWeightGrams('');
+      setName('');
+      setSelectedTags([]);
+      setCalories('');
+      setProtein('');
+      setCarbs('');
+      setFats('');
+      setFiber('');
+      setSodium('');
+      setSaturatedFats('');
+      setSugars('');
+      setPortions([]);
+      setNewPortionLabel('');
+      setNewPortionGrams('');
+    }, 200);
+
+    return () => clearTimeout(timer);
   }, [isClosing]);
 
   const numericFields = {
@@ -435,7 +492,10 @@ export const AddCustomFoodModal = ({
       }
 
       const customFood = {
-        id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id:
+          editingFood?.foodId ??
+          editingFood?.id ??
+          `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: name.trim(),
         category: category,
         subcategory: null,
@@ -454,15 +514,21 @@ export const AddCustomFoodModal = ({
           sugars: sugars !== '' ? parseFloat(sugars) : null,
         },
         portions: portions.length > 0 ? portions : [],
-        createdAt: new Date().toISOString(),
+        createdAt: editingFood?.createdAt ?? new Date().toISOString(),
       };
 
-      onSaveFood?.(customFood, { log: options.log === true });
+      onSaveFood?.(customFood, {
+        log: options.log === true,
+        ...(editingFood
+          ? { isEditing: true, favouriteId: editingFood.id ?? null }
+          : {}),
+      });
       onClose?.();
     },
     [
       isFormValid,
       isRecipeMode,
+      editingFood,
       editingRecipe,
       recipeDraft,
       ingredients,
@@ -497,7 +563,7 @@ export const AddCustomFoodModal = ({
         {/* Header: the icon + title swap with a short fade/rise when the mode
             changes (re-keyed, enter-only - the same idiom as the app header's
             stat line). Not on open, so it never doubles the modal's entrance. */}
-        <div className={editingRecipe ? 'mb-6' : 'mb-4'}>
+        <div className={isEditingExisting ? 'mb-6' : 'mb-4'}>
           <div
             key={`title-${mode}`}
             className={`flex items-center gap-3 ${
@@ -514,15 +580,17 @@ export const AddCustomFoodModal = ({
                 ? editingRecipe
                   ? 'Edit Recipe'
                   : 'New Recipe'
-                : 'Add Custom Food'}
+                : editingFood
+                  ? 'Edit Custom Food'
+                  : 'Add Custom Food'}
             </h3>
           </div>
         </div>
 
         {/* Food | Recipe: one door for "make my own food", two ways to fill it
             in. A sliding pill (the Food Search Local | Online grammar). Hidden
-            while editing a recipe (its type cannot change). */}
-        {editingRecipe ? null : (
+            while editing an existing item (its type cannot change). */}
+        {isEditingExisting ? null : (
           <SegmentedToggle
             ariaLabel="Food type"
             options={MODE_OPTIONS}
@@ -892,10 +960,20 @@ export const AddCustomFoodModal = ({
                   ? editingRecipe
                     ? 'Save changes'
                     : 'Save recipe'
-                  : 'Save food'}
+                  : editingFood
+                    ? 'Save changes'
+                    : 'Save food'}
               </span>
             </button>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div
+              className={`grid gap-1.5 ${
+                !isEditingExisting ||
+                (editingRecipe && onDeleteRecipe) ||
+                (editingFood && onDeleteFood)
+                  ? 'grid-cols-2'
+                  : 'grid-cols-1'
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => onClose?.()}
@@ -903,25 +981,29 @@ export const AddCustomFoodModal = ({
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={() => handleSave({ log: true })}
-                disabled={!isFormValid}
-                className="rounded-xl bg-accent-blue/10 px-2.5 py-2 text-[12px] font-semibold text-accent-blue transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-blue/15"
-              >
-                Save &amp; log
-              </button>
+              {isEditingExisting ? (
+                (editingRecipe && onDeleteRecipe) ||
+                (editingFood && onDeleteFood) ? (
+                  <button
+                    type="button"
+                    onClick={deleteConfirmModal.open}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-accent-red/10 px-2.5 py-2 text-[12px] font-semibold text-accent-red transition-all press-feedback focus-ring md:hover:bg-accent-red/15"
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                    {editingRecipe ? 'Delete recipe' : 'Delete food'}
+                  </button>
+                ) : null
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleSave({ log: true })}
+                  disabled={!isFormValid}
+                  className="rounded-xl bg-accent-blue/10 px-2.5 py-2 text-[12px] font-semibold text-accent-blue transition-all press-feedback focus-ring disabled:cursor-not-allowed disabled:bg-surface-highlight/60 disabled:text-muted md:hover:bg-accent-blue/15"
+                >
+                  Save &amp; log
+                </button>
+              )}
             </div>
-            {editingRecipe && onDeleteRecipe ? (
-              <button
-                type="button"
-                onClick={deleteConfirmModal.open}
-                className="mt-1 flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-[12px] font-semibold text-accent-red transition-all press-feedback focus-ring md:hover:bg-accent-red/10"
-              >
-                <Trash2 size={14} aria-hidden="true" />
-                Delete recipe
-              </button>
-            ) : null}
           </div>
         </div>
       </ModalShell>
@@ -955,8 +1037,14 @@ export const AddCustomFoodModal = ({
       <ConfirmActionModal
         isOpen={deleteConfirmModal.isOpen}
         isClosing={deleteConfirmModal.isClosing}
-        title="Delete this recipe?"
-        description="The recipe is removed from your foods. Meals you already logged with it keep their calories and macros."
+        title={
+          editingRecipe ? 'Delete this recipe?' : 'Delete this custom food?'
+        }
+        description={
+          editingRecipe
+            ? 'The recipe is removed from your foods. Meals you already logged with it keep their calories and macros.'
+            : 'This custom food is removed from your favourites and search. Meals you already logged with it keep their calories and macros.'
+        }
         confirmLabel="Delete"
         cancelLabel="Keep"
         tone="danger"
@@ -964,6 +1052,8 @@ export const AddCustomFoodModal = ({
           deleteConfirmModal.requestClose();
           if (editingRecipe) {
             onDeleteRecipe?.(editingRecipe);
+          } else if (editingFood) {
+            onDeleteFood?.(editingFood);
           }
           onClose?.();
         }}

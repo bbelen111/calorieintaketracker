@@ -17,7 +17,10 @@ export const FoodSearchFavouritesPanel = ({
   hasFavourites,
   handleFavouriteCardClick,
   handleFavouriteEdit,
+  onEditCustomFood,
+  onEditRecipe,
   onDeleteFavourite,
+  onRequestDeleteFavourite,
   setPendingDeleteId,
   openDeleteConfirm,
   prefersReducedMotion,
@@ -50,13 +53,29 @@ export const FoodSearchFavouritesPanel = ({
         const sourceType = resolveFoodSourceType(favourite);
         const isManual = sourceType === FOOD_SOURCE_TYPES.MANUAL;
         const isCustom = sourceType === FOOD_SOURCE_TYPES.CUSTOM;
+        const isRecipe = sourceType === FOOD_SOURCE_TYPES.RECIPE;
         const favouritePortionText = favourite.portionInfo
           ? `${favourite.portionInfo.portionMultiplier} ${favourite.portionInfo.portionName}`
-          : isCustom && favourite.per100g
-            ? 'per 100g'
-            : !isManual && favourite.grams
-              ? `${formatOne(favourite.grams)}g`
-              : null;
+          : isRecipe
+            ? 'per serving'
+            : isCustom && favourite.per100g
+              ? 'per 100g'
+              : !isManual && favourite.grams
+                ? `${formatOne(favourite.grams)}g`
+                : null;
+        const canEditInFavourites =
+          isManual ||
+          (isCustom && typeof onEditCustomFood === 'function') ||
+          (isRecipe && typeof onEditRecipe === 'function');
+        const editAriaLabel = isRecipe
+          ? `Edit recipe ${favourite.name || ''}`.trim()
+          : isCustom
+            ? `Edit custom food ${favourite.name || ''}`.trim()
+            : 'Edit manual entry';
+        const canDeleteInFavourites =
+          favourite.id != null &&
+          (typeof onRequestDeleteFavourite === 'function' ||
+            typeof onDeleteFavourite === 'function');
 
         return (
           <motion.div
@@ -141,37 +160,55 @@ export const FoodSearchFavouritesPanel = ({
               </div>
 
               <div className="flex items-center gap-2">
-                {isManual && (
+                {canEditInFavourites && (
                   <button
                     type="button"
-                    onClick={(e) => handleFavouriteEdit(favourite, e)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (isRecipe) {
+                        onEditRecipe?.(favourite, event);
+                      } else if (isCustom) {
+                        onEditCustomFood?.(favourite, event);
+                      } else {
+                        handleFavouriteEdit(favourite, event);
+                      }
+                    }}
                     className="shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-blue/20 transition-colors flex items-center justify-center"
-                    aria-label="Edit manual entry"
-                    title="Edit entry"
+                    aria-label={editAriaLabel}
+                    title="Edit"
                   >
                     <Edit3 size={20} className="text-foreground" />
                   </button>
                 )}
 
-                {typeof onDeleteFavourite === 'function' &&
-                  favourite.id != null && (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setPendingDeleteId(favourite.id);
-                        openDeleteConfirm();
-                      }}
-                      className="shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
-                      aria-label="Delete favourite food"
-                      title="Remove from favourites"
-                    >
-                      <Trash2
-                        size={20}
-                        className="text-foreground md:hover:text-accent-red"
-                      />
-                    </button>
-                  )}
+                {canDeleteInFavourites && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (typeof onRequestDeleteFavourite === 'function') {
+                        onRequestDeleteFavourite(favourite);
+                      } else {
+                        setPendingDeleteId?.(favourite.id);
+                        openDeleteConfirm?.();
+                      }
+                    }}
+                    className="shrink-0 w-11 h-11 rounded-full bg-surface-highlight/20 md:hover:bg-accent-red/20 transition-colors flex items-center justify-center"
+                    aria-label={
+                      isRecipe
+                        ? `Delete recipe ${favourite.name || ''}`.trim()
+                        : 'Delete favourite food'
+                    }
+                    title={
+                      isRecipe ? 'Delete recipe' : 'Remove from favourites'
+                    }
+                  >
+                    <Trash2
+                      size={20}
+                      className="text-foreground md:hover:text-accent-red"
+                    />
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>

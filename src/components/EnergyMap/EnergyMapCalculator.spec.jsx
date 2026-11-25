@@ -913,4 +913,253 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
     ).toBeInTheDocument();
     expect(getSheet('Weight Tracker')).not.toHaveClass('modal-content-fade');
   });
+
+  it('saves custom foods into store, surfaces them in local search, and keeps them searchable across reloads', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    // Open Food Search for Lunch.
+    await user.click(
+      await screen.findByRole('button', {
+        name: /^Calories today, 0 of \d+ kcal\. Add meal$/,
+      })
+    );
+    await user.click(await screen.findByRole('button', { name: 'Lunch' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Add Food' })
+    ).toBeInTheDocument();
+
+    // Open Add Custom Food, enter name + category + calories via wheel picker.
+    await user.click(screen.getByRole('button', { name: 'Add Food' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Add Custom Food' })
+    ).toBeInTheDocument();
+
+    await user.type(
+      screen.getByPlaceholderText("e.g., Mom's Chicken Curry"),
+      'Zesty Turkey Chili'
+    );
+    await user.click(screen.getByRole('button', { name: /^Proteins$/i }));
+    await user.click(
+      screen.getByRole('button', { name: 'Open calories picker' })
+    );
+    const pickerTitle = await screen.findByRole('heading', {
+      name: /^Calories$/i,
+    });
+    const pickerDialog = pickerTitle.closest('[role="dialog"]');
+    await user.click(within(pickerDialog).getByText('25'));
+    await user.click(
+      within(pickerDialog).getByRole('button', { name: /^save$/i })
+    );
+
+    await user.click(screen.getByRole('button', { name: /^save food$/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Add Custom Food' })
+      ).toBeNull()
+    );
+
+    // Persisted in store favourites with its tags and surfaced right away in Local search.
+    expect(
+      get().foodFavourites.some(
+        (fav) =>
+          fav.name === 'Zesty Turkey Chili' &&
+          fav.isCustom === true &&
+          fav.tags?.includes('custom')
+      )
+    ).toBe(true);
+    expect(
+      await screen.findByText('Saved "Zesty Turkey Chili"')
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Zesty Turkey Chili')).toBeInTheDocument();
+
+    // Simulate a cold app remount (ephemeral session customFoods resets to []
+    // while persisted store favourites remain).
+    const persistedUserData = get().userData;
+    unmount();
+    useEnergyMapStore.setState({ ...INITIAL_STATE, isLoaded: false });
+    renderApp();
+    await act(async () => {
+      useEnergyMapStore.setState({
+        userData: persistedUserData,
+        foodFavourites: persistedUserData.foodFavourites,
+        recipes: persistedUserData.recipes,
+        isLoaded: true,
+      });
+    });
+    await findTabBar();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: /^Calories today, 0 of \d+ kcal\. Add meal$/,
+      })
+    );
+    await user.click(await screen.findByRole('button', { name: 'Lunch' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Add Food' })
+    ).toBeInTheDocument();
+
+    // Searching in Local still finds the custom food after reload.
+    await user.type(
+      screen.getByPlaceholderText('Search local foods...'),
+      'Zesty Turkey'
+    );
+    expect(await screen.findByText('Zesty Turkey Chili')).toBeInTheDocument();
+  });
+
+  it('saves a recipe from Add Custom Food, surfaces it in search, and dismisses the numeric wheel on Android back', async () => {
+    CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('android');
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    // Seed one favourite food so the recipe ingredient picker has a pickable ingredient.
+    act(() => {
+      get().addFoodFavourite({
+        foodId: 'user_seed_beef',
+        name: 'Lean Ground Beef',
+        category: 'protein',
+        grams: 100,
+        calories: 200,
+        protein: 26,
+        carbs: 0,
+        fats: 10,
+        isCustom: true,
+        source: 'user',
+        per100g: { calories: 200, protein: 26, carbs: 0, fats: 10 },
+        portions: [],
+      });
+    });
+
+    const pressAndroidBack = async () => {
+      let handler;
+      await waitFor(() => {
+        handler = AppMock.addListener.mock.calls.find(
+          ([event]) => event === 'backButton'
+        )?.[1];
+        expect(handler).toBeTypeOf('function');
+      });
+      act(() => handler());
+    };
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: /^Calories today, 0 of \d+ kcal\. Add meal$/,
+      })
+    );
+    await user.click(await screen.findByRole('button', { name: 'Lunch' }));
+    await user.click(await screen.findByRole('button', { name: 'Add Food' }));
+
+    // Open a numeric picker and press Android back: only the wheel picker closes.
+    await user.click(
+      screen.getByRole('button', { name: 'Open calories picker' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: /^Calories$/i })
+    ).toBeInTheDocument();
+    await pressAndroidBack();
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: /^Calories$/i })).toBeNull()
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Add Custom Food' })
+    ).toBeInTheDocument();
+
+    // Switch to Recipe mode, pick the seeded ingredient, and save.
+    await user.click(screen.getByRole('button', { name: /^Recipe$/i }));
+    await user.type(
+      screen.getByPlaceholderText('e.g., Beef bowl'),
+      'Quick Beef Bowl'
+    );
+    await user.click(screen.getByRole('button', { name: /add ingredient/i }));
+    const pickerHeading = await screen.findByRole('heading', {
+      name: 'Add ingredient',
+    });
+    const pickerDialog = pickerHeading.closest('[role="dialog"]');
+    const ingredientCard =
+      await within(pickerDialog).findByText('Lean Ground Beef');
+    await user.click(ingredientCard);
+    await user.click(
+      await screen.findByRole('button', { name: /add to recipe/i })
+    );
+    await user.click(
+      within(pickerDialog).getByRole('button', { name: /^Done$/i })
+    );
+
+    await user.click(screen.getByRole('button', { name: /^save recipe$/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'New Recipe' })).toBeNull()
+    );
+
+    expect(
+      get().recipes.some((recipe) => recipe.name === 'Quick Beef Bowl')
+    ).toBe(true);
+    expect(
+      await screen.findByText('Saved recipe "Quick Beef Bowl"')
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Quick Beef Bowl')).toBeInTheDocument();
+
+    // Local search renders recipes like normal food items (no inline edit button).
+    expect(
+      screen.queryByRole('button', { name: /edit recipe quick beef bowl/i })
+    ).toBeNull();
+
+    // Favorites tab keeps both custom foods and recipes, and editing lives here.
+    await user.click(screen.getByRole('button', { name: /^Favorites$/i }));
+    expect(await screen.findByText('Lean Ground Beef')).toBeInTheDocument();
+    expect(screen.getByText('Quick Beef Bowl')).toBeInTheDocument();
+
+    // Edit the normal custom food right from Favorites.
+    await user.click(
+      screen.getByRole('button', { name: 'Edit custom food Lean Ground Beef' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Edit Custom Food' })
+    ).toBeInTheDocument();
+    const customNameInput = screen.getByPlaceholderText(
+      "e.g., Mom's Chicken Curry"
+    );
+    await user.clear(customNameInput);
+    await user.type(customNameInput, 'Extra Lean Beef');
+    await user.click(screen.getByRole('button', { name: /^save changes$/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'Edit Custom Food' })
+      ).toBeNull()
+    );
+    expect(await screen.findByText('Extra Lean Beef')).toBeInTheDocument();
+    expect(
+      get().foodFavourites.filter((fav) => fav.foodId === 'user_seed_beef')
+    ).toHaveLength(1);
+    expect(
+      get().foodFavourites.find((fav) => fav.foodId === 'user_seed_beef')?.name
+    ).toBe('Extra Lean Beef');
+
+    // Edit the recipe right from Favorites too.
+    await user.click(
+      screen.getByRole('button', { name: 'Edit recipe Quick Beef Bowl' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Edit Recipe' })
+    ).toBeInTheDocument();
+    const recipeNameInput = screen.getByPlaceholderText('e.g., Beef bowl');
+    await user.clear(recipeNameInput);
+    await user.type(recipeNameInput, 'Power Beef Bowl');
+    await user.click(screen.getByRole('button', { name: /^save changes$/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Edit Recipe' })).toBeNull()
+    );
+    expect(await screen.findByText('Power Beef Bowl')).toBeInTheDocument();
+    expect(
+      get().recipes.some((recipe) => recipe.name === 'Power Beef Bowl')
+    ).toBe(true);
+  });
 });

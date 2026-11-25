@@ -310,6 +310,12 @@ describe('AddCustomFoodModal - Recipe mode', () => {
       expect(
         screen.queryByRole('group', { name: /food type/i })
       ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /save & log/i })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /delete recipe/i })
+      ).toBeInTheDocument();
       expect(screen.getByPlaceholderText('e.g., Beef bowl')).toHaveValue(
         'Beef bowl'
       );

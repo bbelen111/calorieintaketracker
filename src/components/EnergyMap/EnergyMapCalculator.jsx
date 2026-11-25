@@ -3604,19 +3604,19 @@ export const EnergyMapCalculator = () => {
   // Custom foods state (in-memory, added via AddCustomFoodModal)
   const [customFoods, setCustomFoods] = useState([]);
 
-  // Handle adding a custom food - adds to customFoods list AND auto-favourites.
-  // `options.log` (Save & log) then opens the portion picker for the new food so
-  // it is logged through the same flow as any other food.
+  // Handle adding or editing a custom food - keeps the session list and
+  // favourites store in sync. `options.log` (Save & log) then opens the
+  // portion picker for the food so logging runs through the canonical flow.
   const handleAddCustomFood = useCallback(
     (customFood, options = {}) => {
-      // Add to custom foods list for search
-      setCustomFoods((prev) => [...prev, customFood]);
-
-      // Auto-add to favourites with proper structure
       const favourite = {
         foodId: customFood.id,
         name: customFood.name,
         category: customFood.category || 'custom',
+        tags:
+          Array.isArray(customFood.tags) && customFood.tags.length > 0
+            ? customFood.tags
+            : [customFood.category || 'custom', 'custom'],
         grams: 100, // Default to 100g since it's per 100g
         calories: customFood.per100g?.calories || 0,
         protein: customFood.per100g?.protein || 0,
@@ -3631,7 +3631,24 @@ export const EnergyMapCalculator = () => {
         per100g: customFood.per100g,
         portions: customFood.portions || [],
       };
-      addFoodFavourite(favourite);
+
+      if (options.isEditing) {
+        setCustomFoods((prev) =>
+          prev.map((item) => (item.id === customFood.id ? customFood : item))
+        );
+        const targetFavouriteId =
+          options.favouriteId ??
+          (foodFavourites ?? []).find((fav) => fav.foodId === customFood.id)
+            ?.id;
+        if (targetFavouriteId != null) {
+          updateFoodFavourite(targetFavouriteId, favourite);
+        } else {
+          addFoodFavourite(favourite);
+        }
+      } else {
+        setCustomFoods((prev) => [...prev, customFood]);
+        addFoodFavourite(favourite);
+      }
 
       if (options.log) {
         setEditingPortionEntry(null);
@@ -3640,7 +3657,24 @@ export const EnergyMapCalculator = () => {
         foodPortionModal.open();
       }
     },
-    [addFoodFavourite, foodPortionModal]
+    [addFoodFavourite, foodFavourites, foodPortionModal, updateFoodFavourite]
+  );
+
+  // Removing a custom food from favourites also drops its session-scoped entry
+  // so it disappears from Local search right away as well as after reload.
+  const handleDeleteFoodFavourite = useCallback(
+    (favouriteId) => {
+      const target = (foodFavourites ?? []).find(
+        (fav) => fav.id === favouriteId
+      );
+      if (target?.foodId) {
+        setCustomFoods((prev) =>
+          prev.filter((item) => item.id !== target.foodId)
+        );
+      }
+      removeFoodFavourite(favouriteId);
+    },
+    [foodFavourites, removeFoodFavourite]
   );
 
   // Save a recipe built in the Add Custom Food form. Unlike a custom food it is
@@ -5930,7 +5964,7 @@ export const EnergyMapCalculator = () => {
             favourites={foodFavourites}
             onSelectFavourite={handleSelectFoodFavourite}
             onEditFavourite={handleEditFoodFavourite}
-            onDeleteFavourite={removeFoodFavourite}
+            onDeleteFavourite={handleDeleteFoodFavourite}
             pinnedFoods={pinnedFoods}
             onTogglePin={togglePinnedFood}
             cachedFoods={cachedFoods}
@@ -5971,7 +6005,8 @@ export const EnergyMapCalculator = () => {
             isEditing={Boolean(editingPortionEntry)}
             isFoodFavourited={
               selectedFoodForPortion
-                ? foodFavourites.some(
+                ? Boolean(selectedFoodForPortion.isRecipe) ||
+                  foodFavourites.some(
                     (fav) =>
                       // Check by foodId first for database foods
                       (selectedFoodForPortion.id &&

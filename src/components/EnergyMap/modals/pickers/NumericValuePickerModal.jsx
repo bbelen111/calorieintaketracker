@@ -164,6 +164,7 @@ export const NumericValuePickerModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
+      onClose={onCancel}
       overlayClassName="z-85"
       contentClassName="p-6 w-full max-w-sm"
     >

@@ -427,6 +427,9 @@ export const favouriteToIngredientFood = (favourite) => {
     name: toTrimmedStringOrNull(favourite.name) ?? 'Favourite',
     brand: toTrimmedStringOrNull(favourite.brand),
     category: toTrimmedStringOrNull(favourite.category) ?? 'custom',
+    ...(Array.isArray(favourite.tags) && favourite.tags.length > 0
+      ? { tags: favourite.tags }
+      : {}),
     source: toTrimmedStringOrNull(favourite.source),
     isCustom: favourite.isCustom === true,
     per100g,

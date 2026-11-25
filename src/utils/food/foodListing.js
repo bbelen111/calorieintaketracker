@@ -31,6 +31,7 @@ const FILTER_ACTIVE_CLASS_BY_COLOR = {
   emerald: 'bg-accent-emerald',
   slate: 'bg-accent-slate',
   indigo: 'bg-accent-indigo',
+  pink: 'bg-accent-pink',
 };
 
 export const getFilterActiveClass = (color) =>
@@ -111,10 +112,17 @@ export const appendUniqueFoodsById = (baseRows, extraRows) => {
   return Array.from(merged.values());
 };
 
-// The category filter for local foods: the catalog categories, plus "Cached"
-// once there is at least one cached food to filter by.
-export const buildLocalCategoryOptions = (baseCategories, hasCachedFoods) => {
+// The category filter for local foods: the catalog categories, plus "Recipes"
+// and "Cached" once there is at least one row of that kind to filter by.
+export const buildLocalCategoryOptions = (
+  baseCategories,
+  hasCachedFoods,
+  hasRecipes = false
+) => {
   const options = { ...baseCategories };
+  if (hasRecipes) {
+    options.recipe = { label: 'Recipes', color: 'pink' };
+  }
   if (hasCachedFoods) {
     options.cached = { label: 'Cached', color: 'purple' };
   }
@@ -181,7 +189,30 @@ export const buildLocalFoodList = ({
   let results = Array.isArray(foods) ? [...foods] : [];
 
   if (category) {
-    results = results.filter((food) => food.category === category);
+    results = results.filter((food) => {
+      if (food.category === category) {
+        return true;
+      }
+      if (Array.isArray(food.tags) && food.tags.includes(category)) {
+        return true;
+      }
+      if (
+        category === 'custom' &&
+        (food.isCustom === true ||
+          food.source === 'user' ||
+          food.isRecipe === true ||
+          food.source === 'recipe')
+      ) {
+        return true;
+      }
+      if (
+        category === 'recipe' &&
+        (food.isRecipe === true || food.source === 'recipe')
+      ) {
+        return true;
+      }
+      return false;
+    });
   }
 
   if (subcategory) {
@@ -200,7 +231,13 @@ export const buildLocalFoodList = ({
           .includes(lowered) ||
         String(food.category ?? '')
           .toLowerCase()
-          .includes(lowered)
+          .includes(lowered) ||
+        (Array.isArray(food.tags) &&
+          food.tags.some((tag) =>
+            String(tag ?? '')
+              .toLowerCase()
+              .includes(lowered)
+          ))
     );
   }
 
