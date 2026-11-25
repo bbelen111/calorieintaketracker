@@ -131,6 +131,7 @@ import {
   normalizePickerValue,
 } from '../../utils/food/nutrientPicker';
 import { buildRecipeFood, getRecipeStartGrams } from '../../utils/food/recipe';
+import { buildFallbackFoodFromEntry } from '../../utils/food/loggedEntry';
 import { closeTopmostStackedModal } from '../../utils/visuals/modalStack';
 
 const WeightTrackerModal = lazy(() =>
@@ -463,48 +464,6 @@ const sanitizeTrainingSession = (draft) => {
 const getTodayDateString = () => getTodayDateKey();
 
 const DEFAULT_PORTION_GRAMS = 100;
-
-const buildFallbackFoodFromEntry = (entry) => {
-  const safeNumber = (value) => (Number.isFinite(value) ? value : 0);
-  const name = String(entry?.name ?? '').trim() || 'Custom food';
-  const grams =
-    Number.isFinite(entry?.grams) && entry.grams > 0
-      ? entry.grams
-      : DEFAULT_PORTION_GRAMS;
-  const scale = grams ? 100 / grams : 1;
-
-  return {
-    id: `manual_${entry?.id ?? Date.now()}`,
-    name,
-    category: 'supplements',
-    per100g: {
-      calories: Math.round(safeNumber(entry?.calories) * scale),
-      protein: Math.round(safeNumber(entry?.protein) * scale * 10) / 10,
-      carbs: Math.round(safeNumber(entry?.carbs) * scale * 10) / 10,
-      fats: Math.round(safeNumber(entry?.fats) * scale * 10) / 10,
-      fiber:
-        entry?.fiber != null
-          ? Math.max(0, Math.round(Number(entry.fiber) * scale * 10) / 10)
-          : null,
-      sodium:
-        entry?.sodium != null
-          ? Math.max(0, Math.round(Number(entry.sodium) * scale))
-          : null,
-      saturatedFats:
-        entry?.saturatedFats != null
-          ? Math.max(
-              0,
-              Math.round(Number(entry.saturatedFats) * scale * 10) / 10
-            )
-          : null,
-      sugars:
-        entry?.sugars != null
-          ? Math.max(0, Math.round(Number(entry.sugars) * scale * 10) / 10)
-          : null,
-    },
-    portions: [],
-  };
-};
 
 const parseNullablePhaseNumber = (value) => {
   const trimmed = String(value ?? '').trim();
@@ -3294,7 +3253,13 @@ export const EnergyMapCalculator = () => {
           return;
         }
 
+        // The portion modal only rebuilds the food and portion, so everything
+        // else on the logged entry (category, source...) is carried over.
+        const previousEntry = { ...editingPortionEntry };
+        delete previousEntry.mealType;
+
         updateFoodEntry(trackerSelectedDate, targetMealType, {
+          ...previousEntry,
           ...foodEntry,
           id: editingPortionEntry.id,
           timestamp: editingPortionEntry.timestamp ?? foodEntry.timestamp,

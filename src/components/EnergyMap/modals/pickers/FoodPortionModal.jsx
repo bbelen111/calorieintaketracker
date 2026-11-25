@@ -408,6 +408,9 @@ export const FoodPortionModal = ({
       foodId: selectedFood?.id,
       name: nutrition.name,
       brand: selectedFood?.brand || null,
+      // Kept on the entry so editing it still knows the tag when the food
+      // itself can't be looked up again (online, barcode, custom foods).
+      ...(selectedFood?.category ? { category: selectedFood.category } : {}),
       calories: nutrition.calories,
       protein: nutrition.protein,
       carbs: nutrition.carbs,

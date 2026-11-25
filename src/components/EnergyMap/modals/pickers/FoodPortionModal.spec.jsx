@@ -51,6 +51,7 @@ describe('FoodPortionModal', () => {
     expect(onAddFood).toHaveBeenCalledTimes(1);
     expect(onAddFood.mock.calls[0][0]).toMatchObject({
       foodId: 'usda_rice',
+      category: 'carbs',
       grams: 100,
       calories: 130,
     });

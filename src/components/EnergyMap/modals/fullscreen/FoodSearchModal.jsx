@@ -47,6 +47,7 @@ import {
 } from '../../../../constants/meal/mealTypes';
 import { useNetworkStatus } from '../../../../hooks/useNetworkStatus';
 import { resolveAiEntryCategory } from '../../../../utils/food/aiCategory';
+import { buildAiEntryNutrition } from '../../../../utils/food/loggedEntry';
 import {
   buildRecipeFood,
   favouriteToIngredientFood,
@@ -1497,6 +1498,7 @@ export const FoodSearchModal = ({
       foodId: favourite.foodId,
       name: favourite.name,
       brand: favourite.brand || null,
+      ...(favourite.category ? { category: favourite.category } : {}),
       calories: favourite.calories || 0,
       protein: favourite.protein || 0,
       carbs: favourite.carbs || 0,
@@ -2868,125 +2870,24 @@ export const FoodSearchModal = ({
       const entryId = entryIdRef.current;
       entryIdRef.current += 1;
 
-      const safeNumber = (value) => {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : 0;
-      };
-
-      const grams = Number(entry.grams);
       const lookupMeta =
         providedLookupMeta || (entryKey ? aiEntryLookupByKey[entryKey] : null);
-      const resolvedCategory = resolveAiCategory(entry, lookupMeta);
-      const resolvedSubcategory = resolveAiSubcategory(lookupMeta);
-
-      const baseCalories = Math.max(0, Math.round(safeNumber(entry.calories)));
-      const baseProtein = Math.max(
-        0,
-        Math.round(safeNumber(entry.protein) * 10) / 10
-      );
-      const baseCarbs = Math.max(
-        0,
-        Math.round(safeNumber(entry.carbs) * 10) / 10
-      );
-      const baseFats = Math.max(
-        0,
-        Math.round(safeNumber(entry.fats) * 10) / 10
-      );
-
-      const roundedGrams =
-        Number.isFinite(grams) && grams > 0 ? Math.round(grams) : null;
-
-      const canUseLookupMacros =
-        lookupMeta?.status === 'resolved' &&
-        lookupMeta?.matchConfidence === 'high' &&
-        lookupMeta?.matchedFood?.per100g &&
-        roundedGrams &&
-        roundedGrams > 0;
-
-      const lookupFactor = canUseLookupMacros ? roundedGrams / 100 : null;
-      const calories = canUseLookupMacros
-        ? Math.max(
-            0,
-            Math.round(
-              (Number(lookupMeta.matchedFood.per100g.calories) || 0) *
-                lookupFactor
-            )
-          )
-        : baseCalories;
-      const protein = canUseLookupMacros
-        ? Math.max(
-            0,
-            Math.round(
-              (Number(lookupMeta.matchedFood.per100g.protein) || 0) *
-                lookupFactor *
-                10
-            ) / 10
-          )
-        : baseProtein;
-      const carbs = canUseLookupMacros
-        ? Math.max(
-            0,
-            Math.round(
-              (Number(lookupMeta.matchedFood.per100g.carbs) || 0) *
-                lookupFactor *
-                10
-            ) / 10
-          )
-        : baseCarbs;
-      const fats = canUseLookupMacros
-        ? Math.max(
-            0,
-            Math.round(
-              (Number(lookupMeta.matchedFood.per100g.fats) || 0) *
-                lookupFactor *
-                10
-            ) / 10
-          )
-        : baseFats;
-
-      // Micro nutrients: lookup per100g wins (scaled to grams), otherwise the
-      // AI extraction's own values pass through; null stays untracked.
-      const roundMicro = (value, key) => {
-        const decimals = key === 'sodium' ? 0 : 1;
-        const factor = 10 ** decimals;
-        return Math.round(value * factor) / factor;
-      };
-      const resolveMicro = (key) => {
-        const lookupValue = Number(lookupMeta?.matchedFood?.per100g?.[key]);
-        if (canUseLookupMacros && Number.isFinite(lookupValue)) {
-          return roundMicro(lookupValue * lookupFactor, key);
-        }
-        const entryValue = entry[key];
-        const parsed = Number(entryValue);
-        return Number.isFinite(parsed) ? roundMicro(parsed, key) : undefined;
-      };
-
-      const fiber = resolveMicro('fiber');
-      const sodium = resolveMicro('sodium');
-      const saturatedFats = resolveMicro('saturatedFats');
-      const sugars = resolveMicro('sugars');
+      // True only when verification built the card's numbers from the database.
+      const usedLookupNutrition =
+        lookupMeta?.verificationMethod === 'lookup_per100g';
 
       return {
         id: entryId,
         foodId: `ai_${Date.now()}_${index}`,
         name: entry.name,
-        category: resolvedCategory,
-        subcategory: resolvedSubcategory,
-        calories,
-        protein,
-        carbs,
-        fats,
-        ...(fiber != null ? { fiber } : {}),
-        ...(sodium != null ? { sodium } : {}),
-        ...(saturatedFats != null ? { saturatedFats } : {}),
-        ...(sugars != null ? { sugars } : {}),
-        grams: roundedGrams,
+        category: resolveAiCategory(entry, lookupMeta),
+        subcategory: resolveAiSubcategory(lookupMeta),
+        ...buildAiEntryNutrition(entry),
         source: 'ai',
-        aiLookupUsed: Boolean(canUseLookupMacros),
-        aiLookupSource:
-          canUseLookupMacros && lookupMeta?.usedSource
-            ? lookupMeta.usedSource
-            : null,
+        aiLookupUsed: usedLookupNutrition,
+        aiLookupSource: usedLookupNutrition
+          ? lookupMeta.usedSource || null
+          : null,
         timestamp: new Date().toISOString(),
       };
     },
