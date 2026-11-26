@@ -100,31 +100,6 @@ const parseDateKey = (dateStr) => new Date(`${dateStr}T00:00:00Z`);
 
 const toDateKey = (date) => formatDateKeyUtc(date);
 
-const getIsoWeekYear = (date) => {
-  const d = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  );
-  d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
-  return d.getUTCFullYear();
-};
-
-const getIsoWeekNumber = (date) => {
-  const d = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  );
-  d.setUTCDate(d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
-  const week1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
-  return (
-    1 +
-    Math.round(
-      ((d.getTime() - week1.getTime()) / 86400000 -
-        3 +
-        ((week1.getUTCDay() + 6) % 7)) /
-        7
-    )
-  );
-};
-
 const getWeekStartDate = (dateStr) => {
   const date = parseDateKey(dateStr);
   const day = date.getUTCDay();
@@ -239,15 +214,9 @@ export const TrackerScreen = memo(function TrackerScreen({
   const selectedMonthLabel = useMemo(() => {
     const date = parseDateKey(selectedDate);
     return date.toLocaleDateString('en-US', {
-      month: 'short',
+      month: 'long',
       year: 'numeric',
     });
-  }, [selectedDate]);
-  const selectedWeekLabel = useMemo(() => {
-    const date = parseDateKey(selectedDate);
-    const weekNumber = getIsoWeekNumber(date);
-    const weekYear = getIsoWeekYear(date);
-    return `Week ${weekNumber}${weekYear !== date.getUTCFullYear() ? ` • ${weekYear}` : ''}`;
   }, [selectedDate]);
 
   // Get data for selected date - now nested by meal type
@@ -709,61 +678,43 @@ export const TrackerScreen = memo(function TrackerScreen({
         </div>
         <div className="p-0">
           <div className="flex items-center justify-between mt-5 mb-2 border border-border/50 rounded-md px-1 py-1.5 bg-surface-highlight/50 shadow-xs">
-            <div className="flex items-center gap-1.5 h-6">
-              <button
-                onClick={() => changeDateBy(-7)}
-                type="button"
-                className="rounded-sm transition-colors flex items-center"
-                title="Previous week"
-              >
-                <div>
-                  <ChevronLeft className="text-muted" size={20} />
-                </div>
-              </button>
-              <div className="flex items-center gap-1 text-foreground text-[15px] font-semibold leading-none">
-                <Calendar size={16} className="text-accent-blue" />
-                <div className="relative h-4 flex items-center">
-                  <AnimatePresence mode="wait">
-                    <motion.span
-                      key={`month-${selectedMonthLabel}`}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.22 }}
-                      className="text-foreground/80 text-[15px] font-semibold block leading-none"
-                    >
-                      {selectedMonthLabel}
-                    </motion.span>
-                  </AnimatePresence>
-                </div>
+            <button
+              onClick={() => changeDateBy(-7)}
+              type="button"
+              className="h-6 rounded-sm transition-colors flex items-center"
+              title="Previous week"
+            >
+              <div>
+                <ChevronLeft className="text-muted" size={20} />
               </div>
-            </div>
-            <div className="flex items-center gap-1.5 h-6">
+            </button>
+            <div className="flex items-center gap-1.5">
+              <Calendar size={16} className="text-accent-blue" />
               <div className="relative h-4 flex items-center">
                 <AnimatePresence mode="wait">
                   <motion.span
-                    key={`week-${selectedWeekLabel}`}
+                    key={`month-${selectedMonthLabel}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22 }}
-                    className="text-foreground/80 text-[15px] font-semibold block leading-none"
+                    className="text-foreground/80 text-[15px] font-semibold block leading-none whitespace-nowrap"
                   >
-                    {selectedWeekLabel}
+                    {selectedMonthLabel}
                   </motion.span>
                 </AnimatePresence>
               </div>
-              <button
-                onClick={() => changeDateBy(7)}
-                type="button"
-                className="rounded-sm transition-colors flex items-center"
-                title="Next week"
-              >
-                <div>
-                  <ChevronRight className="text-muted" size={20} />
-                </div>
-              </button>
             </div>
+            <button
+              onClick={() => changeDateBy(7)}
+              type="button"
+              className="h-6 rounded-sm transition-colors flex items-center"
+              title="Next week"
+            >
+              <div>
+                <ChevronRight className="text-muted" size={20} />
+              </div>
+            </button>
           </div>
           <AnimatePresence mode="wait">
             <motion.div
