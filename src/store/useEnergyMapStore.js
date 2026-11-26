@@ -417,6 +417,7 @@ const buildPhaseViewFromV2 = (phaseLogV2) => {
         endDate: phase.endDate,
         goalType: phase.goalType,
         targetWeight: phase.targetWeight,
+        targetBodyFat: phase.targetBodyFat,
         startingWeight: phase.startingWeight,
         status: phase.status === PHASE_STATUS.ACTIVE ? 'active' : 'completed',
         color: phase.color,

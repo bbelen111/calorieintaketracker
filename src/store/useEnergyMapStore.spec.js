@@ -338,6 +338,8 @@ describe('store - createPhase', () => {
       targetBodyFat: 17,
     });
     expect(phaseGoalCalorieDelta).toBe(-205);
+    // The Home goal card reads the target from the phase view.
+    expect(get().phases.at(-1).targetBodyFat).toBe(17);
   });
 });
 

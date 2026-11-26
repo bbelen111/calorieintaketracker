@@ -1,4 +1,8 @@
-import { getDateKeyDayDifference, getTodayDateKey } from '../data/dateKeys.js';
+import {
+  formatDateKeyUtc,
+  getDateKeyDayDifference,
+  getTodayDateKey,
+} from '../data/dateKeys.js';
 import {
   calculateWeightTrend,
   sortWeightEntries,
@@ -10,12 +14,14 @@ import { hasTrendData } from './goalAlignment.js';
  *
  * Without an active phase it answers "is my goal working?" (day in goal,
  * weight-trend verdict, a short projection and at most one coach nudge). With
- * an active phase it gives the glance row's facts (day X of Y and progress),
- * and says when the phase is about to end or has run past its end date.
+ * an active phase it gives the phase's facts (day X of Y, progress, start /
+ * current / target weight, planned and measured weekly rate), and says when the
+ * phase is about to end or has run past its end date.
  *
  * Pure and honest: a value with no real data behind it is `null`, never a
  * zero - callers render nothing for it. The adherence strip is not built here;
- * it comes straight from `buildDayLedgerCardSummary`.
+ * it comes straight from `buildDayLedgerCardSummary` (a phase narrows its
+ * input with `selectPhaseLedgerInput`).
  */
 
 export const GOAL_PLAN_STATE = Object.freeze({
@@ -43,11 +49,69 @@ export const PROJECTION_WEEKS = 4;
 export const GOAL_PLAN_STRIP_DAYS = 7;
 /** A projected change smaller than this (kg) reads as "holding". */
 export const PROJECTION_HOLDING_KG = 0.25;
+/** A phase's weekly rate needs weigh-ins at least this many days apart. */
+export const PHASE_RATE_MIN_SPAN_DAYS = 7;
+/** On pace: within this share of the phase's planned weekly rate... */
+export const PACE_TOLERANCE_SHARE = 0.25;
+/** ...and never tighter than this (kg/wk), which also reads as "holding". */
+export const PACE_TOLERANCE_MIN_KG = 0.1;
 
 // `getGoalAlignmentText` (utils/visuals/trackerHelpers.jsx) wording for a
 // directional goal moving faster than its band. Kept in one place so the
 // nudge and the verdict cannot disagree.
 export const ALIGNMENT_TEXT_FASTER = 'Faster than goal target';
+
+// Short forms of those verdicts, so the card's trend and projection share one
+// line on a phone.
+const SHORT_VERDICTS = Object.freeze({
+  'Slower than goal target': 'Slow pace',
+  [ALIGNMENT_TEXT_FASTER]: 'Fast pace',
+  'Not losing as expected': 'Off track',
+  'Not gaining as expected': 'Off track',
+  'Deviating from maintenance': 'Drifting',
+});
+
+/** The card's wording for a verdict; unknown text passes through. */
+export const shortenVerdict = (text) => SHORT_VERDICTS[text] ?? text;
+
+const verdict = (text, color) => Object.freeze({ text, color });
+
+// The wording and colours of `getGoalAlignmentText`.
+const PACE_VERDICT = Object.freeze({
+  ON_TRACK: verdict('On track', 'text-accent-green'),
+  SLOWER: verdict('Slower than goal target', 'text-accent-blue'),
+  FASTER: verdict(ALIGNMENT_TEXT_FASTER, 'text-accent-yellow'),
+  NOT_GAINING: verdict('Not gaining as expected', 'text-accent-yellow'),
+  NOT_LOSING: verdict('Not losing as expected', 'text-accent-yellow'),
+  DRIFTING: verdict('Deviating from maintenance', 'text-accent-yellow'),
+});
+
+/**
+ * A weekly rate against the rate a phase planned (both kg/wk, signed). A phase
+ * is judged by its own plan, not by the goal's generic band.
+ */
+export const judgePhasePace = (currentRate, plannedRate) => {
+  const planned = Math.abs(plannedRate);
+  if (planned <= PACE_TOLERANCE_MIN_KG) {
+    return Math.abs(currentRate) <= PACE_TOLERANCE_MIN_KG
+      ? PACE_VERDICT.ON_TRACK
+      : PACE_VERDICT.DRIFTING;
+  }
+  const isGain = plannedRate > 0;
+  // Positive when moving the planned way.
+  const toward = isGain ? currentRate : -currentRate;
+  const tolerance = Math.max(
+    PACE_TOLERANCE_MIN_KG,
+    planned * PACE_TOLERANCE_SHARE
+  );
+  if (toward > 0 && Math.abs(toward - planned) <= tolerance) {
+    return PACE_VERDICT.ON_TRACK;
+  }
+  if (toward <= PACE_TOLERANCE_MIN_KG) {
+    return isGain ? PACE_VERDICT.NOT_GAINING : PACE_VERDICT.NOT_LOSING;
+  }
+  return toward < planned ? PACE_VERDICT.SLOWER : PACE_VERDICT.FASTER;
+};
 
 const CUT_GOALS = new Set(['cutting', 'aggressive_cut']);
 const BULK_GOALS = new Set(['bulking', 'aggressive_bulk']);
@@ -160,9 +224,13 @@ const buildPhaseModel = ({ phase, sortedEntries, todayKey }) => {
     (entry) => entry.date >= startDate && entry.date <= windowEnd
   );
   const current = windowEntries.at(-1) ?? null;
-  const startWeightKg =
-    toFiniteOrNull(phase.startingWeight) ?? windowEntries[0]?.weight ?? null;
+  const storedStartKg = toFiniteOrNull(phase.startingWeight);
+  const startWeightKg = storedStartKg ?? windowEntries[0]?.weight ?? null;
   const targetKg = toFiniteOrNull(phase.targetWeight);
+  // Without a stored starting weight, a lone weigh-in would only be compared
+  // with itself: that is no change, not a change of zero.
+  const hasChange =
+    current !== null && (storedStartKg !== null || windowEntries.length > 1);
 
   let progress = null;
   if (
@@ -179,9 +247,28 @@ const buildPhaseModel = ({ phase, sortedEntries, todayKey }) => {
     progress = { kind: 'time', fraction: dayNumber / totalDays };
   }
 
+  // The rate the phase planned: start to target weight over its dates.
+  const plannedWeeklyRateKg =
+    targetKg !== null && startWeightKg !== null && span > 0
+      ? ((targetKg - startWeightKg) / span) * 7
+      : null;
+  // The measured rate reads the phase's own weigh-ins, once they span enough
+  // days that water weight does not decide it.
+  const phaseTrend = calculateWeightTrend(windowEntries);
+  const sample = phaseTrend.sampleRange;
+  const sampleSpan =
+    sample.length > 1
+      ? getDateKeyDayDifference(sample[0].date, sample.at(-1).date)
+      : 0;
+  const trend =
+    hasTrendData(phaseTrend) && sampleSpan >= PHASE_RATE_MIN_SPAN_DAYS
+      ? phaseTrend
+      : null;
+
   return {
     state,
     phaseName: phase.name || 'Active phase',
+    startDate,
     endDate,
     dayNumber: startsInDays > 0 ? null : dayNumber,
     startsInDays,
@@ -193,6 +280,52 @@ const buildPhaseModel = ({ phase, sortedEntries, todayKey }) => {
           percent: Math.round(clamp01(progress.fraction) * 100),
         }
       : null,
+    weight: {
+      startKg: startWeightKg,
+      currentKg: current?.weight ?? null,
+      changeKg: hasChange ? current.weight - startWeightKg : null,
+      targetKg,
+    },
+    targetBodyFat: toFiniteOrNull(phase.targetBodyFat),
+    pace: {
+      plannedWeeklyRateKg,
+      trend,
+      verdict:
+        trend && plannedWeeklyRateKg !== null
+          ? judgePhasePace(trend.weeklyRate, plannedWeeklyRateKg)
+          : null,
+    },
+  };
+};
+
+const nextDateKey = (dateKey) => {
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return formatDateKeyUtc(date);
+};
+
+/**
+ * `buildDayLedgerCardSummary` input for the phase card's adherence strip: only
+ * the phase's own days count, and a phase past its end date reads the days up
+ * to that end.
+ *
+ * @param {object} params
+ * @param {object} params.phase - the active phase (`startDate`, `endDate`)
+ * @param {object} [params.snapshots] - `userData.dailySnapshots`
+ * @param {string} [params.todayKey]
+ */
+export const selectPhaseLedgerInput = ({
+  phase,
+  snapshots,
+  todayKey = getTodayDateKey(),
+}) => {
+  const { startDate, endDate = null } = phase;
+  return {
+    snapshots: Object.values(snapshots ?? {}).filter(
+      (snapshot) =>
+        snapshot?.date >= startDate && (!endDate || snapshot.date <= endDate)
+    ),
+    todayKey: endDate && endDate < todayKey ? nextDateKey(endDate) : todayKey,
   };
 };
 
@@ -201,7 +334,8 @@ const buildPhaseModel = ({ phase, sortedEntries, todayKey }) => {
  * @param {string} params.selectedGoal
  * @param {number} [params.goalDurationDays] - store `goalDurationDays` (0 on the first day)
  * @param {object|null} [params.phase] - the ACTIVE phase from the store's `phases`
- *   view (`name`, `startDate`, `endDate`, `targetWeight`, `startingWeight`)
+ *   view (`name`, `startDate`, `endDate`, `targetWeight`, `targetBodyFat`,
+ *   `startingWeight`)
  * @param {Array} [params.weightEntries]
  * @param {object|null} [params.weightTrend] - precomputed `calculateWeightTrend(weightEntries)`
  * @param {{text: string, color: string}|null} [params.alignment] - `getGoalAlignmentText(trend, goal)`

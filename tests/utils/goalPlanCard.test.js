@@ -6,8 +6,11 @@ import {
   buildGoalPlanCardModel,
   GOAL_PLAN_NUDGE,
   GOAL_PLAN_STATE,
+  judgePhasePace,
   NUDGE_LONG_CUT_DAYS,
   PROJECTION_WEEKS,
+  selectPhaseLedgerInput,
+  shortenVerdict,
 } from '../../src/utils/calculations/goalPlanCard.js';
 
 const TODAY = '2026-11-26';
@@ -235,4 +238,143 @@ test('phase upcoming: a phase that has not started yet', () => {
   assert.equal(model.dayNumber, null);
   assert.equal(model.startsInDays, 4);
   assert.equal(model.progress.percent, 0);
+});
+
+test('phase state: start, current, change and targets', () => {
+  const model = buildGoalPlanCardModel({
+    selectedGoal: 'cutting',
+    phase: { ...basePhase, targetWeight: 76, targetBodyFat: 14.5 },
+    weightEntries: [{ date: '2026-11-25', weight: 79 }],
+    todayKey: TODAY,
+  });
+  assert.deepEqual(model.weight, {
+    startKg: 80,
+    currentKg: 79,
+    changeKg: -1,
+    targetKg: 76,
+  });
+  assert.equal(model.targetBodyFat, 14.5);
+});
+
+test('phase state: no weigh-in in the phase -> no current weight or change', () => {
+  const model = buildGoalPlanCardModel({
+    selectedGoal: 'cutting',
+    phase: basePhase,
+    todayKey: TODAY,
+  });
+  assert.equal(model.weight.currentKg, null);
+  assert.equal(model.weight.changeKg, null);
+});
+
+test('phase state: a lone weigh-in is never compared with itself', () => {
+  const model = buildGoalPlanCardModel({
+    selectedGoal: 'cutting',
+    phase: { ...basePhase, startingWeight: null },
+    weightEntries: [{ date: '2026-11-25', weight: 79 }],
+    todayKey: TODAY,
+  });
+  assert.equal(model.weight.startKg, 79);
+  assert.equal(model.weight.changeKg, null);
+});
+
+test('phase adherence input keeps only the days of the phase', () => {
+  const snapshots = Object.fromEntries(
+    ['2026-11-08', '2026-11-09', '2026-11-20', '2026-11-22'].map((date) => [
+      date,
+      { date },
+    ])
+  );
+  const running = selectPhaseLedgerInput({
+    phase: basePhase,
+    snapshots,
+    todayKey: TODAY,
+  });
+  assert.deepEqual(
+    running.snapshots.map((snapshot) => snapshot.date),
+    ['2026-11-09', '2026-11-20', '2026-11-22']
+  );
+  assert.equal(running.todayKey, TODAY);
+
+  // Overdue: nothing after the end date, and the window ends on it.
+  const overdue = selectPhaseLedgerInput({
+    phase: { ...basePhase, endDate: '2026-11-20' },
+    snapshots,
+    todayKey: TODAY,
+  });
+  assert.deepEqual(
+    overdue.snapshots.map((snapshot) => snapshot.date),
+    ['2026-11-09', '2026-11-20']
+  );
+  assert.equal(overdue.todayKey, '2026-11-21');
+});
+
+test('verdicts are shortened for the card; other wording passes through', () => {
+  assert.equal(shortenVerdict(ALIGNMENT_TEXT_FASTER), 'Fast pace');
+  assert.equal(shortenVerdict('Deviating from maintenance'), 'Drifting');
+  assert.equal(shortenVerdict('On track'), 'On track');
+});
+
+test('phase pace: the planned rate runs from start to target weight', () => {
+  const model = buildGoalPlanCardModel({
+    selectedGoal: 'cutting',
+    // 55 days from start to end.
+    phase: { ...basePhase, targetWeight: 76 },
+    todayKey: TODAY,
+  });
+  assert.ok(Math.abs(model.pace.plannedWeeklyRateKg - (-4 / 55) * 7) < 1e-9);
+  assert.equal(model.pace.trend, null);
+  assert.equal(model.pace.verdict, null);
+});
+
+test('phase pace: no target weight or end date -> no planned rate', () => {
+  for (const phase of [
+    basePhase,
+    { ...basePhase, targetWeight: 76, endDate: null },
+  ]) {
+    const model = buildGoalPlanCardModel({
+      selectedGoal: 'cutting',
+      phase,
+      todayKey: TODAY,
+    });
+    assert.equal(model.pace.plannedWeeklyRateKg, null);
+  }
+});
+
+test('phase pace: a rate needs a week of weigh-ins inside the phase', () => {
+  const build = (weightEntries) =>
+    buildGoalPlanCardModel({
+      selectedGoal: 'cutting',
+      phase: { ...basePhase, targetWeight: 76 },
+      weightEntries,
+      todayKey: TODAY,
+    }).pace;
+
+  // Six days apart, and an older weigh-in from before the phase.
+  assert.equal(
+    build([
+      { date: '2026-11-01', weight: 81 },
+      { date: '2026-11-19', weight: 80 },
+      { date: '2026-11-25', weight: 79.5 },
+    ]).trend,
+    null
+  );
+
+  const pace = build([
+    { date: '2026-11-18', weight: 80 },
+    { date: '2026-11-25', weight: 79.5 },
+  ]);
+  assert.ok(Math.abs(pace.trend.weeklyRate + 0.5) < 1e-9);
+  assert.equal(pace.verdict.text, 'On track');
+});
+
+test('phase pace verdicts follow the planned direction and size', () => {
+  const text = (current, planned) => judgePhasePace(current, planned).text;
+  assert.equal(text(0.6, 0.63), 'On track');
+  assert.equal(text(0.3, 0.63), 'Slower than goal target');
+  assert.equal(text(1, 0.63), ALIGNMENT_TEXT_FASTER);
+  assert.equal(text(-0.2, 0.63), 'Not gaining as expected');
+  assert.equal(text(-0.5, -0.52), 'On track');
+  assert.equal(text(0, -0.52), 'Not losing as expected');
+  assert.equal(text(0.05, 0), 'On track');
+  assert.equal(text(0.4, 0), 'Deviating from maintenance');
 });
