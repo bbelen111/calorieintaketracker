@@ -50,14 +50,14 @@ export const ACTIVITY_PRESET_OPTIONS = {
       key: 'light',
       label: 'Sedentary',
       description:
-        'Mostly seated all day—desk work, driving, or relaxing with minimal pacing.',
+        'Mostly seated all day—desk work, driving, or relaxing with minimal standing or fidgeting.',
       value: 0.15,
     },
     {
       key: 'default',
       label: 'Moderately Active',
       description:
-        'Frequently on your feet—teaching, retail, or chores with steady incidental movement.',
+        'Frequently on your feet—standing, teaching, retail, or chores with steady non-step movement.',
       value: DEFAULT_ACTIVITY_MULTIPLIERS.rest,
     },
     {
@@ -73,14 +73,14 @@ export const ACTIVITY_PRESET_OPTIONS = {
       key: 'light',
       label: 'Sedentary',
       description:
-        'Train, then mostly sit—minimal incidental movement beyond the workout.',
+        'Train, then mostly sit—minimal standing, chores, or other non-step movement beyond the workout.',
       value: 0.13,
     },
     {
       key: 'default',
       label: 'Moderately Active',
       description:
-        'Train, plus regular daily movement, but subconsciously resting more post-workout.',
+        'Train, plus regular standing and chores, while subconsciously resting more post-workout.',
       value: DEFAULT_ACTIVITY_MULTIPLIERS.training,
     },
     {

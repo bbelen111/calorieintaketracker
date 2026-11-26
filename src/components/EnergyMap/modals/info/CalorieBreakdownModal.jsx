@@ -307,7 +307,7 @@ export const CalorieBreakdownModal = ({
           </BreakdownItem>
 
           <BreakdownItem
-            label={`Daily Activity NEAT (~${Math.round(effectiveActivityMultiplier * 100)}%)`}
+            label={`NEAT (excl. steps, ~${Math.round(effectiveActivityMultiplier * 100)}%)`}
             value={breakdown.baseActivity}
             total={breakdown.total}
             expanded={expandedItem === 'neat'}
@@ -315,7 +315,9 @@ export const CalorieBreakdownModal = ({
             onToggle={() => toggleExpanded('neat')}
           >
             <p className="text-muted text-xs">
-              Non-exercise daily movements (walking, standing, fidgeting).
+              Non-exercise daily movement excluding steps (standing, posture,
+              fidgeting, chores). Walking and steps are counted separately
+              below.
             </p>
             <p className="text-muted text-xs mt-2">
               <strong>Calculation:</strong>

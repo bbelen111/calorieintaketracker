@@ -635,7 +635,7 @@ export const NotificationsSettingsSection = ({
 
             <RuleCard
               title="Daily NEAT override check-in"
-              description="Prompts a one-day NEAT override when your routine differs"
+              description="Prompts a one-day non-step NEAT override when your routine differs"
               checked={rules.dailyNeatCheckIn.enabled}
               ariaLabel="Toggle daily NEAT override check-in"
               onToggle={() =>

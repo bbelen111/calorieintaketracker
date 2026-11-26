@@ -126,8 +126,9 @@ export const DailyNeatOverrideModal = ({
       </div>
 
       <p className="text-muted text-sm mb-4">
-        Tune today&apos;s non-exercise (NEAT) burn without touching your global
-        settings. This applies to today only.
+        Tune today&apos;s non-step NEAT (standing, posture, fidgeting, chores)
+        without touching your global settings. Steps are counted separately.
+        Applies to today only.
       </p>
 
       {heartRateAdvice && suggestedOption && (

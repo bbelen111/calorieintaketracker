@@ -83,10 +83,14 @@ export const DailyActivityEditorModal = ({
       overlayClassName="bg-surface/80 z-70"
       contentClassName="p-4 md:p-6 w-full md:max-w-xl"
     >
-      <div className="flex items-center justify-between mb-4 md:mb-6">
+      <div className="mb-4 md:mb-6">
         <h3 className="text-foreground font-bold text-xl md:text-2xl">
           {titles[dayType]}
         </h3>
+        <p className="text-muted text-sm mt-1">
+          Non-exercise daily movement excluding steps (standing, posture,
+          fidgeting, chores). Steps and workouts are counted separately.
+        </p>
       </div>
 
       <div className="space-y-3">
@@ -107,7 +111,7 @@ export const DailyActivityEditorModal = ({
 
         <ActivityOptionCard
           title="Custom"
-          description="Set your own NEAT offset when the presets do not match your routine."
+          description="Set your own non-step NEAT offset when the presets do not match your routine."
           summary={`Current NEAT offset: ${formatMultiplier(multiplier)}`}
           icon={Settings}
           isActive={customSelected}

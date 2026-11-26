@@ -543,7 +543,7 @@ export const buildNotificationPlan = ({
         createScheduledItem({
           id: NOTIFICATION_ID_RANGES.DAILY_NEAT + offset,
           title: 'Adjust today’s NEAT?',
-          body: 'Different routine today? Set a one-day NEAT override so today’s TDEE stays honest.',
+          body: 'Different non-step routine today? Set a one-day NEAT override so today’s TDEE stays honest.',
           at,
           channelId: NOTIFICATION_CHANNEL_IDS.REMINDERS,
           route: NOTIFICATION_ROUTES.OPEN_DAILY_NEAT,

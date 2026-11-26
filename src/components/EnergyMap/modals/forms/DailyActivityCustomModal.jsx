@@ -102,7 +102,8 @@ export const DailyActivityCustomModal = ({
         {titles[dayType]}
       </h3>
       <p className="text-muted text-sm text-center mb-4">
-        Non-exercise movement as a percentage of BMR.
+        Non-exercise movement excluding steps, as a percentage of BMR. Steps are
+        counted separately.
       </p>
 
       <p className="text-muted text-xs text-center mb-2 uppercase tracking-wide">
@@ -142,7 +143,7 @@ export const DailyActivityCustomModal = ({
       </div>
 
       <p className="text-muted text-xs text-center mt-3">
-        Recommended: 20% – 45% for most lifestyles · Minimum 10%
+        Typical non-step range: 13% – 35% · Minimum 10%
       </p>
 
       <div className="flex gap-2 md:gap-3 mt-4">

@@ -94,4 +94,16 @@ describe('CalorieBreakdownModal', () => {
 
     expect(screen.queryByText('Calorie Breakdown')).toBeNull();
   });
+
+  it('clarifies that NEAT excludes steps and walking is counted separately', () => {
+    renderModal();
+
+    expect(screen.getByText(/NEAT \(excl\. steps, ~12%\)/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Non-exercise daily movement excluding steps/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Walking and steps are counted separately below/i)
+    ).toBeInTheDocument();
+  });
 });

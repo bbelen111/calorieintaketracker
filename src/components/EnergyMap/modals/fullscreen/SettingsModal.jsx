@@ -2178,6 +2178,10 @@ const DailyActivitySection = ({
     <div className="space-y-6">
       <div>
         <SettingLabel>Daily NEAT (Non-Exercise Activity)</SettingLabel>
+        <p className="text-muted text-xs mb-2">
+          Everyday movement excluding steps (standing, posture, fidgeting,
+          chores). Steps are counted separately below.
+        </p>
         <div className="space-y-2">
           {NEAT_DAY_CARDS.map(({ day, title, icon, className }) => {
             const preset = getActivityPresetByKey(

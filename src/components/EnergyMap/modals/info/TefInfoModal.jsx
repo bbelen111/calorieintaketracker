@@ -47,7 +47,7 @@ export const TefInfoModal = ({ isOpen, isClosing, onClose }) => {
           </div>
           <p className="text-sm">
             The app has historically assumed TEF is already bundled into your
-            NEAT/activity multiplier. Smart TEF makes that explicit by removing
+            non-step NEAT multiplier. Smart TEF makes that explicit by removing
             a baseline {formatPercent(TEF_MULTIPLIER_OFFSET)} from the selected
             NEAT multiplier, then adding TEF back as its own line item.
           </p>
