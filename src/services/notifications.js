@@ -5,10 +5,13 @@
  * via `useNotificationState()` (`useSyncExternalStore`).
  *
  * Responsibilities:
- * - Permission lifecycle for both local and remote push notifications
+ * - Permission lifecycle for local, exact-alarm (Android), background health
+ *   reads, and remote push notifications
+ * - Android battery-optimization awareness & one-tap settings shortcut
  * - Android channel registration (`reminders`, `insights`, `workouts`, `announcements`)
  * - Idempotent diff-and-reconcile scheduling of planned local notifications
  * - One-shot immediate alerts (Smart AT unlock, unimported health workouts)
+ * - Native background workout sync context (Android WorkManager / iOS HealthKit)
  * - Live BLE heart-rate recording guard (ongoing banner + 2.5h forgot-to-stop)
  * - Remote push token registration & backend sync (`/api/push/register|unregister`)
  * - Tap deep-link routing with cold-start buffering until the UI mounts
@@ -34,16 +37,23 @@ import {
   addLocalNotificationActionListener,
   addPushNotificationListeners,
   cancelLocalNotifications,
+  checkBatteryOptimizationIgnored,
+  checkExactAlarmPermission,
+  checkHealthBackgroundPermission,
   checkLocalNotificationPermission,
   checkPushNotificationPermission,
   createNotificationChannels,
   getPendingLocalNotifications,
   isNotificationPlatform,
+  openBatteryOptimizationSettings,
+  openExactAlarmSettings,
   registerForRemotePush,
   removeDeliveredLocalNotifications,
+  requestHealthBackgroundPermission,
   requestLocalNotificationPermission,
   requestPushNotificationPermission,
   scheduleLocalNotifications,
+  syncBackgroundWorkoutContext,
   unregisterFromRemotePush,
 } from './notificationBridge.js';
 import {
@@ -55,10 +65,14 @@ import { useEnergyMapStore } from '../store/useEnergyMapStore.js';
 
 const NOTIFIED_WORKOUTS_KEY = 'energyMapNotifiedHealthWorkouts';
 const MAX_STORED_WORKOUT_IDS = 80;
+const BG_SESSION_LOOKBACK_MS = 72 * 3600_000;
 
 const INITIAL_STATE = Object.freeze({
   platformSupported: false,
   permission: 'unavailable', // 'unavailable' | 'prompt' | 'granted' | 'denied'
+  exactAlarmPermission: 'unavailable', // 'unavailable' | 'granted' | 'denied'
+  batteryOptimizationIgnored: null, // null | boolean (Android only)
+  backgroundHealthPermission: 'unavailable', // 'unavailable' | 'granted' | 'denied'
   pushPermission: 'unavailable',
   pushStatus: 'idle', // 'idle' | 'registering' | 'registered' | 'pending_sync' | 'error'
   pushToken: null,
@@ -106,6 +120,7 @@ const buildSignature = (item) =>
     title: item.title,
     body: item.body,
     channelId: item.channelId,
+    exact: Boolean(item.isExactNotification),
     at: item.schedule?.at instanceof Date ? item.schedule.at.getTime() : null,
     extra: item.extra ?? null,
   });
@@ -188,9 +203,110 @@ const handleRemotePushAction = (actionEvent) => {
   }
 };
 
+const loadNotifiedWorkoutIds = async () => {
+  try {
+    const { value } = await Preferences.get({ key: NOTIFIED_WORKOUTS_KEY });
+    const parsed = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveNotifiedWorkoutIds = async (ids) => {
+  try {
+    const trimmed = ids.slice(-MAX_STORED_WORKOUT_IDS);
+    await Preferences.set({
+      key: NOTIFIED_WORKOUTS_KEY,
+      value: JSON.stringify(trimmed),
+    });
+  } catch (error) {
+    console.warn('[Notifications] Could not save notified workout IDs:', error);
+  }
+};
+
+const buildBackgroundWorkoutSyncPayload = ({
+  userData = {},
+  permission = state.permission,
+  notifiedWorkoutIds = [],
+  nowMs = Date.now(),
+} = {}) => {
+  const settings = normalizeNotificationSettings(userData.notifications);
+  const enabled = Boolean(
+    settings.enabled &&
+    settings.rules.unimportedWorkout.enabled &&
+    permission === 'granted' &&
+    userData?.heartRateSyncEnabled
+  );
+
+  const allSessions = [
+    ...(Array.isArray(userData.cardioSessions) ? userData.cardioSessions : []),
+    ...(Array.isArray(userData.trainingSessions)
+      ? userData.trainingSessions
+      : []),
+  ];
+
+  const loggedIdSet = new Set();
+  const loggedSessionWindows = [];
+  const cutoffMs = nowMs - BG_SESSION_LOOKBACK_MS;
+
+  allSessions.forEach((session) => {
+    if (!session || typeof session !== 'object') {
+      return;
+    }
+    const workoutId = String(
+      session.healthWorkoutId ?? session.importedWorkoutId ?? ''
+    ).trim();
+    if (workoutId) {
+      loggedIdSet.add(workoutId);
+    }
+    const startMs = Number(
+      session.timestamp ?? session.startTimestamp ?? session.startedAt
+    );
+    const endMs = Number(session.endTimestamp ?? session.endedAt);
+    if (
+      Number.isFinite(startMs) &&
+      Number.isFinite(endMs) &&
+      endMs > startMs &&
+      endMs >= cutoffMs
+    ) {
+      loggedSessionWindows.push({ startMs, endMs });
+    }
+  });
+
+  return {
+    enabled,
+    loggedWorkoutIds: Array.from(loggedIdSet).slice(-MAX_STORED_WORKOUT_IDS),
+    loggedSessionWindows: loggedSessionWindows.slice(-60),
+    notifiedWorkoutIds: Array.isArray(notifiedWorkoutIds)
+      ? notifiedWorkoutIds.slice(-MAX_STORED_WORKOUT_IDS)
+      : [],
+  };
+};
+
+const pushBackgroundWorkoutSyncContext = async ({
+  userData,
+  permission,
+  notifiedWorkoutIds,
+  nowMs,
+} = {}) => {
+  if (!isNotificationPlatform()) {
+    return { scheduled: false, backgroundPermission: 'unavailable' };
+  }
+  const ids = notifiedWorkoutIds ?? (await loadNotifiedWorkoutIds());
+  const payload = buildBackgroundWorkoutSyncPayload({
+    userData: userData ?? useEnergyMapStore.getState().userData ?? {},
+    permission: permission ?? state.permission,
+    notifiedWorkoutIds: ids,
+    nowMs,
+  });
+  return syncBackgroundWorkoutContext(payload);
+};
+
 /**
- * Initializes notification channels, permission state, cached remote push
- * state, and OS tap/push listeners. Safe to call repeatedly.
+ * Initializes notification channels, permission state, exact-alarm & battery
+ * reliability status, cached remote push state, and OS tap/push listeners.
+ * Safe to call repeatedly.
  */
 export const initializeNotifications = async () => {
   const supported = isNotificationPlatform();
@@ -198,6 +314,9 @@ export const initializeNotifications = async () => {
     setState({
       platformSupported: false,
       permission: 'unavailable',
+      exactAlarmPermission: 'unavailable',
+      batteryOptimizationIgnored: null,
+      backgroundHealthPermission: 'unavailable',
       pushPermission: 'unavailable',
     });
     return false;
@@ -205,8 +324,18 @@ export const initializeNotifications = async () => {
 
   try {
     await createNotificationChannels(NOTIFICATION_CHANNELS);
-    const [permission, pushPermission, cachedPush] = await Promise.all([
+    const [
+      permission,
+      exactAlarmPermission,
+      batteryOptimizationIgnored,
+      backgroundHealthPermission,
+      pushPermission,
+      cachedPush,
+    ] = await Promise.all([
       checkLocalNotificationPermission(),
+      checkExactAlarmPermission(),
+      checkBatteryOptimizationIgnored(),
+      checkHealthBackgroundPermission(),
       checkPushNotificationPermission(),
       loadPushRegistrationCache(),
     ]);
@@ -214,6 +343,9 @@ export const initializeNotifications = async () => {
     setState({
       platformSupported: true,
       permission,
+      exactAlarmPermission,
+      batteryOptimizationIgnored,
+      backgroundHealthPermission,
       pushPermission,
       pushToken: cachedPush?.token ?? state.pushToken,
       pushStatus:
@@ -270,6 +402,52 @@ export const requestNotificationPermission = async () => {
     setState({ error: 'Could not request notification permission.' });
     return state.permission;
   }
+};
+
+/**
+ * Opens Android's Alarms & reminders settings so scheduled reminders can use
+ * exact alarms (`setExactAndAllowWhileIdle`) instead of deferred inexact alarms.
+ * Immediately re-reconciles pending schedules once granted.
+ */
+export const requestExactAlarmPermission = async () => {
+  if (!isNotificationPlatform()) {
+    return 'unavailable';
+  }
+  const exactAlarmPermission = await openExactAlarmSettings();
+  setState({ exactAlarmPermission, error: null });
+  if (exactAlarmPermission === 'granted') {
+    await reconcileNotifications();
+  }
+  return exactAlarmPermission;
+};
+
+/**
+ * Opens the app's Android Battery / App Info screen so the user can switch
+ * Battery to Unrestricted and prevent OEM Sleeping Apps from holding alarms.
+ */
+export const openBatterySettings = async () => {
+  if (!isNotificationPlatform()) {
+    return false;
+  }
+  const opened = await openBatteryOptimizationSettings();
+  const batteryOptimizationIgnored = await checkBatteryOptimizationIgnored();
+  setState({ batteryOptimizationIgnored });
+  return opened;
+};
+
+/**
+ * Requests background health-read access (Android Health Connect
+ * `READ_HEALTH_DATA_IN_BACKGROUND`; iOS HealthKit uses background delivery
+ * automatically once authorized) and updates the native background workout sync.
+ */
+export const requestBackgroundWorkoutPermission = async () => {
+  if (!isNotificationPlatform()) {
+    return 'unavailable';
+  }
+  const backgroundHealthPermission = await requestHealthBackgroundPermission();
+  setState({ backgroundHealthPermission, error: null });
+  await pushBackgroundWorkoutSyncContext();
+  return backgroundHealthPermission;
 };
 
 /**
@@ -368,6 +546,8 @@ const markAtUnlockNotifiedInStore = () => {
 /**
  * Reconciles the OS local notification queue against the pure planner output.
  * Cancels only stale/changed IDs and schedules only new/changed IDs.
+ * Upgrades scheduled items to exact alarms whenever OS exact-alarm permission
+ * is granted, and keeps native background workout sync context fresh.
  */
 export const reconcileNotifications = async ({
   userData,
@@ -395,8 +575,30 @@ export const reconcileNotifications = async ({
     return plan;
   }
 
-  const permission = await checkLocalNotificationPermission();
-  setState({ permission });
+  const [
+    permission,
+    exactAlarmPermission,
+    batteryOptimizationIgnored,
+    backgroundHealthPermission,
+  ] = await Promise.all([
+    checkLocalNotificationPermission(),
+    checkExactAlarmPermission(),
+    checkBatteryOptimizationIgnored(),
+    checkHealthBackgroundPermission(),
+  ]);
+
+  setState({
+    permission,
+    exactAlarmPermission,
+    batteryOptimizationIgnored,
+    backgroundHealthPermission,
+  });
+
+  await pushBackgroundWorkoutSyncContext({
+    userData: resolvedUserData,
+    permission,
+    nowMs: now instanceof Date ? now.getTime() : Date.now(),
+  });
 
   if (!settings.enabled || permission !== 'granted') {
     const pending = await getPendingLocalNotifications();
@@ -419,6 +621,12 @@ export const reconcileNotifications = async ({
     return { scheduled: [], immediateEvents: [] };
   }
 
+  const useExactAlarms = exactAlarmPermission === 'granted';
+  const resolvedScheduled = plan.scheduled.map((item) => ({
+    ...item,
+    isExactNotification: useExactAlarms,
+  }));
+
   const pending = await getPendingLocalNotifications();
   const pendingManagedIds = new Set(
     pending
@@ -435,7 +643,7 @@ export const reconcileNotifications = async ({
   const toSchedule = [];
   const toCancel = [];
 
-  plan.scheduled.forEach((item) => {
+  resolvedScheduled.forEach((item) => {
     const signature = buildSignature(item);
     nextSignatureMap.set(item.id, signature);
     const alreadyPending = pendingManagedIds.has(item.id);
@@ -484,11 +692,14 @@ export const reconcileNotifications = async ({
 
   lastScheduleSignatureMap = nextSignatureMap;
   setState({
-    pendingCount: plan.scheduled.length,
+    pendingCount: resolvedScheduled.length,
     lastReconciledAt: new Date(now),
     error: null,
   });
-  return plan;
+  return {
+    scheduled: resolvedScheduled,
+    immediateEvents: plan.immediateEvents,
+  };
 };
 
 /**
@@ -554,28 +765,6 @@ export const sendTestNotification = async () => {
 // #11: Unimported Health Workouts Alert
 // ---------------------------------------------------------------------------
 
-const loadNotifiedWorkoutIds = async () => {
-  try {
-    const { value } = await Preferences.get({ key: NOTIFIED_WORKOUTS_KEY });
-    const parsed = value ? JSON.parse(value) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveNotifiedWorkoutIds = async (ids) => {
-  try {
-    const trimmed = ids.slice(-MAX_STORED_WORKOUT_IDS);
-    await Preferences.set({
-      key: NOTIFIED_WORKOUTS_KEY,
-      value: JSON.stringify(trimmed),
-    });
-  } catch (error) {
-    console.warn('[Notifications] Could not save notified workout IDs:', error);
-  }
-};
-
 /**
  * Inspects newly synced health workouts and fires a local alert for any
  * unimported workout not previously notified.
@@ -602,6 +791,10 @@ export const notifyUnimportedHealthWorkouts = async (workouts = []) => {
 
   const nextIds = [...notifiedIds, ...unimported.map((w) => String(w.id))];
   await saveNotifiedWorkoutIds(nextIds);
+  await pushBackgroundWorkoutSyncContext({
+    userData,
+    notifiedWorkoutIds: nextIds,
+  });
 
   if (!isNotificationPlatform() || state.permission !== 'granted') {
     return unimported.length;
@@ -688,7 +881,10 @@ export const syncLiveHeartRateGuard = async (recording) => {
     batch.push(ongoing);
   }
   if (forgotAlert) {
-    batch.push(forgotAlert);
+    batch.push({
+      ...forgotAlert,
+      isExactNotification: state.exactAlarmPermission === 'granted',
+    });
   }
   if (batch.length > 0) {
     await scheduleLocalNotifications(batch);

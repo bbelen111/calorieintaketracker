@@ -181,6 +181,12 @@ export const KeyboardStyleMock = {
 export const LocalNotificationsMock = {
   checkPermissions: vi.fn(async () => ({ display: 'granted' })),
   requestPermissions: vi.fn(async () => ({ display: 'granted' })),
+  checkExactNotificationSetting: vi.fn(async () => ({
+    exact_alarm: 'granted',
+  })),
+  changeExactNotificationSetting: vi.fn(async () => ({
+    exact_alarm: 'granted',
+  })),
   createChannel: vi.fn(async () => {}),
   getPending: vi.fn(async () => ({ notifications: [] })),
   schedule: vi.fn(async () => ({ notifications: [] })),
@@ -188,6 +194,18 @@ export const LocalNotificationsMock = {
   removeDeliveredNotifications: vi.fn(async () => {}),
   addListener: vi.fn(async () => ({
     remove: vi.fn(async () => {}),
+  })),
+};
+
+/** Local native `NotificationReliability` plugin double (Android & iOS). */
+export const NotificationReliabilityMock = {
+  isIgnoringBatteryOptimizations: vi.fn(async () => ({ ignoring: true })),
+  openBatteryOptimizationSettings: vi.fn(async () => ({ opened: true })),
+  checkHealthBackgroundPermission: vi.fn(async () => ({ status: 'granted' })),
+  requestHealthBackgroundPermission: vi.fn(async () => ({ status: 'granted' })),
+  syncBackgroundWorkoutContext: vi.fn(async () => ({
+    scheduled: true,
+    backgroundPermission: 'granted',
   })),
 };
 

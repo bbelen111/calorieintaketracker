@@ -30,8 +30,17 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 vi.mock('@capacitor/core', async () => {
-  const { CapacitorMock } = await import('./mocks/capacitor.js');
-  return { Capacitor: CapacitorMock };
+  const { CapacitorMock, NotificationReliabilityMock } =
+    await import('./mocks/capacitor.js');
+  return {
+    Capacitor: CapacitorMock,
+    registerPlugin: (name) => {
+      if (name === 'NotificationReliability') {
+        return NotificationReliabilityMock;
+      }
+      return {};
+    },
+  };
 });
 
 vi.mock('@capacitor/preferences', async () => {

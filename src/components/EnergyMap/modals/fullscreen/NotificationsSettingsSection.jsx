@@ -7,11 +7,14 @@ import {
   normalizeNotificationSettings,
 } from '../../../../constants/notifications/notificationConfig';
 import {
+  openBatterySettings,
+  requestBackgroundWorkoutPermission,
+  requestExactAlarmPermission,
   requestNotificationPermission,
   sendTestNotification,
   useNotificationState,
 } from '../../../../services/notifications';
-import { isIOS } from '../../../../utils/platform';
+import { isAndroid, isIOS } from '../../../../utils/platform';
 import { SettingsReveal } from './SettingsReveal';
 
 const formatTime12h = (timeStr) => {
@@ -228,6 +231,18 @@ export const NotificationsSettingsSection = ({
     }
   }, [settings.enabled, updateNotifications]);
 
+  const handleRequestExactAlarm = useCallback(async () => {
+    await requestExactAlarmPermission();
+  }, []);
+
+  const handleOpenBatterySettings = useCallback(async () => {
+    await openBatterySettings();
+  }, []);
+
+  const handleRequestBackgroundWorkout = useCallback(async () => {
+    await requestBackgroundWorkoutPermission();
+  }, []);
+
   const handleSendTest = useCallback(async () => {
     setIsSendingTest(true);
     setTestFeedback(null);
@@ -264,6 +279,30 @@ export const NotificationsSettingsSection = ({
     notifState.platformSupported &&
     settings.enabled &&
     notifState.permission === 'prompt';
+  const showExactAlarmBanner =
+    notifState.platformSupported &&
+    isAndroid() &&
+    settings.enabled &&
+    notifState.permission === 'granted' &&
+    notifState.exactAlarmPermission === 'denied';
+  const showBatteryOptimizationBanner =
+    notifState.platformSupported &&
+    isAndroid() &&
+    settings.enabled &&
+    notifState.permission === 'granted' &&
+    notifState.batteryOptimizationIgnored === false;
+  const showBackgroundWorkoutPrompt =
+    notifState.platformSupported &&
+    isAndroid() &&
+    Boolean(userData?.heartRateSyncEnabled) &&
+    notifState.backgroundHealthPermission === 'denied';
+  const backgroundWorkoutDetail =
+    notifState.platformSupported &&
+    rules.unimportedWorkout.enabled &&
+    Boolean(userData?.heartRateSyncEnabled) &&
+    notifState.backgroundHealthPermission === 'granted'
+      ? 'Checks in the background when new workouts sync.'
+      : null;
 
   return (
     <div className="space-y-7">
@@ -325,6 +364,54 @@ export const NotificationsSettingsSection = ({
                 className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground pressable-inline focus-ring md:hover:brightness-110"
               >
                 Allow
+              </button>
+            </div>
+          ) : null}
+
+          {showExactAlarmBanner ? (
+            <div
+              role="status"
+              className="flex items-center justify-between gap-3 rounded-lg border border-accent-amber/40 bg-accent-amber/10 px-3 py-2.5"
+            >
+              <div className="min-w-0 text-xs">
+                <p className="font-semibold text-foreground">
+                  Allow on-time reminders
+                </p>
+                <p className="mt-0.5 text-muted">
+                  Grant Alarms &amp; reminders so Android fires reminders on
+                  time while the app is closed.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRequestExactAlarm}
+                className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground pressable-inline focus-ring md:hover:brightness-110"
+              >
+                Allow
+              </button>
+            </div>
+          ) : null}
+
+          {showBatteryOptimizationBanner ? (
+            <div
+              role="status"
+              className="flex items-center justify-between gap-3 rounded-lg border border-accent-blue/30 bg-accent-blue/10 px-3 py-2.5"
+            >
+              <div className="min-w-0 text-xs">
+                <p className="font-semibold text-foreground">
+                  Prevent background delays
+                </p>
+                <p className="mt-0.5 text-muted">
+                  Set Battery to Unrestricted in app settings so Android
+                  doesn&rsquo;t pause reminders until you open the app.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenBatterySettings}
+                className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground pressable-inline focus-ring md:hover:brightness-110"
+              >
+                Open settings
               </button>
             </div>
           ) : null}
@@ -721,6 +808,7 @@ export const NotificationsSettingsSection = ({
             <RuleCard
               title="Unimported health workouts"
               description="Alerts when synced Health workouts haven’t been added to your log"
+              detail={backgroundWorkoutDetail}
               checked={rules.unimportedWorkout.enabled}
               ariaLabel="Toggle unimported health workout alerts"
               onToggle={() =>
@@ -728,7 +816,23 @@ export const NotificationsSettingsSection = ({
                   enabled: !rules.unimportedWorkout.enabled,
                 })
               }
-            />
+            >
+              {showBackgroundWorkoutPrompt ? (
+                <div className="flex w-full items-center justify-between gap-3">
+                  <p className="text-xs text-muted">
+                    Allow Health Connect background reads to detect workouts
+                    while the app is closed.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRequestBackgroundWorkout}
+                    className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground pressable-inline focus-ring md:hover:brightness-110"
+                  >
+                    Allow
+                  </button>
+                </div>
+              ) : null}
+            </RuleCard>
 
             <RuleCard
               title="Live heart-rate recording guard"

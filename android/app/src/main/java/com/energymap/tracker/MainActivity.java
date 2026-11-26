@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
 
         // Register custom plugins
         registerPlugin(NavigationBarPlugin.class);
+        registerPlugin(NotificationReliabilityPlugin.class);
 
         // Get the WebView and disable scrollbars
         WebView webView = this.getBridge().getWebView();

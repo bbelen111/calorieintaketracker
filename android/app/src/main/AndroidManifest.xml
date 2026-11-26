@@ -60,8 +60,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Notifications: Android 13+ (API 33) runtime permission for local
-         reminders and optional remote announcements. Reminders are scheduled
-         inexactly (no SCHEDULE_EXACT_ALARM). -->
+         reminders and optional remote announcements. Exact scheduling via
+         SCHEDULE_EXACT_ALARM (merged from @capacitor/local-notifications) is
+         opt-in so reminders fire on time even while the app is closed. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Camera: barcode scanning and the experimental camera pulse reading. -->
@@ -77,6 +78,7 @@
     <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_VO2_MAX" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
 
     <!-- The health plugin's manifest declares READ + WRITE for every type it

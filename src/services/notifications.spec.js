@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CapacitorMock,
   LocalNotificationsMock,
+  NotificationReliabilityMock,
   PreferencesMock,
   PushNotificationsMock,
 } from '../tests/mocks/capacitor.js';
@@ -15,8 +16,11 @@ import {
   getNotificationState,
   initializeNotifications,
   notifyUnimportedHealthWorkouts,
+  openBatterySettings,
   reconcileNotifications,
   registerNotificationTapHandler,
+  requestBackgroundWorkoutPermission,
+  requestExactAlarmPermission,
   requestNotificationPermission,
   resetNotificationState,
   sendTestNotification,
@@ -39,11 +43,34 @@ describe('notifications service (Layer 1 local + Layer 2 remote push)', () => {
     LocalNotificationsMock.requestPermissions.mockResolvedValue({
       display: 'granted',
     });
+    LocalNotificationsMock.checkExactNotificationSetting.mockResolvedValue({
+      exact_alarm: 'granted',
+    });
+    LocalNotificationsMock.changeExactNotificationSetting.mockResolvedValue({
+      exact_alarm: 'granted',
+    });
     LocalNotificationsMock.getPending.mockResolvedValue({ notifications: [] });
     LocalNotificationsMock.schedule.mockResolvedValue({ notifications: [] });
     LocalNotificationsMock.cancel.mockResolvedValue();
     LocalNotificationsMock.createChannel.mockResolvedValue();
     LocalNotificationsMock.removeDeliveredNotifications.mockResolvedValue();
+
+    NotificationReliabilityMock.isIgnoringBatteryOptimizations.mockResolvedValue(
+      { ignoring: true }
+    );
+    NotificationReliabilityMock.openBatteryOptimizationSettings.mockResolvedValue(
+      { opened: true }
+    );
+    NotificationReliabilityMock.checkHealthBackgroundPermission.mockResolvedValue(
+      { status: 'granted' }
+    );
+    NotificationReliabilityMock.requestHealthBackgroundPermission.mockResolvedValue(
+      { status: 'granted' }
+    );
+    NotificationReliabilityMock.syncBackgroundWorkoutContext.mockResolvedValue({
+      scheduled: true,
+      backgroundPermission: 'granted',
+    });
 
     PushNotificationsMock.checkPermissions.mockResolvedValue({
       receive: 'granted',
@@ -270,5 +297,131 @@ describe('notifications service (Layer 1 local + Layer 2 remote push)', () => {
     const perm = await requestNotificationPermission();
     expect(perm).toBe('denied');
     expect(getNotificationState().permission).toBe('denied');
+  });
+
+  it('schedules inexact alarms when exact permission is denied and upgrades to exact once granted', async () => {
+    LocalNotificationsMock.checkExactNotificationSetting.mockResolvedValue({
+      exact_alarm: 'denied',
+    });
+
+    await initializeNotifications();
+    expect(getNotificationState().exactAlarmPermission).toBe('denied');
+
+    const now = new Date(2026, 4, 10, 6, 0, 0, 0);
+    const enabledNotifs = {
+      ...createDefaultNotificationSettings(),
+      enabled: true,
+    };
+    useEnergyMapStore
+      .getState()
+      .handleUserDataChange('notifications', enabledNotifs);
+
+    const firstPlan = await reconcileNotifications({
+      now,
+      userData: { notifications: enabledNotifs, stepGoal: 10000 },
+      derivedState: {},
+    });
+    expect(
+      firstPlan.scheduled.every((item) => item.isExactNotification === false)
+    ).toBe(true);
+
+    // Simulate OS holding those inexact IDs, then user grants Alarms & reminders.
+    LocalNotificationsMock.getPending.mockResolvedValue({
+      notifications: firstPlan.scheduled.map((item) => ({ id: item.id })),
+    });
+    LocalNotificationsMock.checkExactNotificationSetting.mockResolvedValue({
+      exact_alarm: 'granted',
+    });
+    LocalNotificationsMock.changeExactNotificationSetting.mockResolvedValue({
+      exact_alarm: 'granted',
+    });
+
+    const result = await requestExactAlarmPermission();
+    expect(result).toBe('granted');
+    expect(getNotificationState().exactAlarmPermission).toBe('granted');
+    // Signature changed (exact: false -> true), so old inexact alarms are cancelled and rescheduled as exact.
+    expect(LocalNotificationsMock.cancel).toHaveBeenCalledTimes(1);
+    const latestScheduleCall =
+      LocalNotificationsMock.schedule.mock.calls.at(-1)[0].notifications;
+    expect(
+      latestScheduleCall.every((item) => item.isExactNotification === true)
+    ).toBe(true);
+  });
+
+  it('tracks Android battery optimization status and opens battery settings', async () => {
+    NotificationReliabilityMock.isIgnoringBatteryOptimizations.mockResolvedValueOnce(
+      { ignoring: false }
+    );
+    await initializeNotifications();
+    expect(getNotificationState().batteryOptimizationIgnored).toBe(false);
+
+    NotificationReliabilityMock.isIgnoringBatteryOptimizations.mockResolvedValueOnce(
+      { ignoring: true }
+    );
+    const opened = await openBatterySettings();
+    expect(opened).toBe(true);
+    expect(
+      NotificationReliabilityMock.openBatteryOptimizationSettings
+    ).toHaveBeenCalledTimes(1);
+    expect(getNotificationState().batteryOptimizationIgnored).toBe(true);
+  });
+
+  it('syncs background workout context and requests Health Connect background permission', async () => {
+    NotificationReliabilityMock.checkHealthBackgroundPermission.mockResolvedValue(
+      { status: 'denied' }
+    );
+    await initializeNotifications();
+    expect(getNotificationState().backgroundHealthPermission).toBe('denied');
+
+    const now = new Date(2026, 4, 10, 6, 0, 0, 0);
+    const enabledNotifs = {
+      ...createDefaultNotificationSettings(),
+      enabled: true,
+    };
+    useEnergyMapStore
+      .getState()
+      .handleUserDataChange('heartRateSyncEnabled', true);
+    useEnergyMapStore
+      .getState()
+      .handleUserDataChange('notifications', enabledNotifs);
+
+    await reconcileNotifications({
+      now,
+      userData: {
+        notifications: enabledNotifs,
+        heartRateSyncEnabled: true,
+        cardioSessions: [
+          {
+            id: 'c-1',
+            healthWorkoutId: 'hc-logged-1',
+            startedAt: now.getTime() - 3600_000,
+            endedAt: now.getTime() - 1800_000,
+          },
+        ],
+      },
+      derivedState: {},
+    });
+
+    expect(
+      NotificationReliabilityMock.syncBackgroundWorkoutContext
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabled: true,
+        loggedWorkoutIds: ['hc-logged-1'],
+        loggedSessionWindows: [
+          {
+            startMs: now.getTime() - 3600_000,
+            endMs: now.getTime() - 1800_000,
+          },
+        ],
+      })
+    );
+
+    NotificationReliabilityMock.requestHealthBackgroundPermission.mockResolvedValue(
+      { status: 'granted' }
+    );
+    const bgStatus = await requestBackgroundWorkoutPermission();
+    expect(bgStatus).toBe('granted');
+    expect(getNotificationState().backgroundHealthPermission).toBe('granted');
   });
 });

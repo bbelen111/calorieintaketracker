@@ -1,11 +1,14 @@
 /**
  * Thin, platform-guarded dynamic-import bridge over `@capacitor/local-notifications`
- * (Layer 1) and `@capacitor/push-notifications` (Layer 2).
+ * (Layer 1), `@capacitor/push-notifications` (Layer 2), and the app's native
+ * `NotificationReliability` plugin (Android battery optimization + background
+ * Health Connect / HealthKit workout sync).
  *
- * Both plugins are imported dynamically so they never enter the boot-critical
- * `chunk-capacitor` bundle (see `vite.config.js`). On web dev (`localhost:5173`),
- * every call degrades cleanly without throwing.
+ * Both official plugins are imported dynamically so they never enter the
+ * boot-critical `chunk-capacitor` bundle (see `vite.config.js`). On web dev
+ * (`localhost:5173`), every call degrades cleanly without throwing.
  */
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { isAndroid, isNative } from '../utils/platform.js';
 
 // Return the ES module namespace (NOT the plugin proxy itself!) from these
@@ -15,6 +18,24 @@ import { isAndroid, isNative } from '../utils/platform.js';
 //   `"LocalNotifications.then()" is not implemented on android`
 const loadLocalPluginModule = () => import('@capacitor/local-notifications');
 const loadPushPluginModule = () => import('@capacitor/push-notifications');
+
+let reliabilityPlugin = null;
+const getReliabilityPlugin = () => {
+  if (!isNative()) {
+    return null;
+  }
+  if (!reliabilityPlugin && typeof registerPlugin === 'function') {
+    reliabilityPlugin = registerPlugin('NotificationReliability');
+  }
+  if (
+    reliabilityPlugin &&
+    typeof Capacitor?.isPluginAvailable === 'function' &&
+    !Capacitor.isPluginAvailable('NotificationReliability')
+  ) {
+    return null;
+  }
+  return reliabilityPlugin;
+};
 
 export const normalizePermissionState = (raw) => {
   const value = String(raw?.display ?? raw?.receive ?? raw ?? '')
@@ -30,6 +51,26 @@ export const normalizePermissionState = (raw) => {
     return 'prompt';
   }
   return 'prompt';
+};
+
+export const normalizeExactAlarmState = (raw) => {
+  const value = String(raw?.exact_alarm ?? raw ?? '')
+    .trim()
+    .toLowerCase();
+  return value === 'granted' ? 'granted' : 'denied';
+};
+
+export const normalizeBackgroundHealthState = (raw) => {
+  const value = String(raw?.status ?? raw ?? '')
+    .trim()
+    .toLowerCase();
+  if (value === 'granted') {
+    return 'granted';
+  }
+  if (value === 'denied') {
+    return 'denied';
+  }
+  return 'unavailable';
 };
 
 export const isNotificationPlatform = () => isNative();
@@ -54,6 +95,51 @@ export const requestLocalNotificationPermission = async () => {
   const { LocalNotifications } = await loadLocalPluginModule();
   const result = await LocalNotifications.requestPermissions();
   return normalizePermissionState(result);
+};
+
+export const checkExactAlarmPermission = async () => {
+  if (!isNotificationPlatform()) {
+    return 'unavailable';
+  }
+  if (!isAndroid()) {
+    // iOS UNUserNotificationCenter triggers are exact by default.
+    return 'granted';
+  }
+  try {
+    const { LocalNotifications } = await loadLocalPluginModule();
+    if (
+      typeof LocalNotifications.checkExactNotificationSetting !== 'function'
+    ) {
+      return 'denied';
+    }
+    const result = await LocalNotifications.checkExactNotificationSetting();
+    return normalizeExactAlarmState(result);
+  } catch (error) {
+    console.warn('[Notifications] Exact alarm check failed:', error);
+    return 'denied';
+  }
+};
+
+export const openExactAlarmSettings = async () => {
+  if (!isNotificationPlatform()) {
+    return 'unavailable';
+  }
+  if (!isAndroid()) {
+    return 'granted';
+  }
+  try {
+    const { LocalNotifications } = await loadLocalPluginModule();
+    if (
+      typeof LocalNotifications.changeExactNotificationSetting !== 'function'
+    ) {
+      return checkExactAlarmPermission();
+    }
+    const result = await LocalNotifications.changeExactNotificationSetting();
+    return normalizeExactAlarmState(result);
+  } catch (error) {
+    console.warn('[Notifications] Could not open exact alarm settings:', error);
+    return checkExactAlarmPermission();
+  }
 };
 
 export const createNotificationChannels = async (channels = []) => {
@@ -92,8 +178,9 @@ export const scheduleLocalNotifications = async (notifications = []) => {
   }
   const { LocalNotifications } = await loadLocalPluginModule();
   // Capacitor 8 defaults `isExactNotification` to `true`, which launches the
-  // Android 12+ Alarms & Reminders permission screen when `SCHEDULE_EXACT_ALARM`
-  // is not declared. Enforce `false` unless a caller explicitly requests exact.
+  // Android 12+ Alarms & Reminders settings screen if permission is missing.
+  // Keep `false` as the safe default unless the caller explicitly verified
+  // exact-alarm permission and passed `isExactNotification: true`.
   const normalized = notifications.map((item) => ({
     ...item,
     isExactNotification: item?.isExactNotification ?? false,
@@ -133,6 +220,109 @@ export const addLocalNotificationActionListener = async (callback) => {
     'localNotificationActionPerformed',
     callback
   );
+};
+
+// ---------------------------------------------------------------------------
+// Native Reliability: Android Battery Optimization & Background Health Sync
+// ---------------------------------------------------------------------------
+
+export const checkBatteryOptimizationIgnored = async () => {
+  if (!isAndroid()) {
+    return null;
+  }
+  const plugin = getReliabilityPlugin();
+  if (typeof plugin?.isIgnoringBatteryOptimizations !== 'function') {
+    return null;
+  }
+  try {
+    const result = await plugin.isIgnoringBatteryOptimizations();
+    return typeof result?.ignoring === 'boolean' ? result.ignoring : null;
+  } catch (error) {
+    console.warn('[Notifications] Battery optimization check failed:', error);
+    return null;
+  }
+};
+
+export const openBatteryOptimizationSettings = async () => {
+  if (!isAndroid()) {
+    return false;
+  }
+  const plugin = getReliabilityPlugin();
+  if (typeof plugin?.openBatteryOptimizationSettings !== 'function') {
+    return false;
+  }
+  try {
+    const result = await plugin.openBatteryOptimizationSettings();
+    return Boolean(result?.opened);
+  } catch (error) {
+    console.warn('[Notifications] Could not open battery settings:', error);
+    return false;
+  }
+};
+
+export const checkHealthBackgroundPermission = async () => {
+  if (!isNotificationPlatform()) {
+    return 'unavailable';
+  }
+  const plugin = getReliabilityPlugin();
+  if (typeof plugin?.checkHealthBackgroundPermission !== 'function') {
+    return 'unavailable';
+  }
+  try {
+    const result = await plugin.checkHealthBackgroundPermission();
+    return normalizeBackgroundHealthState(result);
+  } catch (error) {
+    console.warn(
+      '[Notifications] Background health permission check failed:',
+      error
+    );
+    return 'unavailable';
+  }
+};
+
+export const requestHealthBackgroundPermission = async () => {
+  if (!isNotificationPlatform()) {
+    return 'unavailable';
+  }
+  const plugin = getReliabilityPlugin();
+  if (typeof plugin?.requestHealthBackgroundPermission !== 'function') {
+    return 'unavailable';
+  }
+  try {
+    const result = await plugin.requestHealthBackgroundPermission();
+    return normalizeBackgroundHealthState(result);
+  } catch (error) {
+    console.warn(
+      '[Notifications] Background health permission request failed:',
+      error
+    );
+    return 'denied';
+  }
+};
+
+export const syncBackgroundWorkoutContext = async (payload) => {
+  if (!isNotificationPlatform()) {
+    return { scheduled: false, backgroundPermission: 'unavailable' };
+  }
+  const plugin = getReliabilityPlugin();
+  if (typeof plugin?.syncBackgroundWorkoutContext !== 'function') {
+    return { scheduled: false, backgroundPermission: 'unavailable' };
+  }
+  try {
+    const result = await plugin.syncBackgroundWorkoutContext(payload);
+    return {
+      scheduled: Boolean(result?.scheduled),
+      backgroundPermission: normalizeBackgroundHealthState(
+        result?.backgroundPermission
+      ),
+    };
+  } catch (error) {
+    console.warn(
+      '[Notifications] Background workout sync context update failed:',
+      error
+    );
+    return { scheduled: false, backgroundPermission: 'unavailable' };
+  }
 };
 
 // ---------------------------------------------------------------------------
