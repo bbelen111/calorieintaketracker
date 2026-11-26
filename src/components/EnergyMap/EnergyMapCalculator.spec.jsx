@@ -905,6 +905,27 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
           .closest('.modal-overlay-wrapper').style.zIndex
       );
 
+    // A switch unmounts the outgoing tracker on a short timer
+    // (TRACKER_CROSSFADE_MS in the orchestrator). The "both mounted" queries
+    // below can outlast it on a busy machine, so that timer is held until the
+    // test releases it.
+    const CROSSFADE_MS = 220;
+    const realSetTimeout = globalThis.setTimeout.bind(globalThis);
+    const heldUnmounts = [];
+    vi.spyOn(globalThis, 'setTimeout').mockImplementation(
+      (callback, delay, ...args) => {
+        if (delay !== CROSSFADE_MS) {
+          return realSetTimeout(callback, delay, ...args);
+        }
+        heldUnmounts.push(callback);
+        return -1; // never a real timer's id
+      }
+    );
+    const finishCrossfade = () => {
+      expect(heldUnmounts, 'held crossfade timers').toHaveLength(1);
+      act(() => heldUnmounts.pop()());
+    };
+
     // Plain launch uses the default slide-up (no fade class).
     await tapTab(user, 'Insights');
     await user.click(
@@ -927,11 +948,10 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       getZIndex('Weight Tracker')
     );
 
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('heading', { name: 'Weight Tracker' })
-      ).toBeNull()
-    );
+    finishCrossfade();
+    expect(
+      screen.queryByRole('heading', { name: 'Weight Tracker' })
+    ).toBeNull();
     expect(getSheet('Body Fat Tracker')).toHaveClass('modal-content-fade');
 
     // Switch 2: Body Fat -> Weight. The outgoing Body Fat sheet MUST keep its
@@ -949,11 +969,10 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       getZIndex('Body Fat Tracker')
     );
 
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('heading', { name: 'Body Fat Tracker' })
-      ).toBeNull()
-    );
+    finishCrossfade();
+    expect(
+      screen.queryByRole('heading', { name: 'Body Fat Tracker' })
+    ).toBeNull();
 
     // Switch 3: Weight -> Body Fat. Outgoing Weight sheet likewise keeps fadeIn.
     await user.click(
@@ -968,11 +987,10 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
       getZIndex('Weight Tracker')
     );
 
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('heading', { name: 'Weight Tracker' })
-      ).toBeNull()
-    );
+    finishCrossfade();
+    expect(
+      screen.queryByRole('heading', { name: 'Weight Tracker' })
+    ).toBeNull();
 
     // Closing and re-opening normally restores the default slide-up.
     await user.click(screen.getByRole('button', { name: 'Back' }));
