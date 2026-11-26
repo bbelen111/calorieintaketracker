@@ -1,5 +1,10 @@
 /**
- * Pre-configured phase templates to help users get started quickly
+ * Pre-configured phase templates to help users get started quickly.
+ *
+ * A target-mode template's `goalType` is the goal its own plan lands in
+ * (`targetWeightChange` over `suggestedDuration`, classified by
+ * `resolveGoalForDailyDelta`); `tests/constants/phaseTemplates.test.js` keeps
+ * the label, the plan and the tips' pace from drifting apart again.
  */
 
 import { formatDateKeyLocal } from '../../utils/data/dateKeys.js';
@@ -13,10 +18,10 @@ export const PHASE_TEMPLATES = [
     defaultName: 'Bulk',
     creationMode: 'target',
     suggestedDuration: 90, // days
-    goalType: 'bulking',
+    goalType: 'aggressive_bulk', // +8 kg / 90 days = ~684 kcal/day
     targetWeightChange: +8, // kg
     tips: [
-      'Aim for 0.25-0.5 kg weight gain per week',
+      'Aim for 0.5-0.75 kg weight gain per week',
       'Focus on progressive overload in training',
       'Prioritize protein intake (2g per kg bodyweight)',
       'Track measurements beyond just weight',
@@ -30,7 +35,7 @@ export const PHASE_TEMPLATES = [
     defaultName: 'Cut',
     creationMode: 'target',
     suggestedDuration: 60, // days
-    goalType: 'cutting',
+    goalType: 'aggressive_cut', // -5 kg / 60 days = ~642 kcal/day
     targetWeightChange: -5, // kg
     tips: [
       'Aim for 0.5-1% bodyweight loss per week',
@@ -81,7 +86,7 @@ export const PHASE_TEMPLATES = [
     defaultName: 'Mini Cut',
     creationMode: 'target',
     suggestedDuration: 21, // days
-    goalType: 'cutting',
+    goalType: 'aggressive_cut', // -2 kg / 21 days = ~733 kcal/day
     targetWeightChange: -2, // kg
     tips: [
       '2-4 week aggressive deficit',

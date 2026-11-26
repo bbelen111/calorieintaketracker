@@ -10,6 +10,7 @@ import {
   calculateTrainingSessionCalories,
   getTotalCardioBurnForDate,
   getTotalTrainingBurnForDate,
+  isGoalKey,
   resolveGoalCalorieDelta,
 } from '../utils/calculations/calculations.js';
 import { deriveTargetCreationModePayload } from '../utils/calculations/phaseTargetPlanning.js';
@@ -36,6 +37,7 @@ import {
   areDailySnapshotsEquivalent,
   buildDailySnapshot,
   getPreviousDateKey,
+  reconcileSnapshotGoalsWithPhases,
 } from '../utils/calculations/dailySnapshots.js';
 import {
   PHASE_STATUS,
@@ -355,20 +357,78 @@ const getCachedNormalizedPhaseLogV2 = (phaseLogV2) => {
   return normalized;
 };
 
+/**
+ * While a phase is active it sets the goal ("Set by your phase"), so its goal
+ * type IS `selectedGoal`. Every reader of the goal - the Home tile's label,
+ * today's snapshot (`goalAtSnapshot`), Staged AT, goal verdicts, ledger
+ * streaks - then agrees with the phase and with the delta it applies. Without
+ * this a bulk phase started from Maintenance read "Maintenance, +692 kcal
+ * surplus", and a goal-mode phase never applied its goal at all (the lock then
+ * kept the user from fixing it). Enforced here because every write (actions,
+ * hydration, import) passes through it; an unknown goal type is left alone.
+ * When the phase ends, its goal stays selected and the lock lifts.
+ */
+const syncSelectedGoalToActivePhase = (userData, phaseLogV2) => {
+  const activePhaseId = phaseLogV2?.activePhaseId;
+  const activePhase =
+    activePhaseId != null ? phaseLogV2.phasesById?.[activePhaseId] : null;
+  if (activePhase?.status !== PHASE_STATUS.ACTIVE) {
+    return userData;
+  }
+
+  const goalKey = activePhase.goalType;
+  if (!isGoalKey(goalKey) || goalKey === userData?.selectedGoal) {
+    return userData;
+  }
+
+  return { ...userData, selectedGoal: goalKey, goalChangedAt: Date.now() };
+};
+
 const normalizePhaseStateForUserData = (userData) => {
   const normalizedPhaseLogV2 = getCachedNormalizedPhaseLogV2(
     userData?.phaseLogV2
   );
 
-  if (userData?.phaseLogV2 === normalizedPhaseLogV2) {
-    return userData;
-  }
+  const withPhaseLog =
+    userData?.phaseLogV2 === normalizedPhaseLogV2
+      ? userData
+      : { ...userData, phaseLogV2: normalizedPhaseLogV2 };
 
-  const { ...rest } = userData;
-  return {
-    ...rest,
-    phaseLogV2: normalizedPhaseLogV2,
-  };
+  return syncSelectedGoalToActivePhase(withPhaseLog, normalizedPhaseLogV2);
+};
+
+/**
+ * Hydration / import: the per-write phase normalization, plus the history
+ * repair for days recorded before the goal followed the phase (see
+ * `reconcileSnapshotGoalsWithPhases`). Load-time only: it scans every
+ * snapshot, which the per-write path must never do.
+ */
+const normalizeLoadedUserData = (data) => {
+  const userData = normalizePhaseStateForUserData(data);
+  const dailySnapshots = reconcileSnapshotGoalsWithPhases(
+    userData.dailySnapshots,
+    Object.values(userData.phaseLogV2?.phasesById ?? {})
+  );
+
+  return dailySnapshots === userData.dailySnapshots
+    ? userData
+    : { ...userData, dailySnapshots };
+};
+
+/**
+ * After hydration / import: seed yesterday + today when missing, and rebuild
+ * today outright when loading moved the goal (today follows the live goal).
+ */
+const seedSnapshotsAfterLoad = (get, { goalChanged }) => {
+  const todayDateKey = getTodayDateKey();
+  const previousDateKey = getPreviousDateKey(todayDateKey);
+  if (previousDateKey) {
+    get().upsertDailySnapshot(previousDateKey, { onlyIfMissing: true });
+  }
+  get().upsertDailySnapshot(
+    todayDateKey,
+    goalChanged ? undefined : { onlyIfMissing: true }
+  );
 };
 
 const buildPhaseViewFromV2 = (phaseLogV2) => {
@@ -682,19 +742,16 @@ export const useEnergyMapStore = createWithEqualityFn(
         return;
       }
       const data = await loadEnergyMapData();
-      const nextUserData = normalizePhaseStateForUserData(data);
+      const nextUserData = normalizeLoadedUserData(data);
       set({
         userData: nextUserData,
         ...deriveState(nextUserData),
         isLoaded: true,
       });
 
-      const todayDateKey = getTodayDateKey();
-      const previousDateKey = getPreviousDateKey(todayDateKey);
-      if (previousDateKey) {
-        get().upsertDailySnapshot(previousDateKey, { onlyIfMissing: true });
-      }
-      get().upsertDailySnapshot(todayDateKey, { onlyIfMissing: true });
+      seedSnapshotsAfterLoad(get, {
+        goalChanged: nextUserData.selectedGoal !== data?.selectedGoal,
+      });
     },
 
     /**
@@ -722,15 +779,12 @@ export const useEnergyMapStore = createWithEqualityFn(
         return false;
       }
 
-      const nextUserData = normalizePhaseStateForUserData(persisted);
+      const nextUserData = normalizeLoadedUserData(persisted);
       set({ userData: nextUserData, ...deriveState(nextUserData) });
 
-      const todayDateKey = getTodayDateKey();
-      const previousDateKey = getPreviousDateKey(todayDateKey);
-      if (previousDateKey) {
-        get().upsertDailySnapshot(previousDateKey, { onlyIfMissing: true });
-      }
-      get().upsertDailySnapshot(todayDateKey, { onlyIfMissing: true });
+      seedSnapshotsAfterLoad(get, {
+        goalChanged: nextUserData.selectedGoal !== persisted?.selectedGoal,
+      });
       return true;
     },
 
@@ -1785,9 +1839,15 @@ export const useEnergyMapStore = createWithEqualityFn(
         name: phaseData.name || 'New Phase',
         startDate: phaseData.startDate,
         endDate: phaseData.endDate || null,
+        // A target phase's goal is the goal of the delta stored below
+        // (`resolveGoalForDailyDelta`; phase normalization re-derives it from
+        // the plan too), so the goal it selects (see
+        // `syncSelectedGoalToActivePhase`) can never contradict that delta.
         goalType:
+          (creationMode === 'target'
+            ? targetPayload?.recommendedGoalType
+            : null) ||
           phaseData.goalType ||
-          targetPayload?.recommendedGoalType ||
           'maintenance',
         creationMode,
         targetMetric,

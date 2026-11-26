@@ -288,7 +288,7 @@ describe('GoalPlanCard', () => {
     });
     const startRow = screen.getByTestId('goal-plan-phase-start');
     expect(startRow).toHaveTextContent('Target: 14.5% BF');
-    expect(startRow).toHaveTextContent('Target +0.25-0.5 kg/wk');
+    expect(startRow).toHaveTextContent('Target +0.25-0.45 kg/wk');
     expect(screen.getByTestId('goal-plan-phase-current')).toHaveTextContent(
       'Current +0.05 kg/wk · Off track'
     );

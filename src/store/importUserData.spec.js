@@ -39,6 +39,7 @@ vi.mock('../utils/data/historyDatabase.js', () => ({
 import { useEnergyMapStore } from './useEnergyMapStore';
 import { getDefaultEnergyMapData } from '../utils/data/storage';
 import { resetPersistenceTracking } from '../utils/data/storage';
+import { formatDateKeyLocal, getTodayDateKey } from '../utils/data/dateKeys';
 
 const INITIAL_STORE = useEnergyMapStore.getInitialState();
 const get = () => useEnergyMapStore.getState();
@@ -146,6 +147,71 @@ describe('importUserData', () => {
     expect(applied).toBe(false);
     expect(get().userData).toBe(before);
     expect(get().userData.age).toBe(29);
+  });
+
+  it('repairs a file whose active phase never set (or mislabelled) the goal', async () => {
+    const shiftDays = (days) => {
+      const date = new Date();
+      date.setDate(date.getDate() + days);
+      return formatDateKeyLocal(date);
+    };
+    const today = getTodayDateKey();
+    const yesterday = shiftDays(-1);
+    const before = shiftDays(-10);
+    const phase = {
+      id: 42,
+      name: 'Bulk',
+      startDate: shiftDays(-3),
+      endDate: shiftDays(87),
+      goalType: 'bulking',
+      creationMode: 'target',
+      targetWeight: 82,
+      smartCaloriePlan: { requiredDailyDeltaCalories: 692 },
+      startingWeight: 74,
+      status: 'active',
+    };
+    const snapshot = (goalAtSnapshot, goalTarget) => ({
+      goalAtSnapshot,
+      goalTarget,
+      tdee: 2600,
+      intake: 3200,
+      deficit: -600,
+    });
+    seedCurrent();
+
+    // An export from a build where the goal stayed Maintenance under the phase
+    // and the +692 kcal/day plan was saved as a Lean Bulk.
+    await get().importUserData({
+      ...getDefaultEnergyMapData(),
+      selectedGoal: 'maintenance',
+      phaseGoalCalorieDelta: 692,
+      phaseGoalCalorieDeltaSourcePhaseId: 42,
+      phaseLogV2: {
+        version: 2,
+        phasesById: { 42: phase },
+        phaseOrder: [42],
+        activePhaseId: 42,
+      },
+      dailySnapshots: {
+        [before]: snapshot('maintenance', 0),
+        [yesterday]: snapshot('maintenance', -692),
+        [today]: snapshot('maintenance', -692),
+      },
+    });
+
+    const { userData, goalDailyBalanceTarget, phases } = get();
+    expect(phases[0].goalType).toBe('aggressive_bulk');
+    expect(userData.selectedGoal).toBe('aggressive_bulk');
+    expect(goalDailyBalanceTarget).toBe(-692);
+    // The phase's days get its goal; the day before the phase keeps its own.
+    expect(userData.dailySnapshots[yesterday].goalAtSnapshot).toBe(
+      'aggressive_bulk'
+    );
+    expect(userData.dailySnapshots[today]).toMatchObject({
+      goalAtSnapshot: 'aggressive_bulk',
+      goalTarget: -692,
+    });
+    expect(userData.dailySnapshots[before].goalAtSnapshot).toBe('maintenance');
   });
 
   it('seeds today’s snapshot so the header is not empty after an import', async () => {

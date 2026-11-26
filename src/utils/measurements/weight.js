@@ -1,5 +1,6 @@
 import { buildBezierPaths } from '../visuals/bezierPath.js';
 import { getTodayDateKey, getWindowDateKeys } from '../data/dateKeys.js';
+import { getTrendLabelThresholds } from '../../constants/goals/goalDefinitions.js';
 
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MS_PER_DAY = 86_400_000;
@@ -112,23 +113,27 @@ export const formatDateLabel = (dateKey, options) => {
   return formatter.format(date);
 };
 
+// Label edges come from the goal table (`getTrendLabelThresholds`).
+const TREND_LABEL_THRESHOLDS = getTrendLabelThresholds('weight');
+
 const resolveTrendLabel = (weeklyRate) => {
+  const { stable, gradual, moderate, aggressive } = TREND_LABEL_THRESHOLDS;
   const absRate = Math.abs(weeklyRate);
 
-  if (absRate < 0.1) {
+  if (absRate < stable) {
     return 'Stable';
   }
 
   if (weeklyRate < 0) {
-    if (weeklyRate <= -1.2) return 'Severe weight loss';
-    if (weeklyRate <= -0.8) return 'Aggressive weight loss';
-    if (weeklyRate <= -0.45) return 'Moderate weight loss';
+    if (weeklyRate <= -aggressive) return 'Severe weight loss';
+    if (weeklyRate <= -moderate) return 'Aggressive weight loss';
+    if (weeklyRate <= -gradual) return 'Moderate weight loss';
     return 'Gradual weight loss';
   }
 
-  if (weeklyRate >= 1.2) return 'Severe weight gain';
-  if (weeklyRate >= 0.8) return 'Aggressive weight gain';
-  if (weeklyRate >= 0.45) return 'Moderate weight gain';
+  if (weeklyRate >= aggressive) return 'Severe weight gain';
+  if (weeklyRate >= moderate) return 'Aggressive weight gain';
+  if (weeklyRate >= gradual) return 'Moderate weight gain';
   return 'Gradual weight gain';
 };
 

@@ -3,6 +3,10 @@ import {
   DEFAULT_ACTIVITY_MULTIPLIERS,
 } from '../../constants/activity/activityPresets.js';
 import {
+  GOAL_DEFINITIONS,
+  isGoalKey,
+} from '../../constants/goals/goalDefinitions.js';
+import {
   getStepCaloriesDetails,
   getStepDetails,
   getStepOverlapFromCardioSessions,
@@ -1148,13 +1152,7 @@ export const calculateCalorieBreakdown = ({
 export const calculateTDEE = (options) =>
   calculateCalorieBreakdown(options).total;
 
-const GOAL_CALORIE_DELTA_BY_KEY = Object.freeze({
-  aggressive_bulk: 500,
-  bulking: 300,
-  maintenance: 0,
-  cutting: -300,
-  aggressive_cut: -500,
-});
+export { isGoalKey };
 
 export const resolveGoalCalorieDelta = (goal, deltaOverride = null) => {
   if (deltaOverride != null) {
@@ -1167,8 +1165,9 @@ export const resolveGoalCalorieDelta = (goal, deltaOverride = null) => {
   }
 
   const normalizedGoal = String(goal ?? '').trim();
-  const defaultDelta = GOAL_CALORIE_DELTA_BY_KEY[normalizedGoal];
-  return Number.isFinite(defaultDelta) ? defaultDelta : 0;
+  return isGoalKey(normalizedGoal)
+    ? GOAL_DEFINITIONS[normalizedGoal].calorieDelta
+    : 0;
 };
 
 export const calculateGoalCalories = (tdee, goal, deltaOverride = null) => {

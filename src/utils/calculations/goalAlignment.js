@@ -3,6 +3,12 @@
  * Colors represent how "on track" progress is relative to the selected goal
  */
 
+import {
+  GOAL_KEYS,
+  getGoalDirectionThreshold,
+  getGoalRateBand,
+} from '../../constants/goals/goalDefinitions.js';
+
 const GOAL_ALIGNMENT_PALETTE = {
   neutral: {
     color: 'rgb(var(--accent-blue))',
@@ -68,6 +74,37 @@ export const hasTrendData = (trend) =>
   trend.label !== 'No data yet' &&
   trend.label !== 'Need more data';
 
+// Signed weekly-rate expectations per goal and metric, built from the goal
+// table so this colour system, the verdict text and the "Goal:" labels judge
+// by the same bands (weight bands are also tied to the goal's calories).
+const buildExpectations = (metricType) =>
+  Object.freeze(
+    Object.fromEntries(
+      GOAL_KEYS.map((key) => {
+        const { min, max, direction } = getGoalRateBand(key, metricType);
+        if (direction === 'flat') {
+          return [key, { min: -max, max, direction, idealMid: 0 }];
+        }
+        const sign = direction === 'down' ? -1 : 1;
+        const [low, high] = [sign * min, sign * max].sort((a, b) => a - b);
+        return [
+          key,
+          {
+            min: low,
+            max: high,
+            direction,
+            idealMid: (sign * (min + max)) / 2,
+          },
+        ];
+      })
+    )
+  );
+
+const GOAL_EXPECTATIONS = Object.freeze({
+  weight: buildExpectations('weight'),
+  bodyFat: buildExpectations('bodyFat'),
+});
+
 /**
  * Calculate how aligned the actual weekly rate is with the goal's expectations
  * @param {number} weeklyRate - The actual weekly rate (kg/wk or %/wk)
@@ -80,40 +117,10 @@ export const calculateGoalAlignment = (
   selectedGoal,
   metricType = 'weight'
 ) => {
-  // Goal expectations in terms of weekly rates
-  const goalExpectations = {
-    aggressive_bulk: {
-      min: metricType === 'weight' ? 0.5 : 0.15,
-      max: metricType === 'weight' ? 1.0 : 0.3,
-      direction: 'up',
-      idealMid: metricType === 'weight' ? 0.75 : 0.225,
-    },
-    bulking: {
-      min: metricType === 'weight' ? 0.25 : 0.08,
-      max: metricType === 'weight' ? 0.5 : 0.15,
-      direction: 'up',
-      idealMid: metricType === 'weight' ? 0.375 : 0.115,
-    },
-    maintenance: {
-      min: -0.1,
-      max: 0.1,
-      direction: 'flat',
-      idealMid: 0,
-    },
-    cutting: {
-      min: metricType === 'weight' ? -0.5 : -0.15,
-      max: metricType === 'weight' ? -0.25 : -0.08,
-      direction: 'down',
-      idealMid: metricType === 'weight' ? -0.375 : -0.115,
-    },
-    aggressive_cut: {
-      min: metricType === 'weight' ? -1.0 : -0.3,
-      max: metricType === 'weight' ? -0.5 : -0.15,
-      direction: 'down',
-      idealMid: metricType === 'weight' ? -0.75 : -0.225,
-    },
-  };
-
+  const goalExpectations =
+    metricType === 'bodyFat'
+      ? GOAL_EXPECTATIONS.bodyFat
+      : GOAL_EXPECTATIONS.weight;
   const expectation =
     goalExpectations[selectedGoal] || goalExpectations.maintenance;
 
@@ -130,10 +137,12 @@ export const calculateGoalAlignment = (
 
   const absRate = Math.abs(weeklyRate);
 
-  // Determine actual direction
+  // Determine actual direction (flat below the slowest band, so a rate inside
+  // a goal's own band is never read as going the wrong way)
+  const flatBelow = getGoalDirectionThreshold(metricType);
   let actualDirection = 'flat';
-  if (weeklyRate < -0.1) actualDirection = 'down';
-  else if (weeklyRate > 0.1) actualDirection = 'up';
+  if (weeklyRate < -flatBelow) actualDirection = 'down';
+  else if (weeklyRate > flatBelow) actualDirection = 'up';
 
   // Check if direction matches goal (most critical alignment factor)
   const directionMatches =
@@ -142,7 +151,7 @@ export const calculateGoalAlignment = (
 
   // For maintenance, check if within tolerance
   if (expectation.direction === 'flat') {
-    if (absRate <= 0.1) {
+    if (absRate <= expectation.max) {
       return buildAlignmentResult(
         'perfect',
         'success',

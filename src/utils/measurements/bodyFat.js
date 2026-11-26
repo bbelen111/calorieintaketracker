@@ -5,6 +5,7 @@ import {
   MAX_TREND_FALLBACK_SPAN_DAYS,
 } from './weight.js';
 import { getTodayDateKey } from '../data/dateKeys.js';
+import { getTrendLabelThresholds } from '../../constants/goals/goalDefinitions.js';
 
 const MS_PER_DAY = 86_400_000;
 
@@ -69,23 +70,28 @@ const getDateFromKey = (dateKey) => {
   return date;
 };
 
+// Label edges are sized from the goal table's body-fat bands (Lean Bulk is
+// 0.08-0.15 %/wk), not the weight numbers this used to reuse.
+const TREND_LABEL_THRESHOLDS = getTrendLabelThresholds('bodyFat');
+
 const resolveTrendLabel = (weeklyRate) => {
+  const { stable, gradual, moderate, aggressive } = TREND_LABEL_THRESHOLDS;
   const absRate = Math.abs(weeklyRate);
 
-  if (absRate < 0.1) {
+  if (absRate < stable) {
     return 'Stable';
   }
 
   if (weeklyRate < 0) {
-    if (weeklyRate <= -1.2) return 'Severe body fat loss';
-    if (weeklyRate <= -0.8) return 'Aggressive body fat loss';
-    if (weeklyRate <= -0.45) return 'Moderate body fat loss';
+    if (weeklyRate <= -aggressive) return 'Severe body fat loss';
+    if (weeklyRate <= -moderate) return 'Aggressive body fat loss';
+    if (weeklyRate <= -gradual) return 'Moderate body fat loss';
     return 'Gradual body fat loss';
   }
 
-  if (weeklyRate >= 1.2) return 'Severe body fat gain';
-  if (weeklyRate >= 0.8) return 'Aggressive body fat gain';
-  if (weeklyRate >= 0.45) return 'Moderate body fat gain';
+  if (weeklyRate >= aggressive) return 'Severe body fat gain';
+  if (weeklyRate >= moderate) return 'Aggressive body fat gain';
+  if (weeklyRate >= gradual) return 'Moderate body fat gain';
   return 'Gradual body fat gain';
 };
 

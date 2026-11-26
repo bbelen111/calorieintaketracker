@@ -20,7 +20,8 @@ test('estimateRequiredDailyEnergyDelta calculates deficit for weight-loss target
 
   assert.ok(result);
   assert.equal(result.targetMetric, 'weight');
-  assert.equal(result.recommendedGoalType, 'cutting');
+  // -3 kg in 30 days = -770 kcal/day: past the -500 aggressive edge.
+  assert.equal(result.recommendedGoalType, 'aggressive_cut');
   assert.ok(result.requiredDailyDeltaCalories < 0);
   assert.equal(result.aggressivenessBand, 'strict');
 });
@@ -114,7 +115,7 @@ test('estimateRequiredDailyEnergyDelta still blocks overly aggressive timelines'
 
   assert.ok(result);
   assert.equal(result.targetMetric, 'weight');
-  assert.equal(result.recommendedGoalType, 'cutting');
+  assert.equal(result.recommendedGoalType, 'aggressive_cut');
   assert.equal(result.aggressivenessBand, 'blocked');
 });
 
@@ -128,7 +129,7 @@ test('estimateRequiredDailyEnergyDelta classifies reasonable bulking pace as str
 
   assert.ok(result);
   assert.equal(result.targetMetric, 'weight');
-  assert.equal(result.recommendedGoalType, 'bulking');
+  assert.equal(result.recommendedGoalType, 'aggressive_bulk');
   assert.ok(result.requiredDailyDeltaCalories > 0);
   assert.ok(
     result.aggressivenessBand === 'strict' ||
@@ -146,7 +147,7 @@ test('estimateRequiredDailyEnergyDelta blocks extremely aggressive bulking timel
 
   assert.ok(result);
   assert.equal(result.targetMetric, 'weight');
-  assert.equal(result.recommendedGoalType, 'bulking');
+  assert.equal(result.recommendedGoalType, 'aggressive_bulk');
   assert.equal(result.aggressivenessBand, 'blocked');
 });
 

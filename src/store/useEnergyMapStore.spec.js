@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useEnergyMapStore } from './useEnergyMapStore';
-import { getTodayDateKey } from '../utils/data/dateKeys';
+import { formatDateKeyLocal, getTodayDateKey } from '../utils/data/dateKeys';
 import { getNutritionTotalsForDate } from '../utils/phases/phases';
 import { clampCustomActivityMultiplier } from '../constants/activity/activityPresets';
 
@@ -36,6 +36,10 @@ const get = () => useEnergyMapStore.getState();
 
 beforeEach(() => {
   useEnergyMapStore.setState(INITIAL_STATE);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('store - addFoodEntry', () => {
@@ -340,6 +344,135 @@ describe('store - createPhase', () => {
     expect(phaseGoalCalorieDelta).toBe(-205);
     // The Home goal card reads the target from the phase view.
     expect(get().phases.at(-1).targetBodyFat).toBe(17);
+  });
+});
+
+describe('store - the active phase sets the goal', () => {
+  const shiftDays = (days) => {
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    return formatDateKeyLocal(date);
+  };
+
+  const seedWeight = (weight) => {
+    const weightEntries = [{ date: TODAY, weight }];
+    useEnergyMapStore.setState({
+      weightEntries,
+      userData: { ...get().userData, weightEntries },
+    });
+  };
+
+  it('a +684 kcal/day bulk phase started from Maintenance selects Aggressive Bulk', () => {
+    get().setSelectedGoal('maintenance', 1_700_000_000_000);
+    seedWeight(74);
+
+    get().createPhase({
+      name: 'Bulk',
+      startDate: TODAY,
+      endDate: shiftDays(90),
+      creationMode: 'target',
+      targetWeight: 82,
+      targetBodyFat: null,
+    });
+
+    const { userData, goalDailyBalanceTarget, isGoalLockedByActivePhase } =
+      get();
+    const delta = userData.phaseGoalCalorieDelta;
+    // +8 kg in 90 days.
+    expect(delta).toBe(684);
+    // The goal and the delta in force agree: not "Maintenance, +692 surplus",
+    // and not "Lean Bulk" either (that is +300; Aggressive starts at +500).
+    expect(userData.selectedGoal).toBe('aggressive_bulk');
+    expect(userData.goalChangedAt).not.toBe(1_700_000_000_000);
+    expect(goalDailyBalanceTarget).toBe(-delta);
+    expect(isGoalLockedByActivePhase).toBe(true);
+    // Today's record carries the same goal as its target.
+    expect(userData.dailySnapshots[TODAY]).toMatchObject({
+      goalAtSnapshot: 'aggressive_bulk',
+      goalTarget: -delta,
+    });
+  });
+
+  it('a target phase takes its goal from the delta it stores, not the caller', () => {
+    seedWeight(74);
+
+    get().createPhase({
+      name: 'Cut',
+      startDate: TODAY,
+      endDate: shiftDays(60),
+      creationMode: 'target',
+      // A stale draft value must not contradict the planned deficit.
+      goalType: 'bulking',
+      // -2 kg in 60 days = -257 kcal/day: a Moderate Cut.
+      targetWeight: 72,
+    });
+
+    expect(get().userData.phaseGoalCalorieDelta).toBeLessThan(0);
+    expect(get().userData.selectedGoal).toBe('cutting');
+    expect(get().phases.at(-1).goalType).toBe('cutting');
+  });
+
+  it('a goal-mode phase applies its goal (it used to leave the old one locked in)', () => {
+    get().setSelectedGoal('maintenance');
+
+    get().createPhase({
+      name: 'Cut',
+      startDate: TODAY,
+      creationMode: 'goal',
+      goalType: 'cutting',
+    });
+
+    expect(get().userData.selectedGoal).toBe('cutting');
+    expect(get().goalDailyBalanceTarget).toBe(300);
+    expect(get().userData.dailySnapshots[TODAY]?.goalAtSnapshot).toBe(
+      'cutting'
+    );
+  });
+
+  it('switching phases follows the new phase; ending one keeps its goal and unlocks', () => {
+    const cutId = get().createPhase({
+      name: 'Cut',
+      startDate: TODAY,
+      creationMode: 'goal',
+      goalType: 'aggressive_cut',
+    });
+    // Distinct ids (they are Date.now()-based).
+    const bulkId = cutId + 1;
+    vi.spyOn(Date, 'now').mockReturnValueOnce(bulkId);
+    get().createPhase({
+      name: 'Bulk',
+      startDate: TODAY,
+      creationMode: 'goal',
+      goalType: 'aggressive_bulk',
+    });
+    expect(get().userData.selectedGoal).toBe('aggressive_bulk');
+
+    get().setActivePhase(cutId);
+    expect(get().userData.selectedGoal).toBe('aggressive_cut');
+
+    get().setActivePhase(null);
+    expect(get().userData.selectedGoal).toBe('aggressive_cut');
+    expect(get().isGoalLockedByActivePhase).toBe(false);
+    get().setSelectedGoal('maintenance');
+    expect(get().userData.selectedGoal).toBe('maintenance');
+  });
+
+  it('a goal that drifted from the active phase is put back on the next write', () => {
+    get().createPhase({
+      name: 'Bulk',
+      startDate: TODAY,
+      creationMode: 'goal',
+      goalType: 'bulking',
+    });
+    // State saved by an older build: phase active, goal never followed it.
+    useEnergyMapStore.setState({
+      userData: { ...get().userData, selectedGoal: 'maintenance' },
+    });
+
+    get().markSwipeHintSeen();
+
+    expect(get().userData.selectedGoal).toBe('bulking');
+    expect(get().selectedGoal).toBe('bulking');
   });
 });
 

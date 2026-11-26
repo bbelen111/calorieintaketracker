@@ -3,6 +3,7 @@ import {
   buildTefContextForMode,
   calculateBMR,
   calculateGoalSeededBreakdown,
+  isGoalKey,
   resolveGoalCalorieDelta,
 } from './calculations.js';
 import { getTodayDateKey } from '../data/dateKeys.js';
@@ -13,14 +14,6 @@ import {
   NUTRIENT_KEYS,
   normalizeNutrientValue,
 } from '../../constants/nutrients/nutrients.js';
-
-const GOAL_KEYS = new Set([
-  'aggressive_bulk',
-  'bulking',
-  'maintenance',
-  'cutting',
-  'aggressive_cut',
-]);
 
 /** The day's heart-rate entry projected onto flat snapshot fields. */
 export const buildSnapshotHeartRateFields = (heartRateEntries, dateKey) => {
@@ -39,7 +32,7 @@ export const buildSnapshotHeartRateFields = (heartRateEntries, dateKey) => {
 
 const normalizeSelectedGoal = (value, fallback = 'maintenance') => {
   const normalized = String(value ?? '').trim();
-  return GOAL_KEYS.has(normalized) ? normalized : fallback;
+  return isGoalKey(normalized) ? normalized : fallback;
 };
 
 const isFiniteNumber = (value) =>
@@ -71,10 +64,90 @@ export const resolveSnapshotGoalTarget = (snapshot) => {
     };
   }
   const goal = String(snapshot.goalAtSnapshot ?? '').trim();
-  if (GOAL_KEYS.has(goal)) {
+  if (isGoalKey(goal)) {
     return { target: 0 - resolveGoalCalorieDelta(goal), source: 'nominal' };
   }
   return null;
+};
+
+/**
+ * Repairs history written while a target-mode phase applied its smart delta
+ * but `selectedGoal` still held the goal from before the phase, so a bulk day
+ * was recorded as "maintenance" with a +692 kcal target (the goal now follows
+ * the phase; this fixes the days recorded before it did). A day is relabelled
+ * with its phase's goal only on proof: it falls inside the phase's dates, its
+ * recorded `goalTarget` is exactly the phase's planned delta, and its recorded
+ * goal's own nominal delta does not explain that target. Legacy snapshots
+ * without a target, goal-mode phases and coincidental matches keep their
+ * record. Only `goalAtSnapshot` changes; the target and every number stay.
+ *
+ * @param {Object<string, object>} snapshots - `dailySnapshots`
+ * @param {object[]} phases - normalized phase records
+ * @returns {Object<string, object>} the same object when nothing needed repair
+ */
+export const reconcileSnapshotGoalsWithPhases = (snapshots, phases) => {
+  if (!snapshots || typeof snapshots !== 'object' || !Array.isArray(phases)) {
+    return snapshots;
+  }
+
+  const plans = phases
+    .map((phase) => {
+      const goalType = String(phase?.goalType ?? '').trim();
+      const delta = Number(phase?.smartCaloriePlan?.requiredDailyDeltaCalories);
+      const startDate = normalizeDateKey(phase?.startDate);
+      if (
+        phase?.creationMode !== 'target' ||
+        !isGoalKey(goalType) ||
+        !startDate ||
+        !Number.isFinite(delta) ||
+        Math.round(delta) === 0
+      ) {
+        return null;
+      }
+      return {
+        goalType,
+        target: 0 - Math.round(delta),
+        startDate,
+        endDate: normalizeDateKey(phase?.endDate),
+      };
+    })
+    .filter(Boolean);
+
+  if (plans.length === 0) {
+    return snapshots;
+  }
+
+  let repaired = null;
+  Object.entries(snapshots).forEach(([dateKey, snapshot]) => {
+    if (!snapshot || !isFiniteNumber(snapshot.goalTarget)) {
+      return;
+    }
+    const target = Math.round(Number(snapshot.goalTarget));
+    const recordedGoal = String(snapshot.goalAtSnapshot ?? '').trim();
+    if (
+      isGoalKey(recordedGoal) &&
+      0 - resolveGoalCalorieDelta(recordedGoal) === target
+    ) {
+      return;
+    }
+
+    const plan = plans.find(
+      (candidate) =>
+        candidate.target === target &&
+        dateKey >= candidate.startDate &&
+        (!candidate.endDate || dateKey <= candidate.endDate)
+    );
+    if (!plan || plan.goalType === recordedGoal) {
+      return;
+    }
+
+    if (!repaired) {
+      repaired = { ...snapshots };
+    }
+    repaired[dateKey] = { ...snapshot, goalAtSnapshot: plan.goalType };
+  });
+
+  return repaired ?? snapshots;
 };
 
 const toDateKeyFromDate = (date) => {
@@ -208,7 +281,7 @@ export const buildDailySnapshot = ({
   const keepsRecordedGoal =
     Boolean(existingSnapshot) &&
     normalizedDateKey < todayKey &&
-    GOAL_KEYS.has(recordedGoal);
+    isGoalKey(recordedGoal);
   const resolvedGoalKey = goalKey ?? userData?.selectedGoal;
   const goalTarget = keepsRecordedGoal
     ? isFiniteNumber(existingSnapshot.goalTarget)

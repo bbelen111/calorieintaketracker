@@ -75,7 +75,7 @@ export const TemplatePickerModal = ({
                       </span>
                       <span>{template.suggestedDuration} days</span>
                       <span>•</span>
-                      <span className="capitalize">{template.goalType}</span>
+                      <span>{goalConfig.label}</span>
                     </div>
                   </div>
                   <div className="text-right shrink-0">

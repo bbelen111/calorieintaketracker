@@ -16,6 +16,11 @@ import {
   hasTrendData,
 } from '../../../../utils/calculations/goalAlignment';
 import { goals } from '../../../../constants/goals/goals';
+import { getGoalRateRangeText } from '../../../../utils/visuals/trackerHelpers';
+import { getTrendLabelThresholds } from '../../../../constants/goals/goalDefinitions';
+
+// The edges `calculateBodyFatTrend` labels by (sized from the body-fat bands).
+const TREND_THRESHOLDS = getTrendLabelThresholds('bodyFat');
 
 const TrendIcon = ({ direction }) => {
   if (direction === 'up') {
@@ -25,14 +30,6 @@ const TrendIcon = ({ direction }) => {
     return <TrendingDown size={20} />;
   }
   return <Minus size={20} />;
-};
-
-const BODY_FAT_GOAL_RANGES = {
-  aggressive_bulk: '+0.15 to +0.3 %/week',
-  bulking: '+0.08 to +0.15 %/week',
-  maintenance: '-0.1 to +0.1 %/week',
-  cutting: '-0.15 to -0.08 %/week',
-  aggressive_cut: '-0.3 to -0.15 %/week',
 };
 
 const getStatusVisual = (alignment) => {
@@ -131,8 +128,7 @@ export const BodyFatTrendInfoModal = ({
     'bodyFat'
   );
   const statusVisual = getStatusVisual(alignment.alignment);
-  const targetRate =
-    BODY_FAT_GOAL_RANGES[selectedGoal] || BODY_FAT_GOAL_RANGES.maintenance;
+  const targetRate = getGoalRateRangeText(selectedGoal, 'bodyFat');
 
   return (
     <ModalShell
@@ -290,31 +286,32 @@ export const BodyFatTrendInfoModal = ({
             <div className="flex items-center justify-between">
               <span className="text-muted">Stable</span>
               <span className="text-accent-blue font-semibold">
-                &lt; 0.1 %/week
+                &lt; {TREND_THRESHOLDS.stable} %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted">Gradual change</span>
               <span className="text-accent-green font-semibold">
-                0.1 - 0.45 %/week
+                {TREND_THRESHOLDS.stable} - {TREND_THRESHOLDS.gradual} %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted">Moderate change</span>
               <span className="text-accent-yellow font-semibold">
-                0.45 - 0.8 %/week
+                {TREND_THRESHOLDS.gradual} - {TREND_THRESHOLDS.moderate} %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted">Aggressive change</span>
               <span className="text-accent-orange font-semibold">
-                0.8 - 1.2 %/week
+                {TREND_THRESHOLDS.moderate} - {TREND_THRESHOLDS.aggressive}{' '}
+                %/week
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted">Severe change</span>
               <span className="text-accent-red font-semibold">
-                &gt; 1.2 %/week
+                &gt; {TREND_THRESHOLDS.aggressive} %/week
               </span>
             </div>
           </div>

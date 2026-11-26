@@ -1,11 +1,15 @@
 import { resolveGoalCalorieDelta } from './calculations.js';
+import {
+  KCAL_PER_KG_BODYWEIGHT,
+  resolveGoalForDailyDelta,
+} from '../../constants/goals/goalDefinitions.js';
 
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 // Practical approximation: ~7,700 kcal per kg of bodyweight change.
 // This assumes mixed tissue change (not pure fat-only change), so very lean
-// gain/loss phases may differ from this estimate.
-const KCAL_PER_KG_WEIGHT = 7700;
-const MAINTENANCE_DELTA_THRESHOLD = 100;
+// gain/loss phases may differ from this estimate. Shared with the goal table,
+// so a plan's goal and the goal's weekly-rate band use the same conversion.
+const KCAL_PER_KG_WEIGHT = KCAL_PER_KG_BODYWEIGHT;
 
 export const TARGET_METRICS = {
   WEIGHT: 'weight',
@@ -184,17 +188,6 @@ export const getAggressivenessBandDisplayLabel = ({
     : 'Aggressive pace';
 };
 
-const resolveGoalFromDelta = (requiredDailyDeltaCalories) => {
-  const delta = Number(requiredDailyDeltaCalories);
-  if (
-    !Number.isFinite(delta) ||
-    Math.abs(delta) < MAINTENANCE_DELTA_THRESHOLD
-  ) {
-    return 'maintenance';
-  }
-  return delta > 0 ? 'bulking' : 'cutting';
-};
-
 const resolveMetricEnergyDelta = ({
   startWeightKg,
   targetWeightKg,
@@ -273,7 +266,7 @@ const resolveMetricEnergyDelta = ({
  *  totalDeltaCalories: number,
  *  requiredDailyDeltaCalories: number,
  *  aggressivenessBand: 'strict' | 'lenient' | 'blocked',
- *  recommendedGoalType: 'bulking' | 'cutting' | 'maintenance',
+ *  recommendedGoalType: string, // a goal key (resolveGoalForDailyDelta)
  *  components: { weightDeltaKcal: number | null, bodyFatDeltaKcal: number | null },
  * }}
  */
@@ -332,7 +325,7 @@ export const estimateRequiredDailyEnergyDelta = ({
     totalDeltaCalories: Math.round(metricEnergyDelta.totalDeltaKcal),
     requiredDailyDeltaCalories: roundedDailyDeltaCalories,
     aggressivenessBand,
-    recommendedGoalType: resolveGoalFromDelta(roundedDailyDeltaCalories),
+    recommendedGoalType: resolveGoalForDailyDelta(roundedDailyDeltaCalories),
     components: metricEnergyDelta.components,
   };
 };
@@ -749,7 +742,7 @@ export const buildFeasibleDateBands = ({
  * @returns {null | {
  *  creationMode: 'target',
  *  targetMetric: 'weight' | 'bodyFat' | 'weight_and_body_fat',
- *  recommendedGoalType: 'bulking' | 'cutting' | 'maintenance',
+ *  recommendedGoalType: string, // a goal key (resolveGoalForDailyDelta)
  *  smartCaloriePlan: {
  *    requiredDailyDeltaCalories: number,
  *    totalDeltaCalories: number,

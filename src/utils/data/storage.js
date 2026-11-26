@@ -24,6 +24,7 @@ import {
   DEFAULT_ON_TARGET_TOLERANCE_KCAL,
   normalizeOnTargetTolerance,
 } from '../../constants/goals/onTarget.js';
+import { isGoalKey } from '../../constants/goals/goalDefinitions.js';
 import {
   DEFAULT_UNIT_PREFERENCES,
   normalizeUnitPreferences,
@@ -598,13 +599,6 @@ const SHARDED_HISTORY_FIELD_CONFIG = {
 const SHARDED_HISTORY_FIELDS = Object.keys(SHARDED_HISTORY_FIELD_CONFIG);
 
 const ACTIVITY_DAY_TYPES = ['training', 'rest'];
-const GOAL_KEYS = new Set([
-  'aggressive_bulk',
-  'bulking',
-  'maintenance',
-  'cutting',
-  'aggressive_cut',
-]);
 const MIN_EPOC_CARRYOVER_HOURS = 1;
 const MAX_EPOC_CARRYOVER_HOURS = 24;
 const ADAPTIVE_THERMOGENESIS_SMOOTHING_METHODS = new Set(['ema', 'sma']);
@@ -679,7 +673,7 @@ const parseJsonOrEmpty = (value) => {
 
 const normalizeSelectedGoal = (value, fallback = 'maintenance') => {
   const normalized = String(value ?? '').trim();
-  return GOAL_KEYS.has(normalized) ? normalized : fallback;
+  return isGoalKey(normalized) ? normalized : fallback;
 };
 
 const normalizeGoalChangedAt = (value, fallback = Date.now()) => {

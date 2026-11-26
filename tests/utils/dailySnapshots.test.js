@@ -5,6 +5,7 @@ import {
   areDailySnapshotsEquivalent,
   buildDailySnapshot,
   getPreviousDateKey,
+  reconcileSnapshotGoalsWithPhases,
   resolveSnapshotBreakdownContexts,
   resolveSnapshotGoalTarget,
 } from '../../src/utils/calculations/dailySnapshots.js';
@@ -471,4 +472,87 @@ test('resolveSnapshotGoalTarget: recorded wins, nominal is the legacy fallback, 
   assert.equal(resolveSnapshotGoalTarget({ goalTarget: null }), null);
   assert.equal(resolveSnapshotGoalTarget({ goalAtSnapshot: 'nonsense' }), null);
   assert.equal(resolveSnapshotGoalTarget(null), null);
+});
+
+// A target bulk phase (+692 kcal/day) started while the goal said maintenance.
+const bulkPhase = {
+  id: 1,
+  goalType: 'bulking',
+  creationMode: 'target',
+  startDate: '2026-11-20',
+  endDate: '2027-02-18',
+  smartCaloriePlan: { requiredDailyDeltaCalories: 692 },
+};
+const recorded = (goalAtSnapshot, goalTarget, extra = {}) => ({
+  goalAtSnapshot,
+  goalTarget,
+  tdee: 2600,
+  intake: 3200,
+  deficit: -600,
+  ...extra,
+});
+
+test('reconcileSnapshotGoalsWithPhases relabels days that recorded the phase delta under the old goal', () => {
+  const snapshots = {
+    '2026-11-21': recorded('maintenance', -692),
+    '2026-11-22': recorded('maintenance', -692, { updatedAt: 5 }),
+  };
+
+  const result = reconcileSnapshotGoalsWithPhases(snapshots, [bulkPhase]);
+
+  assert.notEqual(result, snapshots);
+  assert.equal(result['2026-11-21'].goalAtSnapshot, 'bulking');
+  // Only the goal changes: the target and every number stay as recorded.
+  assert.deepEqual(result['2026-11-22'], {
+    ...snapshots['2026-11-22'],
+    goalAtSnapshot: 'bulking',
+  });
+  assert.equal(snapshots['2026-11-21'].goalAtSnapshot, 'maintenance');
+});
+
+test('reconcileSnapshotGoalsWithPhases keeps every record it cannot prove wrong', () => {
+  const snapshots = {
+    // Before the phase's dates.
+    '2026-11-19': recorded('maintenance', -692),
+    // After the phase ended.
+    '2027-02-19': recorded('maintenance', -692),
+    // A day under the goal's own nominal target.
+    '2026-11-23': recorded('maintenance', 0),
+    // Legacy snapshot: no recorded target.
+    '2026-11-24': recorded('maintenance', null),
+    // Already right.
+    '2026-11-25': recorded('bulking', -692),
+    // A target nobody planned.
+    '2026-11-26': recorded('maintenance', -250),
+  };
+
+  assert.equal(
+    reconcileSnapshotGoalsWithPhases(snapshots, [bulkPhase]),
+    snapshots
+  );
+});
+
+test('reconcileSnapshotGoalsWithPhases: a nominal target its own goal explains is not proof', () => {
+  // A +500 plan classified as `bulking`; a day under Aggressive Bulk (-500) is
+  // explained by that goal, so it is left alone.
+  const phase = {
+    ...bulkPhase,
+    smartCaloriePlan: { requiredDailyDeltaCalories: 500 },
+  };
+  const snapshots = { '2026-11-21': recorded('aggressive_bulk', -500) };
+
+  assert.equal(reconcileSnapshotGoalsWithPhases(snapshots, [phase]), snapshots);
+});
+
+test('reconcileSnapshotGoalsWithPhases ignores goal-mode, zero-delta and unknown-goal phases', () => {
+  const snapshots = { '2026-11-21': recorded('maintenance', -692) };
+  const phases = [
+    { ...bulkPhase, creationMode: 'goal', smartCaloriePlan: null },
+    { ...bulkPhase, smartCaloriePlan: { requiredDailyDeltaCalories: 0 } },
+    { ...bulkPhase, goalType: 'bulk' },
+  ];
+
+  assert.equal(reconcileSnapshotGoalsWithPhases(snapshots, phases), snapshots);
+  assert.equal(reconcileSnapshotGoalsWithPhases(snapshots, []), snapshots);
+  assert.equal(reconcileSnapshotGoalsWithPhases(null, [bulkPhase]), null);
 });

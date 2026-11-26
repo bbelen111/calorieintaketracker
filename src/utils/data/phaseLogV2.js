@@ -1,4 +1,5 @@
 import { getTodayDateKey } from './dateKeys.js';
+import { resolveGoalForDailyDelta } from '../../constants/goals/goalDefinitions.js';
 
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -216,13 +217,25 @@ const normalizePhaseRecord = (phase) => {
           ? 'bodyFat'
           : null;
 
+  // A target phase's goal is whatever its planned daily change is, never a
+  // stored label: older builds only knew Lean Bulk / Moderate Cut, so a
+  // +692 kcal/day plan was saved as `bulking`. Read from the normalized plan
+  // so normalizing twice gives the same goal.
+  const smartCaloriePlan = normalizeSmartCaloriePlan(
+    phase?.smartCaloriePlan,
+    creationMode
+  );
+  const goalType = smartCaloriePlan
+    ? resolveGoalForDailyDelta(smartCaloriePlan.requiredDailyDeltaCalories)
+    : phase?.goalType || 'maintenance';
+
   return {
     id: phase?.id,
     name: phase?.name || 'New Phase',
     startDate: normalizeDateKey(phase?.startDate) || getTodayDateString(),
     endDate: normalizeDateKey(phase?.endDate) || null,
-    goalType: phase?.goalType || 'maintenance',
-    goalFamily: toGoalFamily(phase?.goalType),
+    goalType,
+    goalFamily: toGoalFamily(goalType),
     creationMode,
     targetMetric:
       normalizeTargetMetric(phase?.targetMetric, creationMode) ??
@@ -239,10 +252,7 @@ const normalizePhaseRecord = (phase) => {
       ),
     targetWeight: normalizedTargetWeight,
     targetBodyFat: normalizedTargetBodyFat,
-    smartCaloriePlan: normalizeSmartCaloriePlan(
-      phase?.smartCaloriePlan,
-      creationMode
-    ),
+    smartCaloriePlan,
     startingWeight: Number.isFinite(phase?.startingWeight)
       ? phase.startingWeight
       : null,

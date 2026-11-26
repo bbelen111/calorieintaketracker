@@ -216,3 +216,52 @@ test('v2 phase normalization canonicalizes legacy combined target metric value',
     'weight_and_body_fat'
   );
 });
+
+test('a target phase’s goal is re-derived from its plan, never a stale label', () => {
+  const phase = (id, overrides) => ({
+    id,
+    name: 'Bulk',
+    startDate: '2026-11-27',
+    endDate: '2027-02-24',
+    creationMode: 'target',
+    targetWeight: 82,
+    status: 'completed',
+    ...overrides,
+  });
+  // Saved by a build that only knew Lean Bulk / Moderate Cut.
+  const state = normalizePhaseLogV2State({
+    version: 2,
+    phaseOrder: [1, 2, 3, 4],
+    activePhaseId: null,
+    phasesById: {
+      1: phase(1, {
+        goalType: 'bulking',
+        smartCaloriePlan: { requiredDailyDeltaCalories: 692 },
+      }),
+      2: phase(2, {
+        goalType: 'cutting',
+        smartCaloriePlan: { requiredDailyDeltaCalories: -250 },
+      }),
+      // Goal mode: the user's pick stands.
+      3: phase(3, {
+        creationMode: 'goal',
+        goalType: 'bulking',
+        smartCaloriePlan: { requiredDailyDeltaCalories: 692 },
+      }),
+      // A target phase from before plans were stored keeps its label.
+      4: phase(4, { goalType: 'cutting', smartCaloriePlan: null }),
+    },
+  });
+
+  assert.equal(state.phasesById[1].goalType, 'aggressive_bulk');
+  assert.equal(state.phasesById[1].goalFamily, 'bulk');
+  assert.equal(state.phasesById[2].goalType, 'cutting');
+  assert.equal(state.phasesById[3].goalType, 'bulking');
+  assert.equal(state.phasesById[4].goalType, 'cutting');
+
+  // Normalizing again changes nothing.
+  const again = normalizePhaseLogV2State(state);
+  [1, 2, 3, 4].forEach((id) => {
+    assert.equal(again.phasesById[id].goalType, state.phasesById[id].goalType);
+  });
+});

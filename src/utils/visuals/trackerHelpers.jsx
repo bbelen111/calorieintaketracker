@@ -18,6 +18,10 @@ import {
   getGoalAlignedTextClass,
 } from '../calculations/goalAlignment';
 import { METRIC_UNITS } from '../units/unitFormatter';
+import {
+  getGoalDirectionThreshold,
+  getGoalRateBand,
+} from '../../constants/goals/goalDefinitions.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -25,6 +29,10 @@ import { METRIC_UNITS } from '../units/unitFormatter';
 
 export const DATA_OLD_WARNING_DAYS = 1;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+// Goal rate bands (verdicts, "Goal:" labels, the trend info sheets) all come
+// from the goal table via `getGoalRateBand`, the same bands the trend colours
+// use, so a body-fat trend's colour and its words can no longer disagree.
 
 // ---------------------------------------------------------------------------
 // Micro-components
@@ -77,20 +85,15 @@ export const getGoalAlignmentText = (
   if (!hasTrendData(trend)) return null;
   const weeklyRate = trend.weeklyRate;
 
-  const goalExpectations = {
-    aggressive_bulk: { min: 0.5, max: 1.0, direction: 'up' },
-    bulking: { min: 0.25, max: 0.5, direction: 'up' },
-    maintenance: { min: -0.1, max: 0.1, direction: 'flat' },
-    cutting: { min: 0.25, max: 0.5, direction: 'down' },
-    aggressive_cut: { min: 0.5, max: 1.0, direction: 'down' },
-  };
-
-  const expectation = goalExpectations[selectedGoal];
+  const expectation = getGoalRateBand(selectedGoal, metricType);
   if (!expectation) return null;
 
+  // Flat below the slowest band, so a rate inside the goal's band is never
+  // "Not gaining" (body fat's Lean Bulk band starts at 0.08 %/wk).
+  const flatBelow = getGoalDirectionThreshold(metricType);
   let actualDirection = 'flat';
-  if (weeklyRate < -0.1) actualDirection = 'down';
-  else if (weeklyRate > 0.1) actualDirection = 'up';
+  if (weeklyRate < -flatBelow) actualDirection = 'down';
+  else if (weeklyRate > flatBelow) actualDirection = 'up';
 
   // Direction mismatch
   if (
@@ -110,7 +113,7 @@ export const getGoalAlignmentText = (
 
   // Maintenance
   if (expectation.direction === 'flat') {
-    if (Math.abs(weeklyRate) <= 0.1)
+    if (Math.abs(weeklyRate) <= expectation.max)
       return { text: 'On track', color: 'text-accent-green' };
     return { text: 'Deviating from maintenance', color: 'text-accent-yellow' };
   }
@@ -127,17 +130,12 @@ export const getGoalAlignmentText = (
   return null;
 };
 
-// Weekly goal bands. The text is what kg and body fat print; the numbers (kg)
-// are converted for other body-weight units.
-const GOAL_WEEKLY_BANDS = {
-  aggressive_bulk: { sign: '+', text: '0.5-1.0', kg: [0.5, 1] },
-  bulking: { sign: '+', text: '0.25-0.5', kg: [0.25, 0.5] },
-  cutting: { sign: '-', text: '0.25-0.5', kg: [0.25, 0.5] },
-  aggressive_cut: { sign: '-', text: '0.5-1.0', kg: [0.5, 1] },
-};
+// A band edge as kg and %/wk print it: two decimals at most, one at least
+// (0.25, 0.45, 0.5, 1.0).
+const formatBandEdge = (value) => value.toFixed(2).replace(/(\.\d)0$/, '$1');
 
 /**
- * Return a human-readable goal rate string, e.g. "+0.25-0.5 kg/wk".
+ * Return a human-readable goal rate string, e.g. "+0.25-0.45 kg/wk".
  *
  * @param {string} selectedGoal
  * @param {string} metricType – 'weight' | 'bodyFat'
@@ -151,15 +149,52 @@ export const getGoalWeeklyTarget = (
   const isBodyFat = metricType === 'bodyFat';
   const { bodyWeight } = units;
   const unit = isBodyFat ? '%/wk' : `${bodyWeight.linearUnit}/wk`;
-  const band = GOAL_WEEKLY_BANDS[selectedGoal];
-  if (!band) {
+  const band = getGoalRateBand(selectedGoal, metricType);
+  if (!band || band.direction === 'flat') {
     return `0.0 ${unit}`;
   }
+  const sign = band.direction === 'down' ? '-' : '+';
+  const edges = [band.min, band.max];
   const range =
     isBodyFat || bodyWeight.linearUnit === 'kg'
-      ? band.text
-      : band.kg.map((kg) => bodyWeight.toNumber(kg).toFixed(1)).join('-');
-  return `${band.sign}${range} ${unit}`;
+      ? edges.map(formatBandEdge).join('-')
+      : edges.map((kg) => bodyWeight.toNumber(kg).toFixed(1)).join('-');
+  return `${sign}${range} ${unit}`;
+};
+
+/**
+ * A goal's band as the trend info sheets write it, signed low to high, e.g.
+ * "+0.25 to +0.45 kg/week", "-0.15 to -0.08 %/week", "-0.1 to +0.1 kg/week".
+ * An unknown goal reads as maintenance.
+ *
+ * @param {string} selectedGoal
+ * @param {string} metricType – 'weight' | 'bodyFat'
+ * @param {object} [units] – unit formatter (weight only)
+ */
+export const getGoalRateRangeText = (
+  selectedGoal,
+  metricType = 'weight',
+  units = METRIC_UNITS
+) => {
+  const isBodyFat = metricType === 'bodyFat';
+  const { bodyWeight } = units;
+  const unit = isBodyFat ? '%/week' : `${bodyWeight.linearUnit}/week`;
+  const band =
+    getGoalRateBand(selectedGoal, metricType) ??
+    getGoalRateBand('maintenance', metricType);
+  const sign = band.direction === 'down' ? -1 : 1;
+  const bounds =
+    band.direction === 'flat'
+      ? [-band.max, band.max]
+      : [sign * band.min, sign * band.max].sort((a, b) => a - b);
+  const format = (value) => {
+    const magnitude =
+      isBodyFat || bodyWeight.linearUnit === 'kg'
+        ? formatBandEdge(Math.abs(value))
+        : Math.abs(bodyWeight.toNumber(value)).toFixed(1);
+    return `${value > 0 ? '+' : value < 0 ? '-' : ''}${magnitude}`;
+  };
+  return `${bounds.map(format).join(' to ')} ${unit}`;
 };
 
 // ---------------------------------------------------------------------------
