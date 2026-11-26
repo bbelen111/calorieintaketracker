@@ -16,3 +16,31 @@ export const describeGoal = (goalKey, goal, units) => {
   const amount = units.energy.format(Math.abs(delta));
   return delta > 0 ? `+${amount} surplus` : `-${amount} deficit`;
 };
+
+/**
+ * Like `describeGoal`, but for the daily balance target actually in force
+ * (`goalDailyBalanceTarget`, positive = deficit). An active phase can own a
+ * smart delta that differs from the goal's nominal one; then that delta is
+ * written out ("-550 kcal deficit"). When it matches the goal (or is unknown)
+ * this is exactly `describeGoal`.
+ */
+export const describeActiveGoalTarget = (
+  goalKey,
+  goal,
+  units,
+  balanceTarget
+) => {
+  const target = Number(balanceTarget);
+  if (balanceTarget == null || !Number.isFinite(target)) {
+    return describeGoal(goalKey, goal, units);
+  }
+  const delta = -Math.round(target);
+  if (delta === resolveGoalCalorieDelta(goalKey)) {
+    return describeGoal(goalKey, goal, units);
+  }
+  if (delta === 0) {
+    return 'At TDEE';
+  }
+  const amount = units.energy.format(Math.abs(delta));
+  return delta > 0 ? `+${amount} surplus` : `-${amount} deficit`;
+};

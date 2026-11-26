@@ -766,6 +766,7 @@ const SettingsPageContent = ({
           onOpenSlotPicker={(slot) =>
             onNavigate?.(makeHomeSlotPickerPage(slot))
           }
+          BinarySwitch={BinarySwitch}
         />
       )}
 

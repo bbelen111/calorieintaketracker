@@ -4,7 +4,10 @@ import assert from 'node:assert/strict';
 import { goals } from '../../src/constants/goals/goals.js';
 import { DEFAULT_UNIT_PREFERENCES } from '../../src/constants/units/units.js';
 import { createUnitFormatter } from '../../src/utils/units/unitFormatter.js';
-import { describeGoal } from '../../src/utils/units/goalDescription.js';
+import {
+  describeActiveGoalTarget,
+  describeGoal,
+} from '../../src/utils/units/goalDescription.js';
 import {
   describeGoalTarget,
   formatSignedKcal,
@@ -68,15 +71,37 @@ test('goal descriptions keep their text in kcal and convert in kJ', () => {
     describeGoal('cutting', goals.cutting, METRIC),
     '-300 kcal deficit'
   );
-  assert.equal(
-    describeGoal('cutting', goals.cutting, KJ),
-    '-1,255 kJ deficit'
-  );
+  assert.equal(describeGoal('cutting', goals.cutting, KJ), '-1,255 kJ deficit');
   assert.equal(
     describeGoal('aggressive_bulk', goals.aggressive_bulk, KJ),
     '+2,092 kJ surplus'
   );
   assert.equal(describeGoal('maintenance', goals.maintenance, KJ), 'At TDEE');
+});
+
+test('the active goal target writes a phase-owned delta out', () => {
+  // Matches the goal: identical to describeGoal.
+  assert.equal(
+    describeActiveGoalTarget('cutting', goals.cutting, METRIC, 300),
+    '-300 kcal deficit'
+  );
+  assert.equal(
+    describeActiveGoalTarget('cutting', goals.cutting, METRIC, null),
+    '-300 kcal deficit'
+  );
+  // A phase's smart delta differs from the nominal one.
+  assert.equal(
+    describeActiveGoalTarget('cutting', goals.cutting, METRIC, 550),
+    '-550 kcal deficit'
+  );
+  assert.equal(
+    describeActiveGoalTarget('bulking', goals.bulking, KJ, -400),
+    '+1,674 kJ surplus'
+  );
+  assert.equal(
+    describeActiveGoalTarget('cutting', goals.cutting, METRIC, 0),
+    'At TDEE'
+  );
 });
 
 test('form energy fields and sort labels follow the unit', () => {

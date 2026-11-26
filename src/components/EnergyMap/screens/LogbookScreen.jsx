@@ -21,6 +21,7 @@ import {
 } from '../../../utils/calculations/dayLedgerPresentation';
 import { getDailyBalanceKind } from '../../../utils/calculations/rollingEnergyBalance';
 import { InsightStatus } from '../common/InsightHeadline';
+import { DayBalanceStrip } from '../common/DayBalanceStrip';
 import { normalizeOnTargetTolerance } from '../../../constants/goals/onTarget';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
@@ -182,18 +183,6 @@ const PhaseCard = ({ phase, onPhaseClick }) => {
   );
 };
 
-// A day's bar spans 30–100 % of the strip height; 1,000 kcal either side of
-// maintenance fills it. The floor keeps a near-maintenance day visible.
-const STRIP_FULL_BAR_KCAL = 1000;
-const STRIP_MIN_BAR_PERCENT = 30;
-
-const getStripBarHeightPercent = (balance) => {
-  const ratio = Math.min(1, Math.abs(balance) / STRIP_FULL_BAR_KCAL);
-  return Math.round(
-    STRIP_MIN_BAR_PERCENT + ratio * (100 - STRIP_MIN_BAR_PERCENT)
-  );
-};
-
 const formatStripDay = (dateKey) =>
   formatDate(dateKey).replace(/,\s*\d{4}$/, '');
 
@@ -346,41 +335,12 @@ const DayLedgerCard = ({ dailySnapshots, selectedGoal, tolerance, onOpen }) => {
                   </span>
                 )}
               </div>
-              <div
-                role="img"
-                aria-label={`${summary.loggedDays} of ${summary.windowDays} recent days logged`}
-                data-testid="day-ledger-strip"
-                className="flex h-9 items-end gap-1"
-              >
-                {days.map((day) => {
-                  const meta = day.kind
-                    ? DAY_LEDGER_BALANCE_META[day.kind]
-                    : null;
-                  return (
-                    <div
-                      key={day.date}
-                      title={formatStripDay(day.date)}
-                      className="flex h-full flex-1 items-end"
-                    >
-                      {meta ? (
-                        <div
-                          data-on-target={day.onTarget ? 'true' : 'false'}
-                          className={`w-full rounded-sm ${meta.dotClass} ${
-                            day.deviation === null || day.onTarget
-                              ? 'opacity-100'
-                              : 'opacity-50'
-                          }`}
-                          style={{
-                            height: `${getStripBarHeightPercent(day.balance)}%`,
-                          }}
-                        />
-                      ) : (
-                        <div className="h-1.5 w-full rounded-full bg-border/60" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <DayBalanceStrip
+                days={days}
+                ariaLabel={`${summary.loggedDays} of ${summary.windowDays} recent days logged`}
+                testId="day-ledger-strip"
+                getDayTitle={formatStripDay}
+              />
               <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted">
                 <span>{formatStripDay(days[0].date)}</span>
                 <span>Yesterday</span>

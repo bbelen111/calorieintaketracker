@@ -3,6 +3,7 @@ import {
   Activity,
   ArrowLeftRight,
   ChevronRight,
+  Flag,
   Lightbulb,
 } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
@@ -267,8 +268,10 @@ export const HomeLayoutSettingsSection = ({
   calorieTargetCalories,
   onFieldChange,
   onOpenSlotPicker,
+  BinarySwitch,
 }) => {
   const units = useUnits();
+  const phasePromptEnabled = userData?.homePhasePromptEnabled !== false;
   const resolvedBodyFatEnabled = bodyFatTrackingEnabled !== false;
   const heroSlots = readHeroSlots(userData, {
     bodyFatTrackingEnabled: resolvedBodyFatEnabled,
@@ -384,6 +387,30 @@ export const HomeLayoutSettingsSection = ({
               </button>
             );
           })}
+        </div>
+      </div>
+
+      <div>
+        <SettingLabel>Goal card</SettingLabel>
+        <div className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-surface-highlight/40 px-3 py-2.5 shadow-sm">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-blue/10 ring-1 ring-accent-blue/20">
+            <Flag size={19} aria-hidden="true" className="text-accent-blue" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium leading-tight text-foreground">
+              Start a phase prompt
+            </span>
+            <span className="mt-0.5 block text-xs text-muted">
+              Shown under your goal when no phase is active
+            </span>
+          </span>
+          <BinarySwitch
+            checked={phasePromptEnabled}
+            onClick={() =>
+              onFieldChange?.('homePhasePromptEnabled', !phasePromptEnabled)
+            }
+            ariaLabel="Start a phase prompt"
+          />
         </div>
       </div>
 

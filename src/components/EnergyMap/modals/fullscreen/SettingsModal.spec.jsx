@@ -628,6 +628,31 @@ describe('SettingsModal segmented navigation', () => {
     expect(disabledButton).toHaveTextContent('All pending');
   });
 
+  it('toggles the Home goal card phase prompt from Home & Tips', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    const { unmount } = render(
+      <SettingsHarness onFieldChange={onFieldChange} />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Home & Tips' }));
+    const toggle = screen.getByRole('switch', { name: 'Start a phase prompt' });
+    // On by default, including for profiles saved before the setting existed.
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await user.click(toggle);
+    expect(onFieldChange).toHaveBeenCalledWith('homePhasePromptEnabled', false);
+    unmount();
+
+    render(
+      <SettingsHarness
+        userData={createUserData({ homePhasePromptEnabled: false })}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Home & Tips' }));
+    expect(
+      screen.getByRole('switch', { name: 'Start a phase prompt' })
+    ).toHaveAttribute('aria-checked', 'false');
+  });
+
   it('exposes food search, macro and cached-food controls on Food & Macros', async () => {
     const user = userEvent.setup();
     const onFieldChange = vi.fn();

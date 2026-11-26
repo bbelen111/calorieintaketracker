@@ -5,7 +5,6 @@ import {
   Edit3,
   ChevronRight,
   Dumbbell,
-  Target,
   Heart,
   Plus,
   Trash2,
@@ -15,7 +14,6 @@ import { shallow } from 'zustand/shallow';
 import { goals as baseGoals } from '../../../constants/goals/goals';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { useUnits } from '../../../hooks/useUnits';
-import { describeGoal } from '../../../utils/units/goalDescription';
 import {
   buildDisplayTefContext,
   calculateTrainingSessionCalories,
@@ -37,6 +35,8 @@ import {
   getOldDataWarningText,
 } from '../../../utils/visuals/trackerHelpers';
 import { HeroActionPill } from '../common/HeroActionPill';
+import { GoalPlanCard } from '../common/GoalPlanCard';
+import { normalizeOnTargetTolerance } from '../../../constants/goals/onTarget';
 import { HeroActionTile } from '../common/HeroActionTile';
 import { readHeroSlots } from '../../../constants/appearance/heroAction';
 import { buildHeroActionModel } from '../../../utils/calculations/heroActionMetrics';
@@ -45,14 +45,6 @@ import {
   getHeartRateZone,
   resolveHeartRateZones,
 } from '../../../utils/calculations/heartRate';
-
-const GOAL_BORDER_CLASS_BY_BG = {
-  'bg-accent-purple': 'border-accent-purple',
-  'bg-accent-green': 'border-accent-green',
-  'bg-accent-blue': 'border-accent-blue',
-  'bg-accent-yellow': 'border-accent-yellow',
-  'bg-accent-orange': 'border-accent-orange',
-};
 
 // Pure date-key validator (module scope — the component body used to rebuild
 // this closure on every render).
@@ -70,8 +62,9 @@ export const HomeScreen = memo(function HomeScreen({
   goals,
   selectedGoal,
   isGoalLocked,
-  goalLockPhaseName,
   onGoalClick,
+  onOpenActivePhase,
+  onStartPhase,
   bodyFatTrackingEnabled,
   onTrainingDayClick,
   onEditTrainingSession,
@@ -109,6 +102,8 @@ export const HomeScreen = memo(function HomeScreen({
       calculateTargetForGoal: state.calculateTargetForGoal,
       heartRateProfile: state.heartRateProfile,
       activePhase: state.activePhase,
+      phases: state.phases,
+      goalDurationDays: state.goalDurationDays,
       goalDailyBalanceTarget: state.goalDailyBalanceTarget,
     }),
     shallow
@@ -153,6 +148,13 @@ export const HomeScreen = memo(function HomeScreen({
   const resolvedTotalCardioBurn = totalCardioBurn ?? store.totalCardioBurn;
   const resolvedGoals = goals ?? baseGoals;
   const resolvedWeightEntries = weightEntries ?? store.weightEntries;
+  // The goal card looks the active phase up the same way its tap target
+  // (`openActivePhaseFromHome`) does, so the two always agree.
+  const activePhaseView = useMemo(
+    () =>
+      (store.phases ?? []).find((phase) => phase?.status === 'active') ?? null,
+    [store.phases]
+  );
   const resolvedBodyFatEntries = bodyFatEntries ?? store.bodyFatEntries;
   const resolvedBodyFatTrackingEnabled =
     typeof bodyFatTrackingEnabled === 'boolean'
@@ -468,8 +470,9 @@ export const HomeScreen = memo(function HomeScreen({
     todayTdee > 0 ? Math.round((activeBurnTotal / todayTdee) * 100) : null;
 
   const goalConfig = resolvedGoals[selectedGoal];
-  const goalBorderClass =
-    GOAL_BORDER_CLASS_BY_BG[goalConfig.color] ?? 'border-primary-foreground';
+  const onTargetTolerance = normalizeOnTargetTolerance(
+    resolvedUserData?.onTargetToleranceKcal
+  );
 
   const cardioHeaderContent = (
     <>
@@ -884,36 +887,21 @@ export const HomeScreen = memo(function HomeScreen({
         </div>
       </div>
 
-      <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
-        <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-          <Target className="text-accent-blue" size={18} />
-          Your Goal
-        </h2>
-        <button
-          onClick={isGoalLocked ? undefined : onGoalClick}
-          type="button"
-          disabled={isGoalLocked}
-          className={`w-full p-4 rounded-xl border-2 transition-all relative ${goalConfig.color} ${goalBorderClass} text-primary-foreground shadow-lg ${
-            isGoalLocked
-              ? 'opacity-80 cursor-not-allowed'
-              : 'md:hover:scale-[1.02] active:scale-[0.98]'
-          } focus-ring pressable-card`}
-        >
-          {(() => {
-            const Icon = goalConfig.icon;
-            return <Icon className="mx-auto mb-2" size={32} />;
-          })()}
-          <p className="font-bold text-xl">{goalConfig.label}</p>
-          <p className="text-sm opacity-90 mt-1">
-            {describeGoal(selectedGoal, goalConfig, units)}
-          </p>
-          <p className="text-xs opacity-75 mt-2">
-            {isGoalLocked
-              ? `Locked by active phase${goalLockPhaseName ? `: ${goalLockPhaseName}` : ''}`
-              : 'Tap to change'}
-          </p>
-        </button>
-      </div>
+      <GoalPlanCard
+        selectedGoal={selectedGoal}
+        goalConfig={goalConfig}
+        goalDurationDays={store.goalDurationDays}
+        isGoalLocked={isGoalLocked}
+        activePhase={activePhaseView}
+        balanceTarget={store.goalDailyBalanceTarget}
+        weightEntries={resolvedWeightEntries}
+        dailySnapshots={resolvedUserData?.dailySnapshots}
+        onTargetTolerance={onTargetTolerance}
+        onGoalClick={onGoalClick}
+        onOpenActivePhase={onOpenActivePhase}
+        onStartPhase={onStartPhase}
+        showPhasePrompt={resolvedUserData?.homePhasePromptEnabled !== false}
+      />
 
       <div className="bg-surface rounded-2xl px-6 py-5 border border-border shadow-lg">
         <AnimatePresence initial={false}>

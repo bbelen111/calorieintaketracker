@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   formatDateKeyLocal,
   formatDateKeyUtc,
+  getDateKeyDayDifference,
   getWindowDateKeys,
 } from '../../src/utils/data/dateKeys.js';
 
@@ -71,4 +72,19 @@ test('getWindowDateKeys returns [] for invalid anchors or window sizes', () => {
     '2026-03-04',
     '2026-03-05',
   ]);
+});
+
+test('getDateKeyDayDifference counts whole calendar days, signed', () => {
+  assert.equal(getDateKeyDayDifference('2026-03-01', '2026-03-01'), 0);
+  assert.equal(getDateKeyDayDifference('2026-03-01', '2026-03-05'), 4);
+  assert.equal(getDateKeyDayDifference('2026-03-05', '2026-03-01'), -4);
+  // Across a DST change and a month/leap boundary.
+  assert.equal(getDateKeyDayDifference('2026-03-07', '2026-03-09'), 2);
+  assert.equal(getDateKeyDayDifference('2028-02-28', '2028-03-01'), 2);
+});
+
+test('getDateKeyDayDifference rejects non-canonical keys', () => {
+  assert.equal(getDateKeyDayDifference('2026-02-31', '2026-03-01'), null);
+  assert.equal(getDateKeyDayDifference('2026-3-1', '2026-03-01'), null);
+  assert.equal(getDateKeyDayDifference(null, '2026-03-01'), null);
 });

@@ -307,6 +307,27 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
     expect(await findHeaderStat('No data yet')).toBeInTheDocument();
   });
 
+  it('takes Home’s “Start a phase” to the Logbook without opening the creation modal', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await hydrateStore();
+    await findTabBar();
+
+    await user.click(
+      await screen.findByRole('button', { name: /Start a phase/ })
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Logbook' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      )
+    );
+    expect(
+      screen.queryByRole('heading', { name: 'Create New Phase' })
+    ).toBeNull();
+  });
+
   it('propagates a logged food into the Tracker’s rendered totals', async () => {
     const user = userEvent.setup();
     renderApp();

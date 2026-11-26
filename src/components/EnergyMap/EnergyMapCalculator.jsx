@@ -513,7 +513,6 @@ export const EnergyMapCalculator = () => {
     foodFavourites,
     recipes,
     phases,
-    activePhase,
     isGoalLockedByActivePhase,
     bmr,
     trainingCalories,
@@ -586,7 +585,6 @@ export const EnergyMapCalculator = () => {
       foodFavourites: state.foodFavourites,
       recipes: state.recipes,
       phases: state.phases,
-      activePhase: state.activePhase,
       isGoalLockedByActivePhase: state.isGoalLockedByActivePhase,
       bmr: state.bmr,
       trainingCalories: state.trainingCalories,
@@ -1967,13 +1965,14 @@ export const EnergyMapCalculator = () => {
     [removeTrainingType]
   );
 
+  const openGoalSheet = goalModal.open;
   const openGoalModal = useCallback(() => {
     if (isGoalLockedByActivePhase) {
       return;
     }
     setTempSelectedGoal(selectedGoal);
-    goalModal.open();
-  }, [goalModal, isGoalLockedByActivePhase, selectedGoal]);
+    openGoalSheet();
+  }, [openGoalSheet, isGoalLockedByActivePhase, selectedGoal]);
 
   const openAgeModal = useCallback(() => {
     setTempAge(userData.age);
@@ -4234,11 +4233,14 @@ export const EnergyMapCalculator = () => {
   );
 
   // Phase handlers
+  // Depends on the modal's stable `open`, not the hook object (a new object
+  // every render), so the memoized Logbook screen keeps its memo.
+  const openPhaseCreationSheet = phaseCreationModal.open;
   const openPhaseCreationModal = useCallback(() => {
     setPhaseDraft(createDefaultPhaseDraft());
     setPhaseError('');
-    phaseCreationModal.open();
-  }, [phaseCreationModal]);
+    openPhaseCreationSheet();
+  }, [openPhaseCreationSheet]);
 
   const handlePhaseCreationSave = useCallback(() => {
     const phaseName = phaseDraft.name;
@@ -4432,6 +4434,13 @@ export const EnergyMapCalculator = () => {
     if (match) {
       setSelectedPhase(match);
     }
+  }, [goToScreen, logbookIndex]);
+
+  // Home's "Start a phase": go to the Logbook list (leaving any open phase
+  // detail), where phases are created.
+  const openLogbookFromHome = useCallback(() => {
+    setSelectedPhase(null);
+    goToScreen(logbookIndex);
   }, [goToScreen, logbookIndex]);
 
   const heroActionOpeners = useMemo(
@@ -4977,8 +4986,9 @@ export const EnergyMapCalculator = () => {
         goals={goals}
         selectedGoal={selectedGoal}
         isGoalLocked={isGoalLockedByActivePhase}
-        goalLockPhaseName={activePhase?.name ?? ''}
         onGoalClick={openGoalModal}
+        onOpenActivePhase={openActivePhaseFromHome}
+        onStartPhase={openLogbookFromHome}
         calorieTargetCalories={selectedCalorieTargetData?.targetCalories}
         onTrainingDayClick={handleTrainingDayClick}
         onEditTrainingSession={handleEditTrainingSession}

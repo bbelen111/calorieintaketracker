@@ -71,3 +71,39 @@ export const getWindowDateKeys = (endDateKey, n) => {
   }
   return keys;
 };
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** UTC-midnight time of a canonical `YYYY-MM-DD` key, or `null`. */
+const parseCanonicalDateKeyUtc = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!DATE_KEY_PATTERN.test(trimmed)) {
+    return null;
+  }
+  const date = new Date(`${trimmed}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || formatDateKeyUtc(date) !== trimmed) {
+    return null;
+  }
+  return date.getTime();
+};
+
+/**
+ * Whole calendar days from `fromKey` to `toKey` (`toKey - fromKey`; negative
+ * when `toKey` is earlier). UTC-midnight arithmetic, so DST never adds or
+ * drops a day. Returns `null` when either key is not a canonical date key.
+ *
+ * @param {string} fromKey
+ * @param {string} toKey
+ * @returns {number|null}
+ */
+export const getDateKeyDayDifference = (fromKey, toKey) => {
+  const from = parseCanonicalDateKeyUtc(fromKey);
+  const to = parseCanonicalDateKeyUtc(toKey);
+  if (from === null || to === null) {
+    return null;
+  }
+  return Math.round((to - from) / MS_PER_DAY);
+};
