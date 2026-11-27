@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Target,
@@ -29,6 +29,7 @@ import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { ConfirmActionModal } from '../modals/common/ConfirmActionModal';
 import { useAnimatedModal } from '../../../hooks/useAnimatedModal';
+import { useDaySwapAnimation } from '../../../hooks/useDaySwapAnimation';
 import {
   formatDateKeyUtc,
   getTodayDateKey,
@@ -225,13 +226,26 @@ export const TrackerScreen = memo(function TrackerScreen({
   const selectedDate = isControlled ? selectedDateProp : internalSelectedDate;
   const [collapsedMeals, setCollapsedMeals] = useState({});
   const [weekSlideDirection, setWeekSlideDirection] = useState(1);
+  // The date strip follows `selectedDate` at once. The calorie card and meals
+  // show `shownDate`, which trails it until the old day has faded out.
+  const { rootRef: daySwapRef, shownDate } = useDaySwapAnimation(selectedDate);
+
+  // Meals start collapsed again on another day. Reset during render, so the new
+  // day is never drawn with the old day's open meal.
+  const [collapsedForDate, setCollapsedForDate] = useState(shownDate);
+  // The meal list makes its entrance on every day but the one first shown.
+  const [hasChangedDay, setHasChangedDay] = useState(false);
+  if (collapsedForDate !== shownDate) {
+    setCollapsedForDate(shownDate);
+    setCollapsedMeals({});
+    setHasChangedDay(true);
+  }
 
   // Confirm modals for delete actions
   const deleteFoodConfirmModal = useAnimatedModal();
   const deleteMealConfirmModal = useAnimatedModal();
   const [pendingFoodDelete, setPendingFoodDelete] = useState(null);
   const [pendingMealDelete, setPendingMealDelete] = useState(null);
-  const previousDateRef = useRef(selectedDate);
   const todayKey = getTodayDate();
   const weekStartKey = useMemo(() => {
     const start = getWeekStartDate(selectedDate);
@@ -253,20 +267,20 @@ export const TrackerScreen = memo(function TrackerScreen({
     });
   }, [selectedDate]);
   // Header subtitle for any day but today; the year only when it differs.
-  const selectedDayLabel = useMemo(
+  const shownDayLabel = useMemo(
     () =>
-      parseDateKey(selectedDate).toLocaleDateString('en-US', {
+      parseDateKey(shownDate).toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
         year:
-          selectedDate.slice(0, 4) === todayKey.slice(0, 4)
+          shownDate.slice(0, 4) === todayKey.slice(0, 4)
             ? undefined
             : 'numeric',
         // Date keys parse as UTC midnight; local time would shift the day.
         timeZone: 'UTC',
       }),
-    [selectedDate, todayKey]
+    [shownDate, todayKey]
   );
   const selectedMonthLabel = useMemo(() => {
     const date = parseDateKey(selectedDate);
@@ -277,9 +291,9 @@ export const TrackerScreen = memo(function TrackerScreen({
     });
   }, [selectedDate]);
 
-  // Get data for selected date - now nested by meal type
+  // Get data for the day on screen - nested by meal type
   const dayData = useMemo(() => {
-    const data = resolvedNutritionData[selectedDate] || {};
+    const data = resolvedNutritionData[shownDate] || {};
     // Organize meals by type with entries
     const meals = {};
     let hasEntries = false;
@@ -293,28 +307,9 @@ export const TrackerScreen = memo(function TrackerScreen({
     });
 
     return { meals, hasEntries };
-  }, [resolvedNutritionData, selectedDate]);
+  }, [resolvedNutritionData, shownDate]);
 
   const { meals, hasEntries: hasFoodEntries } = dayData;
-
-  useEffect(() => {
-    if (previousDateRef.current === selectedDate) {
-      return;
-    }
-
-    previousDateRef.current = selectedDate;
-
-    let frame = requestAnimationFrame(() => {
-      setCollapsedMeals({});
-      frame = null;
-    });
-
-    return () => {
-      if (frame != null) {
-        cancelAnimationFrame(frame);
-      }
-    };
-  }, [selectedDate]);
 
   // Clean up pending deletion state when modals close
   useEffect(() => {
@@ -362,9 +357,9 @@ export const TrackerScreen = memo(function TrackerScreen({
   const liveTargetCalories = calorieTargetCalories || 2500;
   // A finished day is measured against the target saved with it, not today's.
   const { targetCalories, isSaved: isSavedTarget } = resolveDayCalorieTarget({
-    dateKey: selectedDate,
+    dateKey: shownDate,
     todayKey,
-    snapshot: store.dailySnapshots?.[selectedDate],
+    snapshot: store.dailySnapshots?.[shownDate],
     liveTargetCalories,
   });
   const targetLabel = isSavedTarget ? 'Saved that day' : calorieTargetLabel;
@@ -414,7 +409,7 @@ export const TrackerScreen = memo(function TrackerScreen({
     { intake: totals.calories, range: intakeVerdict.range },
     units
   );
-  const isViewingToday = selectedDate === todayKey;
+  const isViewingToday = shownDate === todayKey;
 
   const macroRecommendation = useMemo(
     () =>
@@ -467,7 +462,7 @@ export const TrackerScreen = memo(function TrackerScreen({
   const confirmDeleteFood = () => {
     if (pendingFoodDelete) {
       onDeleteFoodEntry?.(
-        selectedDate,
+        shownDate,
         pendingFoodDelete.mealType,
         pendingFoodDelete.entryId
       );
@@ -486,7 +481,7 @@ export const TrackerScreen = memo(function TrackerScreen({
 
   const confirmDeleteMeal = () => {
     if (pendingMealDelete) {
-      onDeleteMeal?.(selectedDate, pendingMealDelete);
+      onDeleteMeal?.(shownDate, pendingMealDelete);
     }
     deleteMealConfirmModal.requestClose();
   };
@@ -769,7 +764,7 @@ export const TrackerScreen = memo(function TrackerScreen({
   );
 
   return (
-    <div className="space-y-6 pb-10">
+    <div ref={daySwapRef} className="space-y-6 pb-10">
       {/* Header */}
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         <div className="flex items-center justify-between mb-4">
@@ -895,43 +890,41 @@ export const TrackerScreen = memo(function TrackerScreen({
         </div>
       </div>
 
-      {/* Total Calories */}
+      {/* Total Calories. On a day change the blocks marked `data-day-swap` fade
+          out and back in together; each figure's own fade is keyed on the day,
+          so it only plays when the same day's numbers change. */}
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
         {/* The two sides mirror each other line for line (same size and line
             height), so title/intake and day/range align. The intake block drops
             to its own line when it cannot sit beside the title (large text,
             narrow screens). */}
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-4">
+        <div
+          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-4"
+          data-day-swap=""
+        >
           <div className="flex items-center gap-3">
             <Flame className="shrink-0 text-accent-blue" size={24} />
             <div>
               <h2 className="text-foreground text-lg font-extrabold leading-tight">
                 Total {units.energy.noun}
               </h2>
-              <AnimatePresence mode="wait">
-                <motion.p
-                  key={`intake-day-${selectedDate}`}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.22 }}
-                  className="mt-0.5 flex items-center gap-1.5 text-sm text-muted whitespace-nowrap"
-                  data-testid="tracker-intake-day"
-                >
-                  {isViewingToday ? 'Today’s intake' : selectedDayLabel}
-                  {isViewingToday && (
-                    <span
-                      aria-hidden="true"
-                      data-testid="tracker-today-dot"
-                      className="h-1.5 w-1.5 rounded-full bg-accent-blue"
-                    />
-                  )}
-                </motion.p>
-              </AnimatePresence>
+              <p
+                className="mt-0.5 flex items-center gap-1.5 text-sm text-muted whitespace-nowrap"
+                data-testid="tracker-intake-day"
+              >
+                {isViewingToday ? 'Today’s intake' : shownDayLabel}
+                {isViewingToday && (
+                  <span
+                    aria-hidden="true"
+                    data-testid="tracker-today-dot"
+                    className="h-1.5 w-1.5 rounded-full bg-accent-blue"
+                  />
+                )}
+              </p>
             </div>
           </div>
           <div className="ml-auto text-right">
-            <AnimatePresence mode="wait">
+            <AnimatePresence key={shownDate} mode="wait" initial={false}>
               <motion.div
                 key={`totals-cal-${totals.calories}-${targetRangeText}`}
                 initial={{ opacity: 0, y: 6 }}
@@ -961,7 +954,7 @@ export const TrackerScreen = memo(function TrackerScreen({
         </div>
 
         {/* Calorie Target Selector (read-only on a day with a saved target) */}
-        <div className="relative">
+        <div className="relative" data-day-swap="">
           <TargetRow
             {...(isSavedTarget
               ? {}
@@ -979,7 +972,7 @@ export const TrackerScreen = memo(function TrackerScreen({
             <div className="flex-1 min-w-0">
               <p className="text-muted text-xs mb-0.5">Target</p>
               <div className="relative h-6">
-                <AnimatePresence mode="wait">
+                <AnimatePresence key={shownDate} mode="wait" initial={false}>
                   <motion.p
                     key={`target-${targetRangeText}-${targetLabel}`}
                     initial={{ opacity: 0, y: 6 }}
@@ -1005,7 +998,7 @@ export const TrackerScreen = memo(function TrackerScreen({
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-4 mb-5">
+        <div className="mt-4 mb-5" data-day-swap="">
           <div className="w-full bg-surface-highlight rounded-full h-4 overflow-hidden">
             <div
               data-testid="tracker-calorie-bar"
@@ -1018,7 +1011,7 @@ export const TrackerScreen = memo(function TrackerScreen({
           </div>
           <div className="flex items-center justify-between mt-1">
             <div className="text-muted text-xs">
-              <AnimatePresence mode="wait">
+              <AnimatePresence key={shownDate} mode="wait" initial={false}>
                 <motion.span
                   key={`remaining-${remaining?.amount}-${remaining?.caption}`}
                   initial={{ opacity: 0, y: 6 }}
@@ -1063,6 +1056,7 @@ export const TrackerScreen = memo(function TrackerScreen({
             }
           }}
           className="relative grid grid-cols-3 gap-6 rounded-xl transition-all pressable-card focus-ring"
+          data-day-swap=""
         >
           {/* Anchored with flex centering (not translate) because Motion owns
               the inner element's transform. Pointer-transparent: a tap on the
@@ -1112,7 +1106,7 @@ export const TrackerScreen = memo(function TrackerScreen({
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Beef className="text-accent-red mb-1" size={20} />
-                <AnimatePresence mode="wait">
+                <AnimatePresence key={shownDate} mode="wait" initial={false}>
                   <motion.div
                     key={`protein-${totals.protein}`}
                     initial={{ opacity: 0, y: 6 }}
@@ -1155,7 +1149,7 @@ export const TrackerScreen = memo(function TrackerScreen({
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Droplet className="text-accent-yellow mb-1" size={20} />
-                <AnimatePresence mode="wait">
+                <AnimatePresence key={shownDate} mode="wait" initial={false}>
                   <motion.div
                     key={`fats-${totals.fats}`}
                     initial={{ opacity: 0, y: 6 }}
@@ -1198,7 +1192,7 @@ export const TrackerScreen = memo(function TrackerScreen({
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Cookie className="text-accent-teal mb-1" size={20} />
-                <AnimatePresence mode="wait">
+                <AnimatePresence key={shownDate} mode="wait" initial={false}>
                   <motion.div
                     key={`carbs-${totals.carbs}`}
                     initial={{ opacity: 0, y: 6 }}
@@ -1237,7 +1231,10 @@ export const TrackerScreen = memo(function TrackerScreen({
         </div>
 
         {/* Compact micronutrient row (null = untracked; ~ = partial sum) */}
-        <div className="mt-5 pt-4 border-t border-border/70 flex flex-wrap items-center justify-center gap-x-8 gap-y-1">
+        <div
+          className="mt-5 pt-4 border-t border-border/70 flex flex-wrap items-center justify-center gap-x-8 gap-y-1"
+          data-day-swap=""
+        >
           <MicroStat
             label="Fiber"
             value={totals.fiber}
@@ -1271,57 +1268,67 @@ export const TrackerScreen = memo(function TrackerScreen({
 
       {/* Food Entries Section - Grouped by Meal Type */}
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
-        {/* Header - stable key keeps it static across entries→entries date changes */}
-        <AnimatePresence initial={false}>
-          {hasFoodEntries && (
-            <motion.div
-              key="meals-header"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{
-                height: { type: 'spring', stiffness: 400, damping: 30 },
-                opacity: { duration: 0.15 },
-              }}
-              className="overflow-hidden"
-            >
-              <div className="flex items-center justify-between mb-4">
-                {mealsHeaderContent}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div data-day-swap="">
+          {/* Header - stable key keeps it static across entries→entries date changes */}
+          <AnimatePresence initial={false}>
+            {hasFoodEntries && (
+              <motion.div
+                key="meals-header"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{
+                  height: { type: 'spring', stiffness: 400, damping: 30 },
+                  opacity: { duration: 0.15 },
+                }}
+                className="overflow-hidden"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  {mealsHeaderContent}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        {/* Meal list or empty state */}
-        <AnimatePresence mode="wait" initial={false}>
-          {hasFoodEntries ? (
-            <motion.div
-              key={`food-list-${selectedDate}`}
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{
-                scale: { type: 'spring', stiffness: 400, damping: 28 },
-                opacity: { duration: 0.15 },
-              }}
+          {/* Meal list or empty state. Keyed on the day: the old day has already
+              faded out, so only the new one's entrance plays. The wrapper eases
+              between the two days' heights. */}
+          <div data-day-swap-resize="">
+            <AnimatePresence
+              key={shownDate}
+              mode="wait"
+              initial={hasChangedDay}
             >
-              <div className="space-y-3">{mealsListContent}</div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="food-empty"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{
-                scale: { type: 'spring', stiffness: 400, damping: 28 },
-                opacity: { duration: 0.15 },
-              }}
-            >
-              {emptyMealsContent}
-            </motion.div>
-          )}
-        </AnimatePresence>
+              {hasFoodEntries ? (
+                <motion.div
+                  key="food-list"
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{
+                    scale: { type: 'spring', stiffness: 400, damping: 28 },
+                    opacity: { duration: 0.15 },
+                  }}
+                >
+                  <div className="space-y-3">{mealsListContent}</div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="food-empty"
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{
+                    scale: { type: 'spring', stiffness: 400, damping: 28 },
+                    opacity: { duration: 0.15 },
+                  }}
+                >
+                  {emptyMealsContent}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
       </div>
 
       {/* Confirm Delete Food Modal */}

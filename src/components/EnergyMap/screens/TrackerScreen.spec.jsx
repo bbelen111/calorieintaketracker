@@ -14,6 +14,7 @@ import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { getDefaultEnergyMapData } from '../../../utils/data/storage';
 import { DEFAULT_UNIT_PREFERENCES } from '../../../constants/units/units';
 import { getTodayDateKey } from '../../../utils/data/dateKeys';
+import { DAY_SWAP_OUT_MS } from '../../../hooks/useDaySwapAnimation';
 
 const HINT_TEXT = 'Tap your macros to edit the split';
 
@@ -301,6 +302,121 @@ describe('TrackerScreen calendar openers', () => {
     fireEvent.click(screen.getByRole('button', { name }));
 
     expect(open).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TrackerScreen day change', () => {
+  const day = (name, calories) => ({
+    lunch: [{ id: 1, name, calories, protein: 10, carbs: 0, fats: 0 }],
+  });
+  const nutritionData = {
+    '2026-11-24': day('Oats', 500),
+    '2026-11-25': day('Rice', 900),
+  };
+  const screenFor = (selectedDate) => (
+    <TrackerScreen
+      nutritionData={nutritionData}
+      calorieTargetCalories={2500}
+      calorieTargetLabel="Maintenance"
+      selectedDate={selectedDate}
+      onSelectedDateChange={vi.fn()}
+    />
+  );
+
+  // jsdom has no Web Animations API, so the day swaps at once here.
+  it('keeps the bar and rings, so they glide to the new values', () => {
+    const view = render(screenFor('2026-11-24'));
+    const bar = calorieBar();
+    // The rings' arcs; icons draw circles too.
+    const arcs = () => [
+      ...view.container.querySelectorAll('circle[stroke-dasharray]'),
+    ];
+    const rings = arcs();
+
+    view.rerender(screenFor('2026-11-25'));
+
+    expect(totalLine()).toHaveTextContent('900 kcal');
+    expect(remainingLine()).toHaveTextContent('1,500 – 1,700 remaining');
+    expect(calorieBar()).toBe(bar);
+    expect(rings).toHaveLength(3);
+    arcs().forEach((ring, index) => expect(ring).toBe(rings[index]));
+  });
+
+  it('moves the card’s contents and the meal list, not the frames', () => {
+    const view = render(screenFor('2026-11-24'));
+    const blocks = [...view.container.querySelectorAll('[data-day-swap]')];
+
+    expect(blocks).toHaveLength(6);
+    // The icon and title go with the totals.
+    expect(blocks[0]).toHaveTextContent('Total Calories');
+    expect(blocks[0].querySelector('svg')).not.toBeNull();
+    // The meals header goes with its list.
+    expect(blocks.at(-1)).toHaveTextContent(/Meals.*Add.*Lunch/);
+    // Only the list is resized; the header animates its own height.
+    const areas = view.container.querySelectorAll('[data-day-swap-resize]');
+    expect(areas).toHaveLength(1);
+    expect(areas[0]).toHaveTextContent('Lunch');
+    expect(areas[0]).not.toHaveTextContent('Meals');
+    blocks.forEach((block) => {
+      expect(block).not.toHaveTextContent('Calorie Tracker');
+      expect(block).not.toHaveClass('rounded-2xl');
+    });
+  });
+
+  // The meal list's wrapper starts see-through while its entrance plays.
+  const mealList = () =>
+    screen.getByText('Lunch').closest('.space-y-3').parentElement;
+
+  it('plays the meal list’s entrance on a new day, not on first view', () => {
+    const view = render(screenFor('2026-11-24'));
+    expect(mealList().style.opacity).not.toBe('0');
+
+    view.rerender(screenFor('2026-11-25'));
+
+    expect(mealList().style.opacity).toBe('0');
+    expect(mealList().style.transform).toContain('scale(0.96)');
+  });
+
+  it('lets the meals header collapse on the way to an empty day', () => {
+    const view = render(screenFor('2026-11-24'));
+    view.rerender(screenFor('2026-11-26'));
+
+    // Still there, animating out, beside the empty state.
+    expect(screen.getByText('Meals')).toBeInTheDocument();
+    expect(screen.getByText('Add Food Entry')).toBeInTheDocument();
+  });
+
+  it('holds the old day on the card until it has faded out', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    window.Element.prototype.animate = vi.fn(() => ({ cancel: vi.fn() }));
+    try {
+      const view = render(screenFor('2026-11-24'));
+      view.rerender(screenFor('2026-11-25'));
+
+      // The date strip has moved on already.
+      expect(screen.getByText('Wed').closest('button')).toHaveClass(
+        'bg-primary'
+      );
+      expect(totalLine()).toHaveTextContent('500 kcal');
+
+      act(() => vi.advanceTimersByTime(DAY_SWAP_OUT_MS));
+
+      expect(totalLine()).toHaveTextContent('900 kcal');
+    } finally {
+      delete window.Element.prototype.animate;
+      vi.useRealTimers();
+    }
+  });
+
+  it('closes an open meal on the new day', () => {
+    const view = render(screenFor('2026-11-24'));
+    fireEvent.click(screen.getByText('Lunch'));
+    expect(screen.getByText('Oats')).toBeInTheDocument();
+
+    view.rerender(screenFor('2026-11-25'));
+
+    expect(screen.queryByText('Oats')).toBeNull();
+    expect(screen.queryByText('Rice')).toBeNull();
   });
 });
 
