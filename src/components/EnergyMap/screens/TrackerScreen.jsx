@@ -14,7 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  CalendarCog,
+  CalendarDays,
   Settings2,
   PieChart,
   Lock,
@@ -783,7 +783,7 @@ export const TrackerScreen = memo(function TrackerScreen({
             onClick={() => calendarModal?.open()}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold transition-all active:scale-95 flex items-center gap-2 press-feedback focus-ring md:hover:brightness-110"
           >
-            <CalendarCog size={20} />
+            <CalendarDays size={20} />
             <span className="hidden md:inline">Calendar</span>
           </button>
         </div>
@@ -799,9 +799,14 @@ export const TrackerScreen = memo(function TrackerScreen({
                 <ChevronLeft className="text-muted" size={20} />
               </div>
             </button>
-            <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => calendarModal?.open()}
+              type="button"
+              aria-label={`${selectedMonthLabel}, open calendar`}
+              className="flex h-6 items-center gap-1.5 rounded-sm px-4 pressable-inline focus-ring"
+            >
               <Calendar size={16} className="text-accent-blue" />
-              <div className="relative h-4 flex items-center">
+              <span className="relative h-4 flex items-center">
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={`month-${selectedMonthLabel}`}
@@ -814,8 +819,8 @@ export const TrackerScreen = memo(function TrackerScreen({
                     {selectedMonthLabel}
                   </motion.span>
                 </AnimatePresence>
-              </div>
-            </div>
+              </span>
+            </button>
             <button
               onClick={() => changeDateBy(7)}
               type="button"

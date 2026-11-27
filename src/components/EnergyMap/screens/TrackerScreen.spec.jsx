@@ -286,6 +286,24 @@ describe('TrackerScreen saved day targets', () => {
   });
 });
 
+describe('TrackerScreen calendar openers', () => {
+  it.each([
+    ['the month label above the dates', 'November 2026, open calendar'],
+    ['the header button', 'Calendar'],
+  ])('opens the calendar from %s', (_label, name) => {
+    const open = vi.fn();
+    renderScreen({
+      selectedDate: '2026-11-27',
+      onSelectedDateChange: vi.fn(),
+      calendarModal: { open },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name }));
+
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('TrackerScreen dates behind UTC', () => {
   beforeEach(() => {
     // Node honours a runtime TZ change.
