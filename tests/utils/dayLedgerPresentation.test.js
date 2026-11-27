@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { createUnitFormatter } from '../../src/utils/units/unitFormatter.js';
 import {
+  buildCalendarDayTargetVerdict,
   buildDayLedgerCardSummary,
   buildDayLedgerRows,
   resolveDayCalorieTarget,
@@ -1095,4 +1096,130 @@ test('buildDayLedgerCardSummary: firstLoggedDate is the earliest logged day, ign
 
   const none = buildDayLedgerCardSummary({ snapshots: {}, todayKey: TODAY });
   assert.equal(none.firstLoggedDate, null);
+});
+
+test('buildCalendarDayTargetVerdict judges past days by saved target, today by live target, and skips future/unsaved/empty days', () => {
+  const savedSnapshot = makeSnapshot({
+    date: '2026-03-10',
+    tdee: 2500,
+    goalAtSnapshot: 'cutting',
+    goalTarget: 300, // saved calorie target = 2200
+  });
+
+  // Past day inside range [2100, 2300] -> onTarget, distance 0
+  const onTarget = buildCalendarDayTargetVerdict({
+    dateKey: '2026-03-10',
+    todayKey: TODAY,
+    intake: 2180,
+    snapshot: savedSnapshot,
+    liveTargetCalories: 3000, // ignored on finished day with saved target
+    tolerance: 100,
+  });
+  assert.deepEqual(onTarget, {
+    status: INTAKE_TARGET_STATUS.ON_TARGET,
+    deviation: 20,
+    range: { low: 2100, high: 2300 },
+    distanceFromRange: 0,
+    isSaved: true,
+  });
+
+  // Past day above range -> over, distance from range.high (2440 - 2300 = 140)
+  const over = buildCalendarDayTargetVerdict({
+    dateKey: '2026-03-10',
+    todayKey: TODAY,
+    intake: 2440,
+    snapshot: savedSnapshot,
+    tolerance: 100,
+  });
+  assert.equal(over.status, INTAKE_TARGET_STATUS.OVER);
+  assert.equal(over.distanceFromRange, 140);
+
+  // Past day below range -> under, distance from range.low (2100 - 1750 = 350)
+  const under = buildCalendarDayTargetVerdict({
+    dateKey: '2026-03-10',
+    todayKey: TODAY,
+    intake: 1750,
+    snapshot: savedSnapshot,
+    tolerance: 100,
+  });
+  assert.equal(under.status, INTAKE_TARGET_STATUS.UNDER);
+  assert.equal(under.distanceFromRange, 350);
+
+  // Tighter tolerance flips the same 2180 kcal? No, 2120 kcal (+80) flips from onTarget at 100 to under at 50
+  const tightened = buildCalendarDayTargetVerdict({
+    dateKey: '2026-03-10',
+    todayKey: TODAY,
+    intake: 2120,
+    snapshot: savedSnapshot,
+    tolerance: 50,
+  });
+  assert.equal(tightened.status, INTAKE_TARGET_STATUS.UNDER);
+  assert.equal(tightened.distanceFromRange, 30); // range [2150, 2250] -> 2150 - 2120
+
+  // Past day with no usable snapshot is never judged against today's live target
+  assert.equal(
+    buildCalendarDayTargetVerdict({
+      dateKey: '2026-03-10',
+      todayKey: TODAY,
+      intake: 2200,
+      snapshot: null,
+      liveTargetCalories: 2200,
+      tolerance: 100,
+    }),
+    null
+  );
+
+  // Today uses liveTargetCalories (isSaved: false)
+  const todayUnder = buildCalendarDayTargetVerdict({
+    dateKey: TODAY,
+    todayKey: TODAY,
+    intake: 600,
+    snapshot: null,
+    liveTargetCalories: 2200,
+    tolerance: 100,
+  });
+  assert.deepEqual(todayUnder, {
+    status: INTAKE_TARGET_STATUS.UNDER,
+    deviation: 1600,
+    range: { low: 2100, high: 2300 },
+    distanceFromRange: 1500,
+    isSaved: false,
+  });
+
+  // Today without liveTargetCalories -> null
+  assert.equal(
+    buildCalendarDayTargetVerdict({
+      dateKey: TODAY,
+      todayKey: TODAY,
+      intake: 600,
+      snapshot: null,
+      tolerance: 100,
+    }),
+    null
+  );
+
+  // Future date with pre-logged food -> never judged
+  assert.equal(
+    buildCalendarDayTargetVerdict({
+      dateKey: '2026-03-25',
+      todayKey: TODAY,
+      intake: 2200,
+      snapshot: null,
+      liveTargetCalories: 2200,
+      tolerance: 100,
+    }),
+    null
+  );
+
+  // Zero / empty intake -> never judged
+  assert.equal(
+    buildCalendarDayTargetVerdict({
+      dateKey: '2026-03-10',
+      todayKey: TODAY,
+      intake: 0,
+      snapshot: savedSnapshot,
+      tolerance: 100,
+    }),
+    null
+  );
 });

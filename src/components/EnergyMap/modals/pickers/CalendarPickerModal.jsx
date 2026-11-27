@@ -10,6 +10,7 @@ import {
   Droplet,
   CalendarCheck,
   CalendarX,
+  Target,
   Utensils,
 } from 'lucide-react';
 import { ModalShell } from '../../common/ModalShell';
@@ -20,6 +21,19 @@ import {
 import { formatDateLabel } from '../../../../utils/measurements/weight';
 import { useContentRefresh } from '../../../../hooks/useContentRefresh';
 import { useUnits } from '../../../../hooks/useUnits';
+import { normalizeOnTargetTolerance } from '../../../../constants/goals/onTarget';
+import {
+  INTAKE_TARGET_STATUS,
+  buildCalendarDayTargetVerdict,
+  formatIntakeRange,
+  summarizeMonthSnapshots,
+} from '../../../../utils/calculations/dayLedgerPresentation';
+
+const DAY_INTAKE_TONE = {
+  [INTAKE_TARGET_STATUS.UNDER]: 'text-accent-emerald',
+  [INTAKE_TARGET_STATUS.ON_TARGET]: 'text-accent-green',
+  [INTAKE_TARGET_STATUS.OVER]: 'text-accent-red',
+};
 
 // Mirrors DayLedgerListModal's SummaryTile grammar (module-local there) so the
 // calendar picker's dual panel shares one design language with the ledger.
@@ -281,12 +295,16 @@ export const CalendarPickerModal = ({
   onClose,
   onSelectDate,
   nutritionData = {},
+  dailySnapshots = {},
+  onTargetTolerance,
+  liveTargetCalories,
   selectedDate,
   currentMonth,
   currentYear,
   onMonthChange,
 }) => {
   const units = useUnits();
+  const resolvedTolerance = normalizeOnTargetTolerance(onTargetTolerance);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
@@ -563,6 +581,45 @@ export const CalendarPickerModal = ({
       0
     );
   }, [dayPanelDate, nutritionData]);
+
+  // Finished-day on-target count for the Monthly Averages header (mirrors
+  // DayLedgerListModal's month summary so both calendars always agree).
+  const monthTargetSummary = useMemo(
+    () =>
+      summarizeMonthSnapshots(
+        dailySnapshots,
+        currentYear,
+        currentMonth,
+        todayStr,
+        { tolerance: resolvedTolerance }
+      ),
+    [currentMonth, currentYear, dailySnapshots, resolvedTolerance, todayStr]
+  );
+
+  // Intake target range & verdict for the previewed day (Tracker wording;
+  // past days use their saved snapshot target, today uses the live target,
+  // future / unsaved past / unlogged days omit the verdict).
+  const dayTargetVerdict = useMemo(() => {
+    if (!dayPanelDate || !hasDayData) {
+      return null;
+    }
+    return buildCalendarDayTargetVerdict({
+      dateKey: dayPanelDate,
+      todayKey: todayStr,
+      intake: dayMacros.calories,
+      snapshot: dailySnapshots[dayPanelDate],
+      liveTargetCalories,
+      tolerance: resolvedTolerance,
+    });
+  }, [
+    dailySnapshots,
+    dayMacros.calories,
+    dayPanelDate,
+    hasDayData,
+    liveTargetCalories,
+    resolvedTolerance,
+    todayStr,
+  ]);
 
   // Same-state content refresh: previewing another day (panel already visible)
   // or changing month (averages already visible) replays a subtle cue that is
@@ -905,9 +962,55 @@ export const CalendarPickerModal = ({
                         hasDayData ? '' : 'pointer-events-none'
                       }`}
                     >
-                      <div className="grid grid-cols-2 gap-2">
+                      {/* Target range + intake verdict (Tracker wording). Always
+                        occupies one line so switching between judged and
+                        unjudged days never shifts the stacked panel's height. */}
+                      <p
+                        aria-hidden={!dayTargetVerdict}
+                        className={`flex items-center gap-1 text-[11px] mb-2 truncate ${
+                          dayTargetVerdict ? '' : 'invisible'
+                        }`}
+                      >
+                        {dayTargetVerdict ? (
+                          <>
+                            <Target size={12} className="shrink-0 text-muted" />
+                            <span className="text-muted truncate">
+                              Target{' '}
+                              {formatIntakeRange(dayTargetVerdict.range, units)}{' '}
+                              {units.energy.unit}
+                            </span>
+                            <span
+                              className={`font-semibold whitespace-nowrap shrink-0 ${
+                                DAY_INTAKE_TONE[dayTargetVerdict.status]
+                              }`}
+                            >
+                              {' · '}
+                              {dayTargetVerdict.status ===
+                              INTAKE_TARGET_STATUS.ON_TARGET
+                                ? 'on target'
+                                : `${units.energy.value(
+                                    dayTargetVerdict.distanceFromRange
+                                  )} ${
+                                    dayTargetVerdict.status ===
+                                    INTAKE_TARGET_STATUS.OVER
+                                      ? 'over'
+                                      : 'under'
+                                  }`}
+                            </span>
+                          </>
+                        ) : (
+                          '\u00A0'
+                        )}
+                      </p>
+                      <div className="grid grid-cols-2 gap-1.5">
                         <SummaryTile icon={Flame} label={units.energy.noun}>
-                          <p className="text-accent-emerald font-bold text-sm leading-tight">
+                          <p
+                            className={`${
+                              dayTargetVerdict
+                                ? DAY_INTAKE_TONE[dayTargetVerdict.status]
+                                : 'text-accent-emerald'
+                            } font-bold text-sm leading-tight`}
+                          >
                             <AnimatedNumber
                               value={Math.round(
                                 units.energy.toNumber(dayMacros.calories) ?? 0
@@ -981,29 +1084,43 @@ export const CalendarPickerModal = ({
               }`}
             >
               <div ref={monthRefreshRef}>
-                {/* Header row: title + days-tracked pill (DayLedger grammar) */}
-                <div className="flex items-start justify-between gap-2 mb-2">
+                {/* Header row: title + target & days-tracked pills (DayLedger grammar) */}
+                <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="min-w-0">
-                    <p className="text-foreground font-bold text-sm">
+                    <p className="text-foreground font-bold text-sm truncate">
                       Monthly Averages
                     </p>
-                    <p className="text-muted text-xs mt-0.5">
+                    <p className="text-muted text-xs mt-0.5 truncate">
                       {monthNames[currentMonth]} {currentYear}
                     </p>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold text-accent-blue border border-accent-blue/20 bg-accent-blue/10 shrink-0">
-                    <CalendarCheck size={11} />
-                    <motion.span
-                      key={monthlyInsights.daysWithData}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="inline-flex items-center"
-                    >
-                      {monthlyInsights.daysWithData}/
-                      {monthlyInsights.daysInMonth} days
-                    </motion.span>
-                  </span>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {monthTargetSummary.judgedDays > 0 && (
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap border ${
+                          monthTargetSummary.onTargetDays > 0
+                            ? 'text-accent-green border-accent-green/20 bg-accent-green/10'
+                            : 'text-muted border-border bg-surface-highlight'
+                        }`}
+                      >
+                        <Target size={11} />
+                        {monthTargetSummary.onTargetDays} on target
+                      </span>
+                    )}
+                    <span className="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap text-accent-blue border border-accent-blue/20 bg-accent-blue/10">
+                      <CalendarCheck size={11} />
+                      <motion.span
+                        key={monthlyInsights.daysWithData}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="inline-flex items-center"
+                      >
+                        {monthlyInsights.daysWithData}/
+                        {monthlyInsights.daysInMonth} days
+                      </motion.span>
+                    </span>
+                  </div>
                 </div>
 
                 {/* Empty vs filled month branch, stacked like DayLedgerListModal

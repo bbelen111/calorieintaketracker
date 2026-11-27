@@ -5925,6 +5925,9 @@ export const EnergyMapCalculator = () => {
             onClose={calendarPickerModal.requestClose}
             onSelectDate={setTrackerSelectedDate}
             nutritionData={nutritionData}
+            dailySnapshots={userData.dailySnapshots ?? {}}
+            onTargetTolerance={userData.onTargetToleranceKcal}
+            liveTargetCalories={selectedCalorieTargetData?.targetCalories}
             selectedDate={trackerSelectedDate}
             currentMonth={calendarMonth}
             currentYear={calendarYear}

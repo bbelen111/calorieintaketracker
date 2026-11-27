@@ -599,6 +599,79 @@ export const getDayIntakeProgress = ({
     : null;
 };
 
+/**
+ * Target range and intake verdict for one day in the Tracker Calendar preview.
+ *
+ * Uses the same saved-target + tolerance contract as TrackerScreen and the
+ * Daily Ledger:
+ *  - Future dates (`dateKey > todayKey`): `null` (never judged).
+ *  - Finished dates (`dateKey < todayKey`): judged only when the snapshot
+ *    carries a resolvable saved target (`isSaved === true`).
+ *  - Today (`dateKey === todayKey`): judged against `liveTargetCalories`.
+ *  - Days with nothing eaten (`intake <= 0`): `null`.
+ *
+ * `distanceFromRange` measures to the target range's ends (`range.low` /
+ * `range.high`), matching `describeIntakeRemaining` on TrackerScreen.
+ *
+ * @returns {{ status: string, deviation: number,
+ *             range: { low: number, high: number },
+ *             distanceFromRange: number, isSaved: boolean }|null}
+ */
+export const buildCalendarDayTargetVerdict = ({
+  dateKey,
+  todayKey = getTodayDateKey(),
+  intake,
+  snapshot,
+  liveTargetCalories,
+  tolerance = DEFAULT_ON_TARGET_TOLERANCE_KCAL,
+} = {}) => {
+  const normalizedDate = normalizeDateKey(dateKey);
+  const normalizedToday = normalizeDateKey(todayKey);
+  if (!normalizedDate || !normalizedToday || normalizedDate > normalizedToday) {
+    return null;
+  }
+
+  const eaten = toNumber(intake);
+  if (eaten === null || eaten <= 0) {
+    return null;
+  }
+
+  const { targetCalories, isSaved } = resolveDayCalorieTarget({
+    dateKey: normalizedDate,
+    todayKey: normalizedToday,
+    snapshot,
+    liveTargetCalories,
+  });
+  if (normalizedDate < normalizedToday && !isSaved) {
+    return null;
+  }
+
+  const verdict = judgeIntakeAgainstTarget({
+    intake: eaten,
+    targetCalories,
+    tolerance,
+  });
+  if (!verdict.status || !verdict.range) {
+    return null;
+  }
+
+  const roundedIntake = Math.round(eaten);
+  const distanceFromRange =
+    verdict.status === INTAKE_TARGET_STATUS.OVER
+      ? roundedIntake - verdict.range.high
+      : verdict.status === INTAKE_TARGET_STATUS.UNDER
+        ? verdict.range.low - roundedIntake
+        : 0;
+
+  return {
+    status: verdict.status,
+    deviation: verdict.deviation,
+    range: verdict.range,
+    distanceFromRange,
+    isSaved,
+  };
+};
+
 const averageBalance = (days) =>
   days.length
     ? Math.round(days.reduce((sum, day) => sum + day.balance, 0) / days.length)
