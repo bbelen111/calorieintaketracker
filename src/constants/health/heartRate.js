@@ -15,6 +15,21 @@
  * sensor glitch, not a measurement.
  */
 
+/**
+ * The master "Heart rate" switch (Settings -> Profile & Health). Only an
+ * explicit `false` turns it off, so profiles saved before it existed keep
+ * every heart-rate surface.
+ *
+ * It decides what is SHOWN and whether the watch is READ. It is deliberately
+ * not a calculation input: saved readings are kept and sessions logged with a
+ * heart rate keep their numbers.
+ *
+ * @param {object} [userData]
+ * @returns {boolean}
+ */
+export const isHeartRateTrackingEnabled = (userData) =>
+  userData?.heartRateTrackingEnabled !== false;
+
 /** Average heart rate of an exercise session, in bpm. */
 export const SESSION_HEART_RATE_MIN_BPM = 60;
 export const SESSION_HEART_RATE_MAX_BPM = 220;

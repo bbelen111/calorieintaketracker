@@ -39,6 +39,7 @@ import { mapWithConcurrencyLimit } from '../utils/concurrency.js';
 import { toLocalDateKey } from '../utils/healthConnectWindow.js';
 import { isIOS } from '../utils/platform.js';
 import { useEnergyMapStore } from '../store/useEnergyMapStore.js';
+import { isHeartRateTrackingEnabled } from '../constants/health/heartRate.js';
 
 export const HEART_RATE_BACKFILL_DAYS_ANDROID = 30;
 export const HEART_RATE_BACKFILL_DAYS_IOS = 90;
@@ -83,6 +84,10 @@ export const resetHeartRateSyncState = () => {
   syncPromise = null;
   listeners.forEach((listener) => listener());
 };
+
+/** False while the master "Heart rate" switch is off: nothing is read. */
+const isTrackingEnabled = () =>
+  isHeartRateTrackingEnabled(useEnergyMapStore.getState().userData);
 
 const setSyncEnabled = (enabled) => {
   const store = useEnergyMapStore.getState();
@@ -212,6 +217,12 @@ export const runHeartRateSync = ({
         });
       }
 
+      // Tracking may have been switched off while the reads were in flight.
+      if (!isTrackingEnabled()) {
+        setState({ isLoading: false });
+        return null;
+      }
+
       const changed = useEnergyMapStore
         .getState()
         .saveHeartRateEntries(Array.from(entriesByDate.values()));
@@ -262,9 +273,9 @@ export const runHeartRateSync = ({
 };
 
 /**
- * Launch-time check: connected only when the user enabled HR sync AND the
- * store still grants heart rate. Runs a routine sync (or the back-fill when
- * none has happened yet) once connected.
+ * Launch-time check: connected only when heart-rate tracking is on, the user
+ * enabled HR sync AND the store still grants heart rate. Runs a routine sync
+ * (or the back-fill when none has happened yet) once connected.
  */
 export const initializeHeartRateSync = async () => {
   const { available, status } = await resolveHealthAvailability('[HeartRate]');
@@ -273,12 +284,18 @@ export const initializeHeartRateSync = async () => {
     return false;
   }
 
-  if (!useEnergyMapStore.getState().userData?.heartRateSyncEnabled) {
+  if (
+    !isTrackingEnabled() ||
+    !useEnergyMapStore.getState().userData?.heartRateSyncEnabled
+  ) {
     setState({ status: HealthConnectStatus.DISCONNECTED });
     return false;
   }
 
   const granted = await checkHealthReadTypes([...HEART_RATE_READ_TYPES]);
+  if (!isTrackingEnabled()) {
+    return false;
+  }
   if (!granted.includes('heartRate')) {
     setState({
       status: HealthConnectStatus.DISCONNECTED,
@@ -338,6 +355,18 @@ export const connectHeartRateSync = async () => {
 
 /** Manual refresh (pull-to-refresh / button). */
 export const refreshHeartRateSync = () => runHeartRateSync();
+
+/**
+ * Heart-rate tracking was switched off: drop the live connection but keep the
+ * user's sync opt-in, so switching tracking back on reconnects by itself.
+ */
+export const suspendHeartRateSync = () => {
+  setState({
+    status: HealthConnectStatus.DISCONNECTED,
+    isLoading: false,
+    error: null,
+  });
+};
 
 /**
  * Stops syncing. Already-synced readings stay (they are the user's history);

@@ -5,6 +5,7 @@ import {
   getHeartRateSyncState,
   initializeHeartRateSync,
   refreshHeartRateSync,
+  suspendHeartRateSync,
 } from '../services/heartRateSync.js';
 import { isHealthPlatform } from '../services/healthBridge.js';
 
@@ -17,21 +18,27 @@ import { isHealthPlatform } from '../services/healthBridge.js';
  *   (or the first back-fill).
  * - On app foreground (native only): re-read yesterday + today, so a day that
  *   rolled over while backgrounded gets its finalized resting HR.
+ * - While heart-rate tracking is off (`enabled: false`) nothing is read; turning
+ *   it back on runs the hydration path again.
  *
- * @param {{ isLoaded: boolean }} params
+ * @param {{ isLoaded: boolean, enabled?: boolean }} params
  */
-export const useHeartRateSync = ({ isLoaded }) => {
+export const useHeartRateSync = ({ isLoaded, enabled = true }) => {
   useEffect(() => {
     if (!isLoaded) {
+      return;
+    }
+    if (!enabled) {
+      suspendHeartRateSync();
       return;
     }
     initializeHeartRateSync().catch((error) =>
       console.warn('[HeartRate] Initialization failed:', error)
     );
-  }, [isLoaded]);
+  }, [enabled, isLoaded]);
 
   useEffect(() => {
-    if (!isLoaded || !isHealthPlatform()) {
+    if (!isLoaded || !enabled || !isHealthPlatform()) {
       return undefined;
     }
 
@@ -60,5 +67,5 @@ export const useHeartRateSync = ({ isLoaded }) => {
       isCancelled = true;
       handle?.remove();
     };
-  }, [isLoaded]);
+  }, [enabled, isLoaded]);
 };

@@ -16,7 +16,11 @@ import {
   roundDurationHours,
 } from '../../../../utils/formatting/time';
 import { isStepBasedCardioType } from '../../../../utils/calculations/steps';
-import { normalizeSessionHeartRate } from '../../../../constants/health/heartRate';
+import {
+  isHeartRateTrackingEnabled,
+  normalizeSessionHeartRate,
+} from '../../../../constants/health/heartRate';
+import { useShowHeartRateEffort } from '../../../../hooks/useShowHeartRateEffort';
 import {
   applyManualHeartRate,
   clearHeartRateFields,
@@ -137,6 +141,13 @@ export const CardioModal = ({
       ? normalizeSessionHeartRate(session.averageHeartRate) != null
       : true;
   const canSave = hasValidDuration && hasValidHeartRate && hasValidStartTime;
+  const heartRateTracked = isHeartRateTrackingEnabled(userData);
+  const showEffortChoice = useShowHeartRateEffort({
+    isOpen,
+    isClosing,
+    usesHeartRate: effortType === 'heartRate',
+    trackingEnabled: heartRateTracked,
+  });
   const intensityValue = session.intensity ?? 'moderate';
   const heartRateValue =
     session.averageHeartRate === '' || session.averageHeartRate == null
@@ -519,21 +530,23 @@ export const CardioModal = ({
             </button>
           </div>
 
-          <div>
-            <label className="text-foreground text-sm block mb-2">
-              Effort Tracking
-            </label>
-            <SegmentedToggle
-              ariaLabel="Effort tracking"
-              options={EFFORT_TYPE_OPTIONS}
-              value={effortType}
-              onChange={handleEffortTypeChange}
-            />
-            <p className="text-xs text-muted mt-2">
-              Use heart rate for wearable-based estimates or intensity for quick
-              selections.
-            </p>
-          </div>
+          {showEffortChoice && (
+            <div>
+              <label className="text-foreground text-sm block mb-2">
+                Effort Tracking
+              </label>
+              <SegmentedToggle
+                ariaLabel="Effort tracking"
+                options={EFFORT_TYPE_OPTIONS}
+                value={effortType}
+                onChange={handleEffortTypeChange}
+              />
+              <p className="text-xs text-muted mt-2">
+                Use heart rate for wearable-based estimates or intensity for
+                quick selections.
+              </p>
+            </div>
+          )}
 
           <SmoothHeight swapKey={effortType}>
             {effortType === 'intensity' ? (
@@ -571,10 +584,12 @@ export const CardioModal = ({
                   Select the average beats per minute recorded during this
                   session.
                 </p>
-                <SessionHeartRatePanel
-                  session={session}
-                  dateKey={sessionDateKey}
-                />
+                {heartRateTracked && (
+                  <SessionHeartRatePanel
+                    session={session}
+                    dateKey={sessionDateKey}
+                  />
+                )}
               </div>
             )}
           </SmoothHeight>

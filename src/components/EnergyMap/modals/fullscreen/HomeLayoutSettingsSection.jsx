@@ -13,7 +13,9 @@ import {
   HERO_ACTION_OPTIONS,
   HERO_SLOTS,
   HERO_SLOT_FIELDS,
+  getHeroAvailability,
   getHeroOptionGroupsForSlot,
+  isHeroMetricAvailable,
   readHeroSlots,
 } from '../../../../constants/appearance/heroAction';
 import {
@@ -68,6 +70,12 @@ const toDateKey = (value) => {
   if (value == null) return null;
   const normalized = String(value).trim();
   return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+};
+
+// Why a metric can't be picked right now (its tracking switch is off).
+const UNAVAILABLE_REASON_BY_METRIC = {
+  [HERO_ACTION_METRICS.BODY_FAT]: 'Body fat tracking is off',
+  [HERO_ACTION_METRICS.RESTING_HR]: 'Heart rate tracking is off',
 };
 
 // Energy metrics are named for the unit: "Energy" in kJ mode.
@@ -274,6 +282,7 @@ export const HomeLayoutSettingsSection = ({
   const phasePromptEnabled = userData?.homePhasePromptEnabled !== false;
   const resolvedBodyFatEnabled = bodyFatTrackingEnabled !== false;
   const heroSlots = readHeroSlots(userData, {
+    ...getHeroAvailability(userData),
     bodyFatTrackingEnabled: resolvedBodyFatEnabled,
   });
 
@@ -465,6 +474,7 @@ const MetricChoiceCard = ({
   description,
   active,
   unavailable,
+  unavailableReason,
   statusBadge,
   showSwapIcon = false,
   onClick,
@@ -473,7 +483,7 @@ const MetricChoiceCard = ({
     type="button"
     aria-pressed={active}
     disabled={unavailable}
-    title={unavailable ? 'Body fat tracking is off' : undefined}
+    title={unavailable ? unavailableReason : undefined}
     onClick={onClick}
     className={`flex w-full items-center justify-between gap-3 rounded-xl border-2 px-3 py-2.5 text-left transition-colors focus-ring ${
       active
@@ -527,10 +537,11 @@ export const HeroMetricPickerPage = ({
   onSelectSlot,
   onFieldChange,
 }) => {
-  const resolvedBodyFatEnabled = bodyFatTrackingEnabled !== false;
-  const heroSlots = readHeroSlots(userData, {
-    bodyFatTrackingEnabled: resolvedBodyFatEnabled,
-  });
+  const availability = {
+    ...getHeroAvailability(userData),
+    bodyFatTrackingEnabled: bodyFatTrackingEnabled !== false,
+  };
+  const heroSlots = readHeroSlots(userData, availability);
   const activeSlotIndex = Math.max(
     0,
     HERO_SLOT_META.findIndex((item) => item.slot === activeSlot)
@@ -590,8 +601,7 @@ export const HeroMetricPickerPage = ({
               const Icon =
                 HERO_ACTION_ICONS_BY_KEY[HERO_ACTION_ICON_KEY_BY_METRIC[key]];
               const active = heroSlots[activeSlot] === key;
-              const unavailable =
-                key === HERO_ACTION_METRICS.BODY_FAT && !resolvedBodyFatEnabled;
+              const unavailable = !isHeroMetricAvailable(key, availability);
               const usedBy = active
                 ? null
                 : HERO_SLOT_META.find((other) => heroSlots[other.slot] === key);
@@ -610,6 +620,7 @@ export const HeroMetricPickerPage = ({
                   description={description}
                   active={active}
                   unavailable={unavailable}
+                  unavailableReason={UNAVAILABLE_REASON_BY_METRIC[key]}
                   statusBadge={statusBadge}
                   showSwapIcon={Boolean(usedBy && !unavailable)}
                   onClick={() =>

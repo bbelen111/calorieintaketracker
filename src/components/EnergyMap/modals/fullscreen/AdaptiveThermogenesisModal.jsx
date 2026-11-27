@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { assessAdaptiveThermogenesisPhysiology } from '../../../../utils/calculations/heartRate';
 import { formatSignedBpm } from '../../../../utils/formatting/heartRate';
+import { isHeartRateTrackingEnabled } from '../../../../constants/health/heartRate';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { useEnergyMapStore } from '../../../../store/useEnergyMapStore';
@@ -104,7 +105,9 @@ export const AdaptiveThermogenesisModal = ({
       crude: computeAdaptiveThermogenesis({ ...base, mode: 'crude' }),
       smart,
       physiology:
-        smart?.insufficientData || smart?.details?.reason === 'maintenance-goal'
+        !isHeartRateTrackingEnabled(userData) ||
+        smart?.insufficientData ||
+        smart?.details?.reason === 'maintenance-goal'
           ? null
           : assessAdaptiveThermogenesisPhysiology({
               correction: smart?.correction,

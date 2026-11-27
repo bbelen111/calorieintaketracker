@@ -42,6 +42,7 @@ import {
 } from '../../../utils/calculations/rollingEnergyBalance';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
 import { RestingHeartRateCard } from '../common/RestingHeartRateCard';
+import { isHeartRateTrackingEnabled } from '../../../constants/health/heartRate';
 import { InsightHeadline, InsightStatus } from '../common/InsightHeadline';
 import { useUnits } from '../../../hooks/useUnits';
 
@@ -1020,7 +1021,9 @@ export const InsightsScreen = memo(function InsightsScreen({
         </div>
       </div>
 
-      <RestingHeartRateCard onOpen={onOpenHeartRateTracker} />
+      {isHeartRateTrackingEnabled(resolvedUserData) && (
+        <RestingHeartRateCard onOpen={onOpenHeartRateTracker} />
+      )}
       <AdaptiveCorrectionCard
         result={adaptiveThermogenesis.result}
         mode={adaptiveThermogenesis.mode}

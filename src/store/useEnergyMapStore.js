@@ -74,6 +74,7 @@ import { collectDayEntryIds, resolveEntryId } from '../utils/food/entryIds.js';
 import {
   HERO_SLOT_FIELDS,
   assignHeroSlot,
+  getHeroAvailability,
   readHeroSlots,
 } from '../constants/appearance/heroAction.js';
 
@@ -821,12 +822,10 @@ export const useEnergyMapStore = createWithEqualityFn(
 
         // Home hero: the pill and the two tiles never show the same metric.
         // Picking a metric another slot already shows swaps the two; Body Fat
-        // is refused while body fat tracking is off. The slots are settled
-        // first so a stale stored pick can't be swapped into place.
+        // and Resting HR are refused while their tracking is off. The slots are
+        // settled first so a stale stored pick can't be swapped into place.
         if (HERO_FIELD_TO_SLOT[field]) {
-          const options = {
-            bodyFatTrackingEnabled: prev.bodyFatTrackingEnabled !== false,
-          };
+          const options = getHeroAvailability(prev);
           const current = readHeroSlots(prev, options);
           const next = assignHeroSlot(
             current,

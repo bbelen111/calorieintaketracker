@@ -24,6 +24,7 @@ import {
 } from '../../../../utils/formatting/heartRate';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
 import { normalizeOnTargetTolerance } from '../../../../constants/goals/onTarget';
+import { isHeartRateTrackingEnabled } from '../../../../constants/health/heartRate';
 import { NUTRIENT_META } from '../../../../constants/nutrients/nutrients';
 import { getTodayDateKey } from '../../../../utils/data/dateKeys';
 import {
@@ -219,6 +220,7 @@ export const DayLedgerModal = ({
         )
       : false;
   const showBodyFat = bodyFatTrackingEnabled !== false;
+  const showHeartRate = isHeartRateTrackingEnabled(userData);
   const hasEpoc = Boolean(preview) && model.epoc.total > 0;
 
   const macroCalories = preview
@@ -558,7 +560,7 @@ export const DayLedgerModal = ({
                 </div>
               )}
 
-              {model.measurements.restingHr?.value != null && (
+              {showHeartRate && model.measurements.restingHr?.value != null && (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/40">
                   <div className="flex items-center gap-3 min-w-0">
                     <HeartPulse
@@ -643,15 +645,18 @@ export const DayLedgerModal = ({
                                 {row.startTime && `${row.startTime} \u00B7 `}
                                 {row.durationMin} min {'\u00B7'}{' '}
                                 {row.effortDisplay}
-                                {row.heartRateZone &&
+                                {showHeartRate &&
+                                  row.heartRateZone &&
                                   ` \u00B7 Z${row.heartRateZone.index}`}
                                 {row.stepOverlapEnabled
                                   ? ' \u00B7 steps deducted'
                                   : ''}
                               </span>
-                              <HeartRateSourceGlyph
-                                source={row.heartRateSource}
-                              />
+                              {showHeartRate && (
+                                <HeartRateSourceGlyph
+                                  source={row.heartRateSource}
+                                />
+                              )}
                             </p>
                           </div>
                           <div className="text-right shrink-0">

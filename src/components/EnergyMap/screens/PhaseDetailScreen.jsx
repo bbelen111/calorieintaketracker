@@ -20,6 +20,7 @@ import {
 } from '../../../utils/phases/phases';
 import { shallow } from 'zustand/shallow';
 import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
+import { isHeartRateTrackingEnabled } from '../../../constants/health/heartRate';
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
@@ -264,6 +265,7 @@ export const PhaseDetailScreen = ({
       weightEntries: state.weightEntries ?? [],
       nutritionData: state.nutritionData ?? {},
       heartRateEntries: state.heartRateEntries ?? [],
+      showHeartRate: isHeartRateTrackingEnabled(state.userData),
     }),
     shallow
   );
@@ -421,7 +423,7 @@ export const PhaseDetailScreen = ({
               {weightChangeDisplay}
             </div>
             <div className="text-muted text-xs mt-1">{weeklyRateDisplay}</div>
-            {metrics.restingHrStart != null && (
+            {store.showHeartRate && metrics.restingHrStart != null && (
               <div className="text-muted text-xs mt-1">
                 Resting HR {metrics.restingHrStart} → {metrics.restingHrEnd} bpm
               </div>

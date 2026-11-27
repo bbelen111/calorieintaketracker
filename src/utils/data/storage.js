@@ -46,6 +46,7 @@ import {
   sortHeartRateEntries,
 } from '../measurements/heartRate.js';
 import {
+  isHeartRateTrackingEnabled,
   normalizeMaxHeartRate,
   normalizeVo2Max,
 } from '../../constants/health/heartRate.js';
@@ -1549,6 +1550,7 @@ export const getDefaultEnergyMapData = () => ({
   dailyNeatOverrides: {}, // { 'YYYY-MM-DD': { multiplier, presetKey, label, updatedAt } }
   // [{ date, restingHr, restingHrMethod: 'device'|'manual'|'estimated'|null, avgHr, minHr, maxHr, vo2Max, updatedAt }]
   heartRateEntries: [],
+  heartRateTrackingEnabled: true, // Master switch: false hides every HR surface and pauses watch sync (data kept)
   maxHeartRateCustom: null, // bpm (120-230) or null = auto (Tanaka / observed)
   vo2MaxCustom: null, // mL/kg/min (15-90) or null = auto (watch reading)
   heartRateSyncEnabled: false, // read HR / resting HR / VO2 max / workouts from Health
@@ -1973,6 +1975,7 @@ function mergeWithDefaults(data) {
     heartRateEntries: sortHeartRateEntries(
       normalizedInput.heartRateEntries ?? defaults.heartRateEntries
     ),
+    heartRateTrackingEnabled: isHeartRateTrackingEnabled(normalizedInput),
     maxHeartRateCustom: normalizeMaxHeartRate(
       normalizedInput.maxHeartRateCustom
     ),

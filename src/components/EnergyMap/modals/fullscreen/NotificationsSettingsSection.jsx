@@ -15,6 +15,7 @@ import {
   useNotificationState,
 } from '../../../../services/notifications';
 import { isAndroid, isIOS } from '../../../../utils/platform';
+import { isHeartRateTrackingEnabled } from '../../../../constants/health/heartRate';
 import { SettingsReveal } from './SettingsReveal';
 
 const formatTime12h = (timeStr) => {
@@ -291,6 +292,7 @@ export const NotificationsSettingsSection = ({
     settings.enabled &&
     notifState.permission === 'granted' &&
     notifState.batteryOptimizationIgnored === false;
+  const heartRateTracked = isHeartRateTrackingEnabled(userData);
   const showBackgroundWorkoutPrompt =
     notifState.platformSupported &&
     isAndroid() &&
@@ -779,7 +781,9 @@ export const NotificationsSettingsSection = ({
 
           {/* Tier 3: Activity, Health Sync & Live Heart Rate */}
           <div className="space-y-2">
-            <GroupHeading>Activity &amp; heart rate</GroupHeading>
+            <GroupHeading>
+              {heartRateTracked ? 'Activity & heart rate' : 'Activity'}
+            </GroupHeading>
 
             <RuleCard
               title="Step goal close-out"
@@ -805,46 +809,50 @@ export const NotificationsSettingsSection = ({
               />
             </RuleCard>
 
-            <RuleCard
-              title="Unimported health workouts"
-              description="Alerts when synced Health workouts haven’t been added to your log"
-              detail={backgroundWorkoutDetail}
-              checked={rules.unimportedWorkout.enabled}
-              ariaLabel="Toggle unimported health workout alerts"
-              onToggle={() =>
-                updateRule('unimportedWorkout', {
-                  enabled: !rules.unimportedWorkout.enabled,
-                })
-              }
-            >
-              {showBackgroundWorkoutPrompt ? (
-                <div className="flex w-full items-center justify-between gap-3">
-                  <p className="text-xs text-muted">
-                    Allow Health Connect background reads to detect workouts
-                    while the app is closed.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleRequestBackgroundWorkout}
-                    className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground pressable-inline focus-ring md:hover:brightness-110"
-                  >
-                    Allow
-                  </button>
-                </div>
-              ) : null}
-            </RuleCard>
+            {heartRateTracked ? (
+              <>
+                <RuleCard
+                  title="Unimported health workouts"
+                  description="Alerts when synced Health workouts haven’t been added to your log"
+                  detail={backgroundWorkoutDetail}
+                  checked={rules.unimportedWorkout.enabled}
+                  ariaLabel="Toggle unimported health workout alerts"
+                  onToggle={() =>
+                    updateRule('unimportedWorkout', {
+                      enabled: !rules.unimportedWorkout.enabled,
+                    })
+                  }
+                >
+                  {showBackgroundWorkoutPrompt ? (
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <p className="text-xs text-muted">
+                        Allow Health Connect background reads to detect workouts
+                        while the app is closed.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleRequestBackgroundWorkout}
+                        className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground pressable-inline focus-ring md:hover:brightness-110"
+                      >
+                        Allow
+                      </button>
+                    </div>
+                  ) : null}
+                </RuleCard>
 
-            <RuleCard
-              title="Live heart-rate recording guard"
-              description="Active status banner and a 2.5-hour forgot-to-stop alert"
-              checked={rules.liveHrGuard.enabled}
-              ariaLabel="Toggle live heart-rate recording guard"
-              onToggle={() =>
-                updateRule('liveHrGuard', {
-                  enabled: !rules.liveHrGuard.enabled,
-                })
-              }
-            />
+                <RuleCard
+                  title="Live heart-rate recording guard"
+                  description="Active status banner and a 2.5-hour forgot-to-stop alert"
+                  checked={rules.liveHrGuard.enabled}
+                  ariaLabel="Toggle live heart-rate recording guard"
+                  onToggle={() =>
+                    updateRule('liveHrGuard', {
+                      enabled: !rules.liveHrGuard.enabled,
+                    })
+                  }
+                />
+              </>
+            ) : null}
           </div>
 
           {/* Layer 2: Remote Push Announcements */}

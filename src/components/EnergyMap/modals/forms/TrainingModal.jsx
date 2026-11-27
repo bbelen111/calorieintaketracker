@@ -16,7 +16,11 @@ import { HeartRatePickerModal } from '../pickers/HeartRatePickerModal';
 import { TrainingTypeListModal } from '../lists/TrainingTypeListModal';
 import { TrainingTypeEditorModal } from './TrainingTypeEditorModal';
 import { getDefaultEnergyMapData } from '../../../../utils/data/storage';
-import { normalizeSessionHeartRate } from '../../../../constants/health/heartRate';
+import {
+  isHeartRateTrackingEnabled,
+  normalizeSessionHeartRate,
+} from '../../../../constants/health/heartRate';
+import { useShowHeartRateEffort } from '../../../../hooks/useShowHeartRateEffort';
 import {
   applyManualHeartRate,
   clearHeartRateFields,
@@ -87,6 +91,13 @@ export const TrainingModal = ({
     }, {});
   }, [customTrainingTypes, store.trainingTypeOverrides]);
   const effortType = session?.effortType ?? 'intensity';
+  const heartRateTracked = isHeartRateTrackingEnabled(store.userData);
+  const showEffortChoice = useShowHeartRateEffort({
+    isOpen,
+    isClosing,
+    usesHeartRate: effortType === 'heartRate',
+    trackingEnabled: heartRateTracked,
+  });
   const intensityValue = session?.intensity ?? 'moderate';
   const heartRateValue =
     session?.averageHeartRate === '' || session?.averageHeartRate == null
@@ -463,21 +474,23 @@ export const TrainingModal = ({
               <span className="text-[11px] opacity-75">Tap to change</span>
             </button>
           </div>
-          <div>
-            <label className="text-foreground text-sm block mb-2">
-              Effort Tracking
-            </label>
-            <SegmentedToggle
-              ariaLabel="Effort tracking"
-              options={EFFORT_TYPE_OPTIONS}
-              value={effortType}
-              onChange={handleEffortTypeChange}
-            />
-            <p className="text-xs text-muted mt-2">
-              Use heart rate for wearable-based estimates or intensity for quick
-              selections.
-            </p>
-          </div>
+          {showEffortChoice && (
+            <div>
+              <label className="text-foreground text-sm block mb-2">
+                Effort Tracking
+              </label>
+              <SegmentedToggle
+                ariaLabel="Effort tracking"
+                options={EFFORT_TYPE_OPTIONS}
+                value={effortType}
+                onChange={handleEffortTypeChange}
+              />
+              <p className="text-xs text-muted mt-2">
+                Use heart rate for wearable-based estimates or intensity for
+                quick selections.
+              </p>
+            </div>
+          )}
 
           <SmoothHeight swapKey={effortType}>
             {effortType === 'intensity' ? (
@@ -516,10 +529,12 @@ export const TrainingModal = ({
                     ? 'Classic heart-rate formula (this session was logged before heart rate set the intensity).'
                     : `Heart rate sets the intensity; your training type keeps its ${units.energy.unit} per hour.`}
                 </p>
-                <SessionHeartRatePanel
-                  session={session}
-                  dateKey={sessionDateKey}
-                />
+                {heartRateTracked && (
+                  <SessionHeartRatePanel
+                    session={session}
+                    dateKey={sessionDateKey}
+                  />
+                )}
               </div>
             )}
           </SmoothHeight>

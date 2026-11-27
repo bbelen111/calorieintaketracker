@@ -15,11 +15,14 @@
 // moves the displaced slot to a free allowed metric if a direct swap isn't
 // allowed in that slot), the store enforces the same rule, and
 // `resolveHeroSlots` is the last line of defence at load and render time. Body
-// Fat is only available while body fat tracking is on.
+// Fat is only available while body fat tracking is on, and Resting HR only
+// while heart rate tracking is on.
 //
 // Icons are presentation and live with the components (`HeroActionPill`,
 // `SettingsModal`); this module is plain data so storage and the store can
 // import it without pulling React in.
+
+import { isHeartRateTrackingEnabled } from '../health/heartRate.js';
 
 export const HERO_ACTION_METRICS = {
   CALORIES: 'calories',
@@ -114,7 +117,7 @@ export const HERO_ACTION_OPTIONS = [
     key: HERO_ACTION_METRICS.RESTING_HR,
     label: 'Resting HR',
     description:
-      'Your resting heart rate baseline. Opens the heart-rate tracker.',
+      'Your resting heart rate baseline. Opens the heart-rate tracker. Needs heart rate tracking on.',
   },
   {
     key: HERO_ACTION_METRICS.BURN,
@@ -213,22 +216,29 @@ export const normalizeHeroActionMetric = (value) =>
     ? value
     : DEFAULT_HERO_ACTION_METRIC;
 
+/**
+ * The tracking switches that decide which metrics a user may pick. Every
+ * function below takes this shape as its optional last argument; a switch left
+ * out counts as on.
+ */
+export const getHeroAvailability = (userData) => ({
+  bodyFatTrackingEnabled: userData?.bodyFatTrackingEnabled !== false,
+  heartRateTrackingEnabled: isHeartRateTrackingEnabled(userData),
+});
+
 /** The metric key is one the user may pick given their settings. */
 export const isHeroMetricAvailable = (
   metric,
-  { bodyFatTrackingEnabled = true } = {}
+  { bodyFatTrackingEnabled = true, heartRateTrackingEnabled = true } = {}
 ) =>
   VALID_KEYS.has(metric) &&
-  (bodyFatTrackingEnabled || metric !== HERO_ACTION_METRICS.BODY_FAT);
+  (bodyFatTrackingEnabled || metric !== HERO_ACTION_METRICS.BODY_FAT) &&
+  (heartRateTrackingEnabled || metric !== HERO_ACTION_METRICS.RESTING_HR);
 
 /** Whether `metric` is allowed in `slot` under the user's current settings. */
-export const isHeroMetricAllowedInSlot = (
-  slot,
-  metric,
-  { bodyFatTrackingEnabled = true } = {}
-) =>
+export const isHeroMetricAllowedInSlot = (slot, metric, availability) =>
   SLOT_ORDER.includes(slot) &&
-  isHeroMetricAvailable(metric, { bodyFatTrackingEnabled }) &&
+  isHeroMetricAvailable(metric, availability) &&
   (slot !== HERO_SLOTS.PILL || !TILE_ONLY_METRICS.has(metric));
 
 /** Options offered in Settings for one Home slot. */
@@ -258,21 +268,18 @@ export const getHeroOptionGroupsForSlot = (slot) => {
  * an earlier slot keeps its pick and a later one that collides moves to its own
  * default if that is free, otherwise the first free fallback.
  *
- * Pass `bodyFatTrackingEnabled: false` at render time so a Body Fat pick steps
- * aside while tracking is off; the *stored* pick is left alone (load-time
- * normalisation never passes it) so it comes back when tracking does.
+ * Pass the user's availability (`getHeroAvailability`) at render time so a Body
+ * Fat or Resting HR pick steps aside while its tracking is off; the *stored*
+ * pick is left alone (load-time normalisation never passes it) so it comes back
+ * when tracking does.
  */
-export const resolveHeroSlots = (
-  slots = {},
-  { bodyFatTrackingEnabled = true } = {}
-) => {
+export const resolveHeroSlots = (slots = {}, availability) => {
   const used = new Set();
   const resolved = {};
 
   SLOT_ORDER.forEach((slot) => {
     const isFree = (key) =>
-      isHeroMetricAllowedInSlot(slot, key, { bodyFatTrackingEnabled }) &&
-      !used.has(key);
+      isHeroMetricAllowedInSlot(slot, key, availability) && !used.has(key);
     const picked = slots?.[slot];
     const metric = isFree(picked)
       ? picked
@@ -300,16 +307,11 @@ export const readHeroSlots = (userData, options) =>
  * the displaced metric is allowed in that other slot; otherwise the other slot
  * moves to its first free allowed fallback (e.g. a tile holding Weight takes
  * the pill's metric, so the pill moves to a free pill metric instead of Weight).
- * An unknown metric, a tile-only metric on the pill, or Body Fat while tracking
+ * An unknown metric, a tile-only metric on the pill, or a metric whose tracking
  * is off changes nothing.
  */
-export const assignHeroSlot = (
-  slots,
-  slot,
-  metric,
-  { bodyFatTrackingEnabled = true } = {}
-) => {
-  if (!isHeroMetricAllowedInSlot(slot, metric, { bodyFatTrackingEnabled })) {
+export const assignHeroSlot = (slots, slot, metric, availability) => {
+  if (!isHeroMetricAllowedInSlot(slot, metric, availability)) {
     return slots;
   }
   const current = slots[slot];
@@ -319,9 +321,7 @@ export const assignHeroSlot = (
   const holder = SLOT_ORDER.find((other) => slots[other] === metric);
   const next = { ...slots, [slot]: metric };
   if (holder) {
-    if (
-      isHeroMetricAllowedInSlot(holder, current, { bodyFatTrackingEnabled })
-    ) {
+    if (isHeroMetricAllowedInSlot(holder, current, availability)) {
       next[holder] = current;
     } else {
       const used = new Set(
@@ -331,8 +331,7 @@ export const assignHeroSlot = (
       );
       next[holder] = [HERO_SLOT_DEFAULTS[holder], ...FALLBACK_ORDER].find(
         (key) =>
-          isHeroMetricAllowedInSlot(holder, key, { bodyFatTrackingEnabled }) &&
-          !used.has(key)
+          isHeroMetricAllowedInSlot(holder, key, availability) && !used.has(key)
       );
     }
   }

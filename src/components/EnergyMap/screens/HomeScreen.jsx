@@ -38,7 +38,11 @@ import { HeroActionPill } from '../common/HeroActionPill';
 import { GoalPlanCard } from '../common/GoalPlanCard';
 import { normalizeOnTargetTolerance } from '../../../constants/goals/onTarget';
 import { HeroActionTile } from '../common/HeroActionTile';
-import { readHeroSlots } from '../../../constants/appearance/heroAction';
+import {
+  getHeroAvailability,
+  readHeroSlots,
+} from '../../../constants/appearance/heroAction';
+import { isHeartRateTrackingEnabled } from '../../../constants/health/heartRate';
 import { buildHeroActionModel } from '../../../utils/calculations/heroActionMetrics';
 import { HeartRateSourceGlyph } from '../common/HeartRateBadges';
 import {
@@ -115,7 +119,11 @@ export const HomeScreen = memo(function HomeScreen({
     [store.heartRateProfile]
   );
   const renderHeartRateExtras = (session) => {
-    if ((session?.effortType ?? 'intensity') !== 'heartRate') {
+    // The row keeps its "145 bpm" (what the burn was priced from) either way.
+    if (
+      !isHeartRateTrackingEnabled(userData ?? store.userData) ||
+      (session?.effortType ?? 'intensity') !== 'heartRate'
+    ) {
       return null;
     }
     const zone = getHeartRateZone(session.averageHeartRate, heartRateZoneModel);
@@ -345,9 +353,11 @@ export const HomeScreen = memo(function HomeScreen({
   // The hero's three configurable readouts (Settings -> Home & Tips):
   // the pill beside the title and the two tiles. They default to calories,
   // Weight and Body Fat; any slot can show any metric, and no metric can sit in
-  // two slots (`readHeroSlots` settles every pick - Body Fat steps aside while
-  // tracking is off). Models are pure and memoized on today's inputs.
+  // two slots (`readHeroSlots` settles every pick - Body Fat and Resting HR
+  // step aside while their tracking is off). Models are pure and memoized on
+  // today's inputs.
   const heroSlots = readHeroSlots(resolvedUserData, {
+    ...getHeroAvailability(resolvedUserData),
     bodyFatTrackingEnabled: resolvedBodyFatTrackingEnabled !== false,
   });
   const heroExerciseBurn =

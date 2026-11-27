@@ -31,6 +31,7 @@ import { useFoodCatalogWarmUp } from '../../hooks/useFoodCatalogWarmUp';
 import { HealthConnectStatus } from '../../constants/health/healthSources.js';
 import {
   DEFAULT_RESTING_HEART_RATE_BPM,
+  isHeartRateTrackingEnabled,
   normalizeRestingHeartRate,
   normalizeSessionHeartRate,
 } from '../../constants/health/heartRate.js';
@@ -653,7 +654,8 @@ export const EnergyMapCalculator = () => {
   const healthConnect = useHealthConnect();
 
   // Heart-rate sync lifecycle (status lives in services/heartRateSync.js).
-  useHeartRateSync({ isLoaded });
+  const heartRateTrackingEnabled = isHeartRateTrackingEnabled(userData);
+  useHeartRateSync({ isLoaded, enabled: heartRateTrackingEnabled });
   // Memoized in the store on its inputs, so this rarely changes identity.
   const heartRateProfile = useEnergyMapStore((state) => state.heartRateProfile);
 
@@ -2483,12 +2485,14 @@ export const EnergyMapCalculator = () => {
   // Advisory NEAT suggestion for the override sheet (never auto-applied).
   const neatHeartRateAdvice = useMemo(
     () =>
-      assessNeatFromHeartRate({
-        heartRateEntries: userData.heartRateEntries,
-        stepEntries,
-        dateKey: getTodayDateKey(),
-      }),
-    [userData.heartRateEntries, stepEntries]
+      heartRateTrackingEnabled
+        ? assessNeatFromHeartRate({
+            heartRateEntries: userData.heartRateEntries,
+            stepEntries,
+            dateKey: getTodayDateKey(),
+          })
+        : null,
+    [heartRateTrackingEnabled, userData.heartRateEntries, stepEntries]
   );
 
   const heartRateSettingsOpeners = useMemo(

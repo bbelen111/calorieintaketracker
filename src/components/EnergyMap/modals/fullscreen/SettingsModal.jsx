@@ -108,6 +108,7 @@ import {
   useHeartRateSyncState,
 } from '../../../../services/heartRateSync';
 import { describeMaxHrSource } from '../../../../utils/formatting/heartRate';
+import { isHeartRateTrackingEnabled } from '../../../../constants/health/heartRate';
 import { isAndroid, isIOS } from '../../../../utils/platform';
 import { formatRelativeTime } from '../../../../utils/formatting/relativeTime';
 import { exportAllDataAsJSON } from '../../../../utils/export';
@@ -1139,85 +1140,104 @@ const ProfileSection = ({
 );
 
 /**
- * Profile & Health -> Heart rate. Max HR / VO2 max overrides apply
- * immediately through onFieldChange (out-of-range = auto). Watch sync and the
- * BLE sensor live under Settings -> Integrations (`IntegrationsSection`); this
- * group keeps only the values that describe the user.
+ * Profile & Health -> Heart rate. The switch is the master "Heart rate
+ * tracking" setting (`heartRateTrackingEnabled`); Max HR / VO2 max overrides
+ * apply immediately through onFieldChange (out-of-range = auto). Watch sync and
+ * the BLE sensor live under Settings -> Integrations (`IntegrationsSection`);
+ * this group keeps only the values that describe the user.
  */
 const HeartRateSettingsSection = ({ userData, onFieldChange, openers }) => {
   const heartRateProfile = useEnergyMapStore((state) => state.heartRateProfile);
+  const trackingEnabled = isHeartRateTrackingEnabled(userData);
   const hasCustomMax = userData.maxHeartRateCustom != null;
   const hasCustomVo2 = userData.vo2MaxCustom != null;
 
   return (
     <div className="mt-7 border-t border-border/70 pt-6">
-      <p className="text-foreground font-semibold mb-3">Heart rate</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        <div>
-          <SettingLabel>Resting heart rate</SettingLabel>
-          <PickerButton
-            onClick={() => openers?.heartRateTracker?.()}
-            ariaLabel="Open heart rate tracker"
-          >
-            {heartRateProfile?.restingHr != null
-              ? `${heartRateProfile.restingHr} bpm (7-day)`
-              : 'No readings yet'}
-          </PickerButton>
-        </div>
-
-        <div>
-          <SettingLabel>Max heart rate</SettingLabel>
-          <PickerButton
-            onClick={() => openers?.maxHeartRatePicker?.()}
-            ariaLabel="Set max heart rate"
-          >
-            {heartRateProfile?.maxHr != null
-              ? `${heartRateProfile.maxHr} bpm · ${describeMaxHrSource(heartRateProfile.maxHrSource)}`
-              : '—'}
-          </PickerButton>
-          {hasCustomMax && (
-            <button
-              type="button"
-              onClick={() => onFieldChange?.('maxHeartRateCustom', null)}
-              className="mt-1.5 text-xs font-medium text-accent-blue focus-ring rounded px-1 pressable-inline"
-            >
-              Use automatic estimate
-            </button>
-          )}
-        </div>
-
-        <div>
-          <SettingLabel>VO2 max</SettingLabel>
-          <PickerButton
-            onClick={() => openers?.vo2MaxPicker?.()}
-            ariaLabel="Set VO2 max"
-          >
-            {heartRateProfile?.vo2Max != null
-              ? `${heartRateProfile.vo2Max} · ${
-                  heartRateProfile.vo2MaxSource === 'custom'
-                    ? 'custom'
-                    : 'from watch'
-                }`
-              : 'Not set'}
-          </PickerButton>
-          {hasCustomVo2 && (
-            <button
-              type="button"
-              onClick={() => onFieldChange?.('vo2MaxCustom', null)}
-              className="mt-1.5 text-xs font-medium text-accent-blue focus-ring rounded px-1 pressable-inline"
-            >
-              Use watch value
-            </button>
-          )}
-        </div>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-foreground font-semibold">Heart rate</p>
+        <BinarySwitch
+          checked={trackingEnabled}
+          ariaLabel="Toggle heart rate tracking"
+          onClick={() =>
+            onFieldChange?.('heartRateTrackingEnabled', !trackingEnabled)
+          }
+        />
       </div>
-      <button
-        type="button"
-        onClick={() => openers?.heartRateZonesInfo?.()}
-        className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted md:hover:text-foreground focus-ring rounded px-1 pressable-inline"
-      >
-        <Info size={14} /> How heart rate affects your numbers
-      </button>
+      <SettingsReveal open={!trackingEnabled} className="pt-2">
+        <p className="text-muted text-xs">
+          Tracking disabled. Saved readings are kept, and logged sessions keep
+          their numbers.
+        </p>
+      </SettingsReveal>
+      <SettingsReveal open={trackingEnabled} className="pt-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          <div>
+            <SettingLabel>Resting heart rate</SettingLabel>
+            <PickerButton
+              onClick={() => openers?.heartRateTracker?.()}
+              ariaLabel="Open heart rate tracker"
+            >
+              {heartRateProfile?.restingHr != null
+                ? `${heartRateProfile.restingHr} bpm (7-day)`
+                : 'No readings yet'}
+            </PickerButton>
+          </div>
+
+          <div>
+            <SettingLabel>Max heart rate</SettingLabel>
+            <PickerButton
+              onClick={() => openers?.maxHeartRatePicker?.()}
+              ariaLabel="Set max heart rate"
+            >
+              {heartRateProfile?.maxHr != null
+                ? `${heartRateProfile.maxHr} bpm · ${describeMaxHrSource(heartRateProfile.maxHrSource)}`
+                : '—'}
+            </PickerButton>
+            {hasCustomMax && (
+              <button
+                type="button"
+                onClick={() => onFieldChange?.('maxHeartRateCustom', null)}
+                className="mt-1.5 text-xs font-medium text-accent-blue focus-ring rounded px-1 pressable-inline"
+              >
+                Use automatic estimate
+              </button>
+            )}
+          </div>
+
+          <div>
+            <SettingLabel>VO2 max</SettingLabel>
+            <PickerButton
+              onClick={() => openers?.vo2MaxPicker?.()}
+              ariaLabel="Set VO2 max"
+            >
+              {heartRateProfile?.vo2Max != null
+                ? `${heartRateProfile.vo2Max} · ${
+                    heartRateProfile.vo2MaxSource === 'custom'
+                      ? 'custom'
+                      : 'from watch'
+                  }`
+                : 'Not set'}
+            </PickerButton>
+            {hasCustomVo2 && (
+              <button
+                type="button"
+                onClick={() => onFieldChange?.('vo2MaxCustom', null)}
+                className="mt-1.5 text-xs font-medium text-accent-blue focus-ring rounded px-1 pressable-inline"
+              >
+                Use watch value
+              </button>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => openers?.heartRateZonesInfo?.()}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted md:hover:text-foreground focus-ring rounded px-1 pressable-inline"
+        >
+          <Info size={14} /> How heart rate affects your numbers
+        </button>
+      </SettingsReveal>
     </div>
   );
 };
@@ -1286,18 +1306,22 @@ const IntegrationsSection = ({ userData, stepSync, openers }) => {
   // button makes sense) rather than opening the share sheet.
   const savesToDocuments = isAndroid();
 
+  // With heart-rate tracking off the page is about steps and files only.
+  const heartRateTracked = isHeartRateTrackingEnabled(userData);
   const stepStatus = stepSync?.status ?? HealthConnectStatus.UNAVAILABLE;
   const stepsReachable = isHealthStoreReachable(stepStatus);
-  const hrReachable = isHealthStoreReachable(hrSync.status);
+  const hrReachable = heartRateTracked && isHealthStoreReachable(hrSync.status);
   const stepsConnected = stepStatus === HealthConnectStatus.CONNECTED;
   const hrOn =
+    heartRateTracked &&
     Boolean(userData.heartRateSyncEnabled) &&
     hrSync.status === HealthConnectStatus.CONNECTED;
   const notInstalled =
     stepStatus === HealthConnectStatus.NOT_INSTALLED ||
-    hrSync.status === HealthConnectStatus.NOT_INSTALLED;
+    (heartRateTracked && hrSync.status === HealthConnectStatus.NOT_INSTALLED);
 
-  const isSyncing = Boolean(stepSync?.isLoading) || hrSync.isLoading;
+  const isSyncing =
+    Boolean(stepSync?.isLoading) || (heartRateTracked && hrSync.isLoading);
   const canSyncNow = (stepsConnected || hrOn) && !isSyncing;
 
   let stepsStatusText;
@@ -1504,8 +1528,9 @@ const IntegrationsSection = ({ userData, stepSync, openers }) => {
               </div>
             </div>
             <p className="mt-2 text-xs text-muted">
-              Energy Map only reads this data to fill in your steps and heart
-              rate; it never changes anything in {healthSourceName}.{' '}
+              Energy Map only reads this data to fill in your{' '}
+              {heartRateTracked ? 'steps and heart rate' : 'steps'}; it never
+              changes anything in {healthSourceName}.{' '}
               {android
                 ? 'Revoke access any time from Manage permissions.'
                 : 'Manage access in the Health app under Profile → Privacy → Apps.'}
@@ -1520,19 +1545,21 @@ const IntegrationsSection = ({ userData, stepSync, openers }) => {
         )}
       </div>
 
-      <div>
-        <SettingLabel>Devices</SettingLabel>
-        <PickerButton
-          onClick={() => openers?.heartRateSensor?.()}
-          ariaLabel="Pair a Bluetooth heart-rate sensor"
-        >
-          {userData.heartRateSensor?.name ?? 'Pair a chest strap or arm band'}
-        </PickerButton>
-        <p className="mt-2 text-xs text-muted">
-          Any Bluetooth heart-rate sensor that uses the standard heart-rate
-          profile.
-        </p>
-      </div>
+      {heartRateTracked && (
+        <div>
+          <SettingLabel>Devices</SettingLabel>
+          <PickerButton
+            onClick={() => openers?.heartRateSensor?.()}
+            ariaLabel="Pair a Bluetooth heart-rate sensor"
+          >
+            {userData.heartRateSensor?.name ?? 'Pair a chest strap or arm band'}
+          </PickerButton>
+          <p className="mt-2 text-xs text-muted">
+            Any Bluetooth heart-rate sensor that uses the standard heart-rate
+            profile.
+          </p>
+        </div>
+      )}
 
       <div>
         <SettingLabel>Your data</SettingLabel>

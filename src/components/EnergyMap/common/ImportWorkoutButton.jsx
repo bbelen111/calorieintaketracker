@@ -12,6 +12,7 @@ import {
   applyWorkoutToTrainingDraft,
 } from '../../../utils/calculations/sessionHeartRate';
 import { HealthConnectStatus } from '../../../constants/health/healthSources';
+import { isHeartRateTrackingEnabled } from '../../../constants/health/heartRate';
 import { useHeartRateSyncState } from '../../../services/heartRateSync';
 import { readSessionHeartRate } from '../../../services/heartRateHealth';
 import { HealthWorkoutImportModal } from '../modals/lists/HealthWorkoutImportModal';
@@ -24,8 +25,9 @@ const MODAL_CLOSE_DELAY = 180;
  * time, duration and, when the watch recorded one, the average heart rate)
  * from a workout the user picks, and the user still reviews and saves it.
  *
- * Renders nothing unless heart-rate sync is connected. `onNote` receives a
- * one-line result message for the form to show under its header.
+ * Renders nothing unless heart-rate tracking is on and its sync is connected.
+ * `onNote` receives a one-line result message for the form to show under its
+ * header.
  */
 export const ImportWorkoutButton = ({
   kind,
@@ -64,7 +66,10 @@ export const ImportWorkoutButton = ({
     [cardioSessions, trainingSessions]
   );
 
-  if (sync.status !== HealthConnectStatus.CONNECTED) {
+  if (
+    !isHeartRateTrackingEnabled(userData) ||
+    sync.status !== HealthConnectStatus.CONNECTED
+  ) {
     return null;
   }
 

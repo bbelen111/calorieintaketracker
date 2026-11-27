@@ -28,6 +28,7 @@ import {
   PUSH_TOPICS,
   normalizeNotificationSettings,
 } from '../constants/notifications/notificationConfig.js';
+import { isHeartRateTrackingEnabled } from '../constants/health/heartRate.js';
 import {
   buildLiveHrGuardNotifications,
   buildNotificationPlan,
@@ -236,7 +237,8 @@ const buildBackgroundWorkoutSyncPayload = ({
     settings.enabled &&
     settings.rules.unimportedWorkout.enabled &&
     permission === 'granted' &&
-    userData?.heartRateSyncEnabled
+    userData?.heartRateSyncEnabled &&
+    isHeartRateTrackingEnabled(userData)
   );
 
   const allSessions = [
