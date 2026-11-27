@@ -10,9 +10,11 @@ import { buildHeroActionModel } from '../../../utils/calculations/heroActionMetr
 const caloriesModel = (consumed, calorieTarget) =>
   buildHeroActionModel({ metric: 'calories', consumed, calorieTarget });
 
-// There is exactly one rect: the progress outline. No track is drawn, so at rest
-// the button stays flat and identical to its sibling hero buttons.
-const getProgressRect = (container) => container.querySelector('rect');
+// Two rects: the faint full-length track and the filled progress on top of it.
+const getProgressRect = (container) =>
+  container.querySelector('rect[data-part="progress"]');
+const getTrackRect = (container) =>
+  container.querySelector('rect[data-part="track"]');
 
 // jsdom/React disagree on SVG attribute casing (`pathLength` vs `pathlength`),
 // so read attributes case-insensitively.
@@ -36,8 +38,7 @@ describe('HeroActionPill', () => {
     // One tap target: not a readout pill plus a separate add-meal button.
     expect(screen.getAllByRole('button')).toHaveLength(1);
     // Same box and finish as the other screens' hero buttons, plus `shrink-0` so
-    // the hero title row wraps the pill instead of squeezing it (a squeezed box
-    // letterboxed the outline inside the fill).
+    // the hero title row wraps the pill instead of squeezing it.
     expect(pill).toHaveClass(
       'py-2',
       'px-4',
@@ -60,35 +61,48 @@ describe('HeroActionPill', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('draws the outline-solid with the tracker palette without clipping the glow', () => {
+  it('draws a white progress rim with a soft glow over its track', () => {
     const { container } = render(
       <HeroActionPill model={caloriesModel(1000, 2000)} />
     );
 
     const progress = getProgressRect(container);
-    expect(attrValue(progress, 'stroke')).toBe('rgb(var(--accent-green) / 1)');
+    // The fill's own text colour: white on every theme.
+    expect(attrValue(progress, 'stroke')).toBe(
+      'rgb(var(--primary-foreground) / 1)'
+    );
     expect(attrValue(progress, 'stroke-opacity')).toBe('1');
     expect(attrValue(progress, 'stroke-linecap')).toBe('round');
     expect(attrValue(progress, 'pathlength')).toBe('100');
     expect(attrValue(progress, 'stroke-dasharray')).toBe('50 100');
     expect(progress.getAttribute('style')).toContain(
-      'drop-shadow(0 0 2px rgb(var(--accent-green) / 0.35))'
+      'drop-shadow(0 0 2px rgb(var(--primary-foreground) / 0.15))'
     );
     expect(progress.getAttribute('style')).toContain(
       'transition: stroke-dasharray'
     );
 
-    // The rim is stretched to the button's own box, so it can never drift from
-    // the fill's shape at any width (a squeezed fixed-viewBox outline was the
-    // small-screen bug).
+    const track = getTrackRect(container);
+    expect(attrValue(track, 'stroke')).toBe(
+      'rgb(var(--primary-foreground) / 0.2)'
+    );
+    expect(attrValue(track, 'stroke-opacity')).toBe('1');
+    expect(attrValue(track, 'stroke-dasharray')).toBeNull();
+
+    // Measured in real pixels. A stretched viewBox with `non-scaling-stroke`
+    // made Chromium under-draw the dash, so a wide pill never closed at 100 %.
     const svg = container.querySelector('svg');
     expect(attrValue(svg, 'pointer-events')).toBe('none');
-    expect(attrValue(svg, 'preserveaspectratio')).toBe('none');
-    expect(svg).toHaveClass('h-full', 'w-full');
+    expect(attrValue(svg, 'viewbox')).toBeNull();
+    expect(attrValue(progress, 'vector-effect')).toBeNull();
+    for (const rect of [track, progress]) {
+      expect(attrValue(rect, 'width')).toBe('100%');
+      expect(attrValue(rect, 'height')).toBe('100%');
+    }
     expect(svg.getAttribute('style')).toContain('overflow: visible');
   });
 
-  it('clamps the outline-solid at a full ring-3 past the goal', () => {
+  it('clamps the progress at a full rim past the goal', () => {
     const { container } = render(
       <HeroActionPill model={caloriesModel(5000, 2000)} />
     );
@@ -111,14 +125,13 @@ describe('HeroActionPill', () => {
     );
   });
 
-  it('stays flat at rest, with no outline, rim or shadow-sm', () => {
+  it('shows only the empty track at rest', () => {
     const { container } = render(
       <HeroActionPill model={caloriesModel(0, 2000)} />
     );
 
-    // A visible rim/dot at 0 % was the "colours seem wrong" complaint: until you
-    // log something the button has to be indistinguishable from its siblings.
-    expect(container.querySelectorAll('rect')).toHaveLength(1);
+    // No stray round-cap dot at 0 %.
+    expect(attrValue(getTrackRect(container), 'stroke-opacity')).toBe('1');
     const progress = getProgressRect(container);
     expect(attrValue(progress, 'stroke-dasharray')).toBe('0 100');
     expect(attrValue(progress, 'stroke-opacity')).toBe('0');
@@ -139,6 +152,7 @@ describe('HeroActionPill', () => {
     const progress = getProgressRect(container);
     expect(attrValue(progress, 'stroke-dasharray')).toBe('0 100');
     expect(attrValue(progress, 'stroke-opacity')).toBe('0');
+    expect(attrValue(getTrackRect(container), 'stroke-opacity')).toBe('0');
   });
 
   it('renders any metric from its model: steps, a phase without a unit', () => {

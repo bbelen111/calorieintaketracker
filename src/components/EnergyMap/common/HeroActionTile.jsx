@@ -2,11 +2,7 @@ import React from 'react';
 import { AlertCircle, ChevronRight } from 'lucide-react';
 import { HeroProgressOutline } from './HeroProgressOutline';
 
-// A typical phone tile is ~150x80px; the reference box only has to be close
-// enough that stretching it barely bends the corners.
-const OUTLINE_REF_WIDTH_PX = 150;
-const OUTLINE_REF_HEIGHT_PX = 80;
-const OUTLINE_RADIUS_PX = 12; // matches `rounded-xl`
+const OUTLINE_RADIUS_PX = 8.5; // concentric inside `rounded-xl` and its border
 
 /**
  * A Home readout tile for a hero metric - the same design, class for class, as
@@ -36,8 +32,6 @@ export const HeroActionTile = ({
   >
     <HeroProgressOutline
       progress={model?.progress}
-      refWidth={OUTLINE_REF_WIDTH_PX}
-      refHeight={OUTLINE_REF_HEIGHT_PX}
       radius={OUTLINE_RADIUS_PX}
     />
     <div className="flex items-start justify-between gap-2">

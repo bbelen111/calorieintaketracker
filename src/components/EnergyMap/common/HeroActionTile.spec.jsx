@@ -56,7 +56,7 @@ describe('HeroActionTile', () => {
     expect(container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3}/);
   });
 
-  it('draws a progress outline for a metric with a goal, in the pill’s palette', () => {
+  it('draws a progress rim and track in the text colour for a goal', () => {
     const { container } = render(
       <HeroActionTile
         model={buildHeroActionModel({
@@ -67,40 +67,46 @@ describe('HeroActionTile', () => {
       />
     );
 
-    const rect = container.querySelector('rect');
-    expect(attrValue(rect, 'stroke')).toBe('rgb(var(--accent-green) / 1)');
+    // `--foreground`: white on the dark themes, ink on Light / Dawn.
+    const rect = container.querySelector('rect[data-part="progress"]');
+    expect(attrValue(rect, 'stroke')).toBe('rgb(var(--foreground) / 1)');
     expect(attrValue(rect, 'stroke-opacity')).toBe('1');
     expect(attrValue(rect, 'stroke-dasharray')).toBe('50 100');
     expect(attrValue(rect, 'pathlength')).toBe('100');
 
-    // Stretched to the tile's own box, never letterboxed, glow not clipped.
+    const track = container.querySelector('rect[data-part="track"]');
+    expect(attrValue(track, 'stroke')).toBe('rgb(var(--foreground) / 0.2)');
+    expect(attrValue(track, 'stroke-opacity')).toBe('1');
+
+    // Glow not clipped.
     const svg = container.querySelector('svg');
-    expect(attrValue(svg, 'preserveaspectratio')).toBe('none');
-    expect(svg).toHaveClass('h-full', 'w-full');
     expect(svg.getAttribute('style')).toContain('overflow: visible');
   });
 
-  it('stays flat like its neighbours for a plain reading or an empty goal', () => {
-    const flat = (model) => {
+  it('stays flat for a plain reading and shows the track for an empty goal', () => {
+    const opacities = (model) => {
       const { container, unmount } = render(<HeroActionTile model={model} />);
-      const rect = container.querySelector('rect');
-      const result = [
-        attrValue(rect, 'stroke-dasharray'),
-        attrValue(rect, 'stroke-opacity'),
-      ];
+      const result = ['track', 'progress'].map((part) =>
+        attrValue(
+          container.querySelector(`rect[data-part="${part}"]`),
+          'stroke-opacity'
+        )
+      );
       unmount();
       return result;
     };
 
     // A reading with no goal (Weight) and a goal with nothing done yet (0 steps).
     expect(
-      flat(
+      opacities(
         buildHeroActionModel({ metric: 'weight', weight: { display: '74' } })
       )
-    ).toEqual(['0 100', '0']);
+    ).toEqual(['0', '0']);
     expect(
-      flat(buildHeroActionModel({ metric: 'steps', steps: 0, stepGoal: 10000 }))
-    ).toEqual(['0 100', '0']);
+      opacities(
+        buildHeroActionModel({ metric: 'steps', steps: 0, stepGoal: 10000 })
+      )
+    ).toEqual(['1', '0']);
   });
 
   it('shows the staleness note beside Weight and Body Fat values', () => {

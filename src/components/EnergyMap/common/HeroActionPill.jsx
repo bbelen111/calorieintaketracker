@@ -13,9 +13,7 @@ import { HeroProgressOutline } from './HeroProgressOutline';
 // pill's line box under the icon on phones (where the siblings hide their label,
 // so their content is icon-driven) and equal to it on desktop, which lands on
 // 33.5px / 42.5px — measured identical to them at both breakpoints.
-const OUTLINE_REF_WIDTH_PX = 132;
-const OUTLINE_REF_HEIGHT_PX = 36;
-const OUTLINE_RADIUS_PX = 8; // matches `rounded-lg`, i.e. the hero buttons
+const OUTLINE_RADIUS_PX = 5.5; // concentric inside `rounded-lg`
 
 /**
  * Home's hero action as one tappable control: a readout for today plus the
@@ -24,8 +22,8 @@ const OUTLINE_RADIUS_PX = 8; // matches `rounded-lg`, i.e. the hero buttons
  * It renders a display `model` built by `buildHeroActionModel`
  * (`utils/calculations/heroActionMetrics.js`) and knows nothing about which
  * metric it is: `iconKey`, `value`, `unit`, `progress` and `ariaLabel` are all it
- * needs. `progress` is a 0-100 outline fill, or `null` for a metric with no goal
- * (a plain readout with no outline at all).
+ * needs. `progress` is a 0-100 outline fill (0 shows the empty track), or `null`
+ * for a metric with no goal (a plain readout with no outline at all).
  *
  * It is a *sibling* of the other screens' hero buttons, not a lookalike: same
  * `bg-primary` fill, `rounded-lg`, semibold label, no shadow utility and no rim
@@ -33,12 +31,10 @@ const OUTLINE_RADIUS_PX = 8; // matches `rounded-lg`, i.e. the hero buttons
  * siblings alike) and the same press/hover behaviour — it just carries a number
  * and a progress outline. It hugs its content, so a long number widens it
  * instead of clipping. `shrink-0` matters: the hero title row must wrap the pill
- * rather than squeeze it, because a squeezed box used to letterbox the
- * fixed-viewBox outline inside the fill.
+ * rather than squeeze it.
  *
- * The outline (`HeroProgressOutline`, shared with the tiles) mirrors the tracker
- * charts' palette and is fully transparent until there is progress, so at rest
- * the button is indistinguishable from its siblings.
+ * The outline (`HeroProgressOutline`, shared with the tiles) is drawn in the
+ * fill's own text colour, so it is white on every theme.
  */
 export const HeroActionPill = ({
   model,
@@ -57,9 +53,8 @@ export const HeroActionPill = ({
     >
       <HeroProgressOutline
         progress={model?.progress}
-        refWidth={OUTLINE_REF_WIDTH_PX}
-        refHeight={OUTLINE_REF_HEIGHT_PX}
         radius={OUTLINE_RADIUS_PX}
+        colorVar="--primary-foreground"
       />
       <Icon size={20} className="shrink-0" aria-hidden="true" />
       <span className="tabular-nums leading-none md:leading-normal">

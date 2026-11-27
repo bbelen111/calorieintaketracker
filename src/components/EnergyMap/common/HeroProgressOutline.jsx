@@ -1,75 +1,83 @@
 import React from 'react';
 
-// The progress rim shared by Home's hero readouts (the pill and the tiles).
+// The progress rim shared by Home's hero readouts (the pill and the tiles): a
+// faint full-length track - the outline of the bar - with the filled part and a
+// soft glow on top.
 //
-// It is drawn in a *reference* viewBox and stretched to whatever the host
-// measures (`preserveAspectRatio="none"`), so the rim can never drift from the
-// host's own rounded shape at any width; `non-scaling-stroke` keeps the stroke
-// exactly `OUTLINE_STROKE_PX`. Each host passes a reference box and radius close
-// to its real size and corner (pill: 132x36 / 8 = `rounded-lg`; tile: 150x80 /
-// 12 = `rounded-xl`), which keeps the stretch - and so the corner distortion -
-// negligible.
-//
-// Deliberately no track: a rim reads as a dark border and made the pill look like
-// a different blue than its sibling hero buttons, so at rest (0 %) the host stays
-// flat and the outline only appears once there is progress.
+// The SVG sits just inside its host and has no viewBox, so the rect is measured
+// in real pixels at any host size. Do not go back to a stretched viewBox with
+// `non-scaling-stroke`: Chromium sizes a `pathLength` dash from the unstretched
+// box there, so a pill wider than its reference never closed at 100 %. Each host
+// passes the px radius that runs concentric with its own corner.
 const OUTLINE_INSET_PX = 1.5;
-const OUTLINE_STROKE_PX = 2;
-const PROGRESS_STROKE = 'rgb(var(--accent-green) / 1)';
-// Half the strength of `StepTrackerModal.getBarGlow`, which the tracker charts
-// use for full-size bars rather than a small control.
-const PROGRESS_GLOW = 'drop-shadow(0 0 2px rgb(var(--accent-green) / 0.35))';
+const OUTLINE_STROKE_PX = 3;
+const TRACK_ALPHA = 0.2;
+// White reads far brighter than a hue at the same alpha, so keep this low.
+const GLOW_ALPHA = 0.3;
 
 /**
  * @param {object} props
- * @param {number|null} props.progress 0-100, or `null`/invalid for no outline
- * @param {number} props.refWidth reference viewBox width (px)
- * @param {number} props.refHeight reference viewBox height (px)
- * @param {number} props.radius corner radius in the reference box (px)
+ * @param {number|null} props.progress 0-100; `null`/invalid draws nothing (the
+ *   metric has no goal), 0 draws the empty track
+ * @param {number} props.radius corner radius of the rim (px)
+ * @param {string} [props.colorVar] theme variable the rim is drawn in. It must
+ *   contrast with the host's fill: the default text colour is white on the dark
+ *   themes and ink on Light / Dawn, where white would vanish into a tile
  */
 export const HeroProgressOutline = ({
   progress,
-  refWidth,
-  refHeight,
   radius,
+  colorVar = '--foreground',
 }) => {
   const numeric = Number(progress);
+  // `Number(null)` is 0, so "no goal" has to be told apart before coercing.
+  const hasGoal = progress != null && Number.isFinite(numeric);
   // `pathLength="100"` gives the dash 100 units of resolution, so anything past
   // two decimals is meaningless (and would thrash the attribute on every gram).
-  const dashValue = Number.isFinite(numeric)
+  const dashValue = hasGoal
     ? Math.round(Math.min(100, Math.max(0, numeric)) * 100) / 100
     : 0;
-  const showProgress = dashValue > 0;
 
-  // Decorative overlay. It is fully transparent until there is progress, so at
-  // rest the host is flat and identical to its siblings (and there is no stray
-  // round-cap dot at 0 %). `overflow: visible` keeps the stroke's glow from
-  // being clipped.
+  const rectProps = {
+    width: '100%',
+    height: '100%',
+    rx: radius,
+    fill: 'none',
+    strokeWidth: OUTLINE_STROKE_PX,
+  };
+
+  // Decorative overlay. `overflow: visible` keeps the outer half of the stroke
+  // and its glow from being clipped.
   return (
     <svg
       aria-hidden="true"
-      viewBox={`0 0 ${refWidth} ${refHeight}`}
-      preserveAspectRatio="none"
       pointerEvents="none"
-      className="pointer-events-none absolute inset-0 h-full w-full"
-      style={{ overflow: 'visible' }}
+      className="pointer-events-none absolute"
+      style={{
+        top: OUTLINE_INSET_PX,
+        left: OUTLINE_INSET_PX,
+        width: `calc(100% - ${OUTLINE_INSET_PX * 2}px)`,
+        height: `calc(100% - ${OUTLINE_INSET_PX * 2}px)`,
+        overflow: 'visible',
+      }}
     >
       <rect
-        x={OUTLINE_INSET_PX}
-        y={OUTLINE_INSET_PX}
-        width={refWidth - OUTLINE_INSET_PX * 2}
-        height={refHeight - OUTLINE_INSET_PX * 2}
-        rx={radius - OUTLINE_INSET_PX}
-        fill="none"
-        strokeWidth={OUTLINE_STROKE_PX}
-        vectorEffect="non-scaling-stroke"
+        {...rectProps}
+        data-part="track"
+        stroke={`rgb(var(${colorVar}) / ${TRACK_ALPHA})`}
+        strokeOpacity={hasGoal ? 1 : 0}
+      />
+      <rect
+        {...rectProps}
+        data-part="progress"
         strokeLinecap="round"
         pathLength="100"
         strokeDasharray={`${dashValue} 100`}
-        stroke={PROGRESS_STROKE}
-        strokeOpacity={showProgress ? 1 : 0}
+        stroke={`rgb(var(${colorVar}) / 1)`}
+        // A round cap would leave a stray dot at 0 %.
+        strokeOpacity={dashValue > 0 ? 1 : 0}
         style={{
-          filter: PROGRESS_GLOW,
+          filter: `drop-shadow(0 0 2px rgb(var(${colorVar}) / ${GLOW_ALPHA}))`,
           transition: 'stroke-dasharray 0.4s ease, stroke-opacity 0.2s ease',
         }}
       />
