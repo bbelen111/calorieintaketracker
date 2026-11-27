@@ -9,7 +9,7 @@ export const FOOD_DATABASE = [];
 
 export const FOOD_CATEGORIES = {
   protein: { label: 'Proteins', color: 'red' },
-  carbs: { label: 'Carbs', color: 'amber' },
+  carbs: { label: 'Carbs', color: 'teal' },
   vegetables: { label: 'Vegetables', color: 'green' },
   fats: { label: 'Fats', color: 'yellow' },
   supplements: { label: 'Supplements', color: 'purple' },

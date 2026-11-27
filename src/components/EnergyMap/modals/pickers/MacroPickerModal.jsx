@@ -313,8 +313,8 @@ export const MacroPickerModal = ({
     },
     carbs: {
       label: 'Carbs',
-      accentClass: 'text-accent-amber',
-      colorVar: 'rgb(var(--accent-amber))',
+      accentClass: 'text-accent-teal',
+      colorVar: 'rgb(var(--accent-teal))',
     },
     fats: {
       label: 'Fats',
@@ -462,7 +462,7 @@ export const MacroPickerModal = ({
               {[
                 { vx: pV.x, vy: pV.y, color: 'rgb(var(--accent-red))' },
                 { vx: fV.x, vy: fV.y, color: 'rgb(var(--accent-yellow))' },
-                { vx: cV.x, vy: cV.y, color: 'rgb(var(--accent-amber))' },
+                { vx: cV.x, vy: cV.y, color: 'rgb(var(--accent-teal))' },
               ].map(({ vx, vy, color }, i) => (
                 <line
                   key={i}
@@ -496,7 +496,7 @@ export const MacroPickerModal = ({
                 cx={cV.x}
                 cy={cV.y}
                 r="4"
-                fill="rgb(var(--accent-amber))"
+                fill="rgb(var(--accent-teal))"
                 opacity="0.8"
               />
 
@@ -534,10 +534,10 @@ export const MacroPickerModal = ({
               </span>
             </div>
             <div className="pointer-events-none absolute -right-2 -bottom-2.5 flex flex-col items-center">
-              <span className="text-[11px] font-semibold text-accent-amber tracking-wider uppercase">
+              <span className="text-[11px] font-semibold text-accent-teal tracking-wider uppercase">
                 Carbs
               </span>
-              <span className="text-[9px] text-accent-amber/70 leading-tight">
+              <span className="text-[9px] text-accent-teal/70 leading-tight">
                 Performance Energy
               </span>
             </div>
@@ -711,7 +711,7 @@ export const MacroPickerModal = ({
           pct={splitPercent.carbs}
           grams={carbs}
           kcal={kcalByMacro.carbs}
-          accentClass="text-accent-amber"
+          accentClass="text-accent-teal"
           isLocked={draftLocks.carbs != null}
           canLock={!hasTwoLocks || draftLocks.carbs != null}
           onToggleLock={() => handleToggleLock('carbs')}

@@ -23,7 +23,7 @@ export const ONLINE_FOOD_CATEGORIES = Object.freeze({
 
 const FILTER_ACTIVE_CLASS_BY_COLOR = {
   red: 'bg-accent-red',
-  amber: 'bg-accent-amber',
+  teal: 'bg-accent-teal',
   green: 'bg-accent-green',
   yellow: 'bg-accent-yellow',
   purple: 'bg-accent-purple',

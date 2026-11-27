@@ -19,8 +19,8 @@ const ROWS = [
     gramsKey: 'carbsGrams',
     kcalKey: 'carbsTefCalories',
     formula: '× 4 × 8%',
-    textClass: 'text-accent-amber',
-    dotClass: 'bg-accent-amber',
+    textClass: 'text-accent-teal',
+    dotClass: 'bg-accent-teal',
   },
   {
     key: 'fats',

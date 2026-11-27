@@ -152,7 +152,7 @@ export const FoodSearchMealPreviewPanel = ({
                         {formatOne(entry?.fats || 0)} f
                       </span>
                       {' - '}
-                      <span className="text-accent-amber">
+                      <span className="text-accent-teal">
                         {formatOne(entry?.carbs || 0)} c
                       </span>
                     </p>

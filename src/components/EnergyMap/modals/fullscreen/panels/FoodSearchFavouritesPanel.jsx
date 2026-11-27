@@ -138,7 +138,7 @@ export const FoodSearchFavouritesPanel = ({
                   <span className="text-accent-red font-medium">
                     {formatOne(rowValue('protein'))}g P
                   </span>
-                  <span className="text-accent-amber font-medium">
+                  <span className="text-accent-teal font-medium">
                     {formatOne(rowValue('carbs'))}g C
                   </span>
                   <span className="text-accent-yellow font-medium">

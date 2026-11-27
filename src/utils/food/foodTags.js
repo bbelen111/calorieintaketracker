@@ -9,7 +9,7 @@ export const FOOD_SOURCE_TYPES = {
 
 const FOOD_CATEGORY_META = {
   protein: { label: 'Proteins', color: 'red' },
-  carbs: { label: 'Carbs', color: 'amber' },
+  carbs: { label: 'Carbs', color: 'teal' },
   vegetables: { label: 'Vegetables', color: 'green' },
   fats: { label: 'Fats', color: 'yellow' },
   supplements: { label: 'Supplements', color: 'purple' },
@@ -19,7 +19,7 @@ const FOOD_CATEGORY_META = {
 
 const TAG_COLOR_CLASS_MAP = {
   red: 'bg-accent-red/20 text-accent-red',
-  amber: 'bg-accent-amber/20 text-accent-amber',
+  teal: 'bg-accent-teal/20 text-accent-teal',
   green: 'bg-accent-green/20 text-accent-green',
   yellow: 'bg-accent-yellow/20 text-accent-yellow',
   purple: 'bg-accent-purple/20 text-accent-purple',

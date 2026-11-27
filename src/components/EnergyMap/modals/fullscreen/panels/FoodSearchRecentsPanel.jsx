@@ -140,7 +140,7 @@ export const FoodSearchRecentsPanel = ({
                     <span className="text-accent-red font-medium">
                       {formatOne(entry.protein || 0)}g P
                     </span>
-                    <span className="text-accent-amber font-medium">
+                    <span className="text-accent-teal font-medium">
                       {formatOne(entry.carbs || 0)}g C
                     </span>
                     <span className="text-accent-yellow font-medium">

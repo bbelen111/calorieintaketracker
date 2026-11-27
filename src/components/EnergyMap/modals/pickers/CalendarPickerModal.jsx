@@ -931,7 +931,7 @@ export const CalendarPickerModal = ({
                           </p>
                         </SummaryTile>
                         <SummaryTile icon={Cookie} label="Carbs">
-                          <p className="text-accent-amber font-bold text-sm leading-tight">
+                          <p className="text-accent-teal font-bold text-sm leading-tight">
                             <AnimatedNumber
                               value={Math.round(dayMacros.carbs)}
                             />
@@ -1087,7 +1087,7 @@ export const CalendarPickerModal = ({
                         </p>
                       </SummaryTile>
                       <SummaryTile icon={Cookie} label="Avg Carbs">
-                        <p className="text-accent-amber font-bold text-sm leading-tight">
+                        <p className="text-accent-teal font-bold text-sm leading-tight">
                           <AnimatedNumber value={monthlyInsights.avgCarbs} />
                           <span className="text-muted text-[10px] font-medium">
                             {' '}

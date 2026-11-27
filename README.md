@@ -793,7 +793,7 @@ The remaining themes override the same variables with their own palettes.
 
 `accent-blue`, `accent-red`, `accent-green`, `accent-yellow`, `accent-orange`, `accent-purple`, `accent-lime`, `accent-emerald`, `accent-amber`, `accent-slate`, `accent-indigo`, `accent-pink`, `accent-teal`, `accent-coral`
 
-Each theme hardcodes its own accent values, so the shade differs per theme: dark / AMOLED use 500-level, light uses 600-level, forest and midnight use 400-level, dusk uses 300-level, and dawn uses 700-level. (`accent-teal` = EPOC; `accent-coral` = adaptive thermogenesis correction.)
+Each theme hardcodes its own accent values, so the shade differs per theme: dark / AMOLED use 500-level, light uses 600-level, forest and midnight use 400-level, dusk uses 300-level, and dawn uses 700-level. (`accent-teal` = carbs and EPOC; `accent-coral` = adaptive thermogenesis correction.)
 
 ## ⚠️ Common Pitfalls
 

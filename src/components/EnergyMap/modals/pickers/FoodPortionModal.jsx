@@ -580,7 +580,7 @@ export const FoodPortionModal = ({
                 <p className="text-muted">prot</p>
               </div>
               <div className="text-center">
-                <p className="font-bold text-accent-amber">
+                <p className="font-bold text-accent-teal">
                   {perBasis(selectedFood.per100g.carbs)}g
                 </p>
                 <p className="text-muted">carb</p>
@@ -741,7 +741,7 @@ export const FoodPortionModal = ({
               <p className="text-muted text-xs">protein</p>
             </div>
             <div>
-              <p className="text-accent-amber font-bold text-2xl">
+              <p className="text-accent-teal font-bold text-2xl">
                 {formatOne(nutrition.carbs)}g
               </p>
               <p className="text-muted text-xs">carbs</p>

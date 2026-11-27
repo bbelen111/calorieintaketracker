@@ -216,7 +216,7 @@
       },
       "accent-amber": {
         "role": "secondary",
-        "displayName": "Carbohydrate Amber",
+        "displayName": "Intake Amber",
         "canonical": "oklch(0.769 0.165 70.1)",
         "tonalRamp": [
           "oklch(18% 0.068 70.1)",
@@ -321,7 +321,7 @@
       },
       "accent-teal": {
         "role": "secondary",
-        "displayName": "EPOC Teal",
+        "displayName": "Carbohydrate Teal",
         "canonical": "oklch(0.704 0.123 182.5)",
         "tonalRamp": [
           "oklch(18% 0.051 182.5)",

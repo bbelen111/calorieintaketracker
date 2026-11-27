@@ -637,14 +637,14 @@ Accent semantic use:
 | `accent-lime` | Goal alignment |
 | `accent-emerald` | Brands, secondary positive |
 | `accent-yellow` | Fats, caution |
-| `accent-amber` | Carbs, calories |
+| `accent-amber` | Calories |
 | `accent-orange` | Warning level |
 | `accent-red` | Protein, negative, delete, warnings |
 | `accent-purple` | Supplements, aggressive bulk, cached foods |
 | `accent-slate` | Neutral, fallback |
 | `accent-indigo` | Barcode, manual entries |
 | `accent-pink` | Secondary highlight, specialty emphasis |
-| `accent-teal` | EPOC / post-exercise burn |
+| `accent-teal` | Carbs, EPOC / post-exercise burn |
 | `accent-coral` | Adaptive thermogenesis correction |
 
 Each theme hardcodes its own accent values in `index.css`, so the shade differs per theme rather than following one rule: dark / AMOLED use 500-level, light uses 600-level, forest and midnight use 400-level, dusk uses 300-level, and dawn uses 700-level.

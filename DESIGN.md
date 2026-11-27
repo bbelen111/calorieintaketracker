@@ -167,14 +167,14 @@ The accent set is deliberately not a second brand colour. It is a semantic encod
 | `accent-lime` | Goal alignment |
 | `accent-emerald` | Brand/secondary positive, the "on" state of a switch |
 | `accent-yellow` | Fats, caution, stale-data warnings |
-| `accent-amber` | Carbohydrates, calories intake |
+| `accent-amber` | Calories intake |
 | `accent-orange` | Warning level, upward weight trend |
 | `accent-red` | Protein, negative deltas, delete, cardio burn |
 | `accent-purple` | Supplements, aggressive bulk, NEAT, cached foods |
 | `accent-slate` | Neutral, fallback, no-signal |
 | `accent-indigo` | Barcode/manual entries, rest day |
 | `accent-pink` | Secondary highlight, specialty emphasis |
-| `accent-teal` | EPOC / post-exercise burn |
+| `accent-teal` | Carbohydrates, EPOC / post-exercise burn |
 | `accent-coral` | Adaptive-thermogenesis correction |
 
 ### Neutral
@@ -311,7 +311,7 @@ Iconography is Lucide at 20px by default, 16–18px inline with text, 24px in se
 
 ### Chips
 
-- **Style:** three distinct grammars, never mixed in one row. (1) **Stat chip** — `rounded-full border border-border/40 bg-surface/50 px-2.5 py-1` with a 15px accent icon and 11px muted text; this is the header's glanceable per-screen reading. (2) **Tag badge** — `text-xs px-2 py-0.5 rounded` tinted from the category's own accent (`bg-accent-amber/15 text-accent-amber`-style), used for food category and source. (3) **Status pill** — `text-[11px] px-2 py-0.5 rounded-full border` with a tinted fill at `/10`, used for "~42% of daily TDEE", the swipe coach mark, and the day-type pill.
+- **Style:** three distinct grammars, never mixed in one row. (1) **Stat chip** — `rounded-full border border-border/40 bg-surface/50 px-2.5 py-1` with a 15px accent icon and 11px muted text; this is the header's glanceable per-screen reading. (2) **Tag badge** — `text-xs px-2 py-0.5 rounded` tinted from the category's own accent (`bg-accent-teal/20 text-accent-teal`-style), used for food category and source. (3) **Status pill** — `text-[11px] px-2 py-0.5 rounded-full border` with a tinted fill at `/10`, used for "~42% of daily TDEE", the swipe coach mark, and the day-type pill.
 - **State:** a selected chip in a filled group takes `bg-primary` + `text-primary-foreground` + a 2px `border-[rgb(var(--action-border)/0.7)]` hairline; an unselected one stays `bg-surface-highlight` with no border. Selection is a fill change, never a border-colour-only change.
 
 ### Cards / Containers

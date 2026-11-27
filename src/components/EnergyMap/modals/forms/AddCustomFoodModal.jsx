@@ -89,7 +89,7 @@ const TAG_STYLES = {
   carbs: {
     idle: 'bg-surface-highlight/50 text-muted border-border',
     active:
-      'bg-accent-amber/20 text-accent-amber border-accent-amber/60 shadow-[0_0_8px_-3px_rgb(var(--accent-amber)/0.35)]',
+      'bg-accent-teal/20 text-accent-teal border-accent-teal/60 shadow-[0_0_8px_-3px_rgb(var(--accent-teal)/0.35)]',
   },
   vegetables: {
     idle: 'bg-surface-highlight/50 text-muted border-border',

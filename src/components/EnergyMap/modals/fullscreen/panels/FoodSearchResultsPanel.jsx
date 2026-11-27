@@ -123,7 +123,7 @@ const ResultCardContent = ({ food, isPinned }) => {
               <p className="text-muted">prot</p>
             </div>
             <div className="text-center">
-              <p className="text-accent-amber font-bold">
+              <p className="text-accent-teal font-bold">
                 {basis(food.per100g.carbs)}g
               </p>
               <p className="text-muted">carb</p>
@@ -377,7 +377,7 @@ export const FoodSearchResultsPanel = ({
                           <p className="text-muted">prot</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-accent-amber font-bold">
+                          <p className="text-accent-teal font-bold">
                             {formatOne(shown(macroSource.carbs))}g
                           </p>
                           <p className="text-muted">carb</p>

@@ -225,7 +225,7 @@ export const FoodSearchEntryCard = ({
             <MacroChip
               label="Carbs"
               value={`${formatOne(entry.carbs)}g`}
-              dotClassName="bg-accent-amber"
+              dotClassName="bg-accent-teal"
             />
             <MacroChip
               label="Fat"

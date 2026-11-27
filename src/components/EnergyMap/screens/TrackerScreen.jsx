@@ -591,7 +591,7 @@ export const TrackerScreen = memo(function TrackerScreen({
                   {formatOne(mealTotals.fats)}f
                 </span>
                 <span className="mx-1">•</span>
-                <span className="text-accent-amber">
+                <span className="text-accent-teal">
                   {formatOne(mealTotals.carbs)}c
                 </span>
               </p>
@@ -676,7 +676,7 @@ export const TrackerScreen = memo(function TrackerScreen({
                           {formatOne(entry.fats)} f
                         </span>
                         {' - '}
-                        <span className="text-accent-amber">
+                        <span className="text-accent-teal">
                           {formatOne(entry.carbs)} c
                         </span>
                       </p>
@@ -1121,12 +1121,12 @@ export const TrackerScreen = memo(function TrackerScreen({
             <div className="relative">
               <CircularProgress
                 percent={carbsPercent}
-                color={carbsOver ? 'text-accent-red' : 'text-accent-amber'}
+                color={carbsOver ? 'text-accent-red' : 'text-accent-teal'}
                 size={104}
                 strokeWidth={8}
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <Cookie className="text-accent-amber mb-1" size={20} />
+                <Cookie className="text-accent-teal mb-1" size={20} />
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={`carbs-${totals.carbs}`}

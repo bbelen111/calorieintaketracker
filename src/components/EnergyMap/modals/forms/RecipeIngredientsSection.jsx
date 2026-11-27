@@ -342,7 +342,7 @@ export const RecipeIngredientsSection = ({
                             {formatOne(scaled.fats || 0)} f
                           </span>
                           {' - '}
-                          <span className="text-accent-amber">
+                          <span className="text-accent-teal">
                             {formatOne(scaled.carbs || 0)} c
                           </span>
                         </p>
@@ -473,7 +473,7 @@ export const RecipeIngredientsSection = ({
                 </div>
                 <div>
                   <TickValue
-                    className="text-2xl font-bold text-accent-amber"
+                    className="text-2xl font-bold text-accent-teal"
                     text={`${formatOne(perServing.carbs)}g`}
                   />
                   <p className="text-xs text-muted">carbs</p>

@@ -693,7 +693,7 @@ export const DayLedgerModal = ({
                           }}
                         />
                         <div
-                          className="bg-accent-amber"
+                          className="bg-accent-teal"
                           style={{
                             width: `${Math.max(
                               2,
@@ -728,7 +728,7 @@ export const DayLedgerModal = ({
                       <div>
                         <Cookie
                           size={18}
-                          className="text-accent-amber mx-auto mb-1"
+                          className="text-accent-teal mx-auto mb-1"
                         />
                         <p className="text-[11px] text-muted">Carbs</p>
                         <p className="text-foreground font-bold text-base">
