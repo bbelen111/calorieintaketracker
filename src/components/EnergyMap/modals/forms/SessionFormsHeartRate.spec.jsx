@@ -71,9 +71,9 @@ const renderTraining = (props = {}) =>
  * live" are not part of the forms (live sessions are a later addition).
  */
 describe.each([
-  ['CardioModal', renderCardio],
-  ['TrainingModal', renderTraining],
-])('%s heart-rate affordances', (_name, renderForm) => {
+  ['CardioModal', renderCardio, CardioModal],
+  ['TrainingModal', renderTraining, TrainingModal],
+])('%s heart-rate affordances', (name, renderForm, Form) => {
   beforeEach(async () => {
     useEnergyMapStore.setState(INITIAL_STORE);
     resetHeartRateSyncState();
@@ -123,6 +123,57 @@ describe.each([
     expect(
       screen.getByRole('button', { name: /favourites/i })
     ).toBeInTheDocument();
+  });
+
+  describe('with heart rate tracking off', () => {
+    const intensitySession = {
+      date: '2026-03-10',
+      type: name === 'CardioModal' ? 'treadmill_run' : 'trainingtype_1',
+      startTime: '07:00',
+      duration: 30,
+      durationHours: 1,
+      effortType: 'intensity',
+      intensity: 'moderate',
+    };
+
+    beforeEach(() => {
+      useEnergyMapStore
+        .getState()
+        .handleUserDataChange('heartRateTrackingEnabled', false);
+    });
+
+    it('offers intensity only, and no Import', async () => {
+      await connectHeartRateSync();
+      renderForm({ session: intensitySession });
+
+      expect(screen.queryByText('Effort Tracking')).toBeNull();
+      expect(screen.queryByText('Average Heart Rate')).toBeNull();
+      expect(screen.getByText('Intensity')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Import workout from watch' })
+      ).toBeNull();
+    });
+
+    it('keeps the choice for a session that already uses heart rate', () => {
+      const { rerender } = renderForm();
+      expect(screen.getByText('Effort Tracking')).toBeInTheDocument();
+      expect(screen.getByText('150 bpm')).toBeInTheDocument();
+
+      // Switching to intensity can still be undone while the form is open.
+      rerender(
+        <Form
+          isOpen
+          isClosing={false}
+          cardioTypes={cardioTypes}
+          customCardioTypes={{}}
+          session={intensitySession}
+          onChange={noop}
+          onCancel={noop}
+          onSave={noop}
+        />
+      );
+      expect(screen.getByText('Effort Tracking')).toBeInTheDocument();
+    });
   });
 
   it('does not offer Import when editing a favourite template', async () => {

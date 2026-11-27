@@ -417,6 +417,20 @@ describe('notifications service (Layer 1 local + Layer 2 remote push)', () => {
       })
     );
 
+    // The master heart rate switch stops the native background check too.
+    await reconcileNotifications({
+      now,
+      userData: {
+        notifications: enabledNotifs,
+        heartRateSyncEnabled: true,
+        heartRateTrackingEnabled: false,
+      },
+      derivedState: {},
+    });
+    expect(
+      NotificationReliabilityMock.syncBackgroundWorkoutContext
+    ).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }));
+
     NotificationReliabilityMock.requestHealthBackgroundPermission.mockResolvedValue(
       { status: 'granted' }
     );

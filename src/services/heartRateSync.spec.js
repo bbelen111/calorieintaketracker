@@ -1,3 +1,4 @@
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -8,6 +9,7 @@ import {
   resetHeartRateSyncState,
   runHeartRateSync,
 } from './heartRateSync';
+import { useHeartRateSync } from '../hooks/useHeartRateSync';
 import { useEnergyMapStore } from '../store/useEnergyMapStore';
 import { HealthConnectStatus } from '../constants/health/healthSources';
 import { CapacitorMock, HealthMock } from '../tests/mocks/capacitor.js';
@@ -204,5 +206,60 @@ describe('heartRateSync', () => {
     expect(get().userData.heartRateSyncEnabled).toBe(false);
     expect(get().userData.heartRateEntries).toHaveLength(count);
     expect(await runHeartRateSync()).toBeNull();
+  });
+});
+
+describe('heart rate tracking switch', () => {
+  beforeEach(() => {
+    useEnergyMapStore.setState(INITIAL_STORE);
+    resetHeartRateSyncState();
+    CapacitorMock.isNativePlatform.mockReturnValue(true);
+    CapacitorMock.getPlatform.mockReturnValue('android');
+    HealthMock.isAvailable.mockReset().mockResolvedValue({ available: true });
+    HealthMock.checkAuthorization.mockReset().mockResolvedValue({
+      readAuthorized: ['heartRate', 'restingHeartRate', 'vo2Max', 'workouts'],
+      writeAuthorized: [],
+    });
+    HealthMock.queryAggregated.mockReset().mockResolvedValue({ samples: [] });
+    HealthMock.readSamples.mockReset().mockResolvedValue({ samples: [] });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    get().handleUserDataChange('heartRateSyncEnabled', true);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reads nothing while off and reconnects when switched back on', async () => {
+    const { rerender } = renderHook(
+      ({ enabled }) => useHeartRateSync({ isLoaded: true, enabled }),
+      { initialProps: { enabled: true } }
+    );
+    await waitFor(() =>
+      expect(getHeartRateSyncState().lastSynced).not.toBeNull()
+    );
+    HealthMock.queryAggregated.mockClear();
+
+    act(() => {
+      get().handleUserDataChange('heartRateTrackingEnabled', false);
+    });
+    rerender({ enabled: false });
+    expect(getHeartRateSyncState().status).toBe(
+      HealthConnectStatus.DISCONNECTED
+    );
+    // The opt-in survives, and neither launch nor refresh reads anything.
+    expect(get().userData.heartRateSyncEnabled).toBe(true);
+    await act(async () => {
+      await initializeHeartRateSync();
+      expect(await runHeartRateSync()).toBeNull();
+    });
+    expect(HealthMock.queryAggregated).not.toHaveBeenCalled();
+
+    act(() => {
+      get().handleUserDataChange('heartRateTrackingEnabled', true);
+    });
+    rerender({ enabled: true });
+    await waitFor(() => expect(HealthMock.queryAggregated).toHaveBeenCalled());
+    expect(getHeartRateSyncState().status).toBe(HealthConnectStatus.CONNECTED);
   });
 });

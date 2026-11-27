@@ -856,6 +856,63 @@ describe('SettingsModal Integrations page', () => {
     ).toBeNull();
   });
 
+  it('switches heart rate tracking from Profile & Health', async () => {
+    const user = userEvent.setup();
+    const onFieldChange = vi.fn();
+    render(<SettingsHarness onFieldChange={onFieldChange} />);
+    await user.click(
+      screen.getByRole('button', { name: 'Open Profile & Health' })
+    );
+
+    const toggle = screen.getByRole('switch', {
+      name: 'Toggle heart rate tracking',
+    });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await user.click(toggle);
+    expect(onFieldChange).toHaveBeenCalledWith(
+      'heartRateTrackingEnabled',
+      false
+    );
+  });
+
+  it('hides the heart rate settings while tracking is off', async () => {
+    const user = userEvent.setup();
+    render(
+      <SettingsHarness
+        userData={createUserData({ heartRateTrackingEnabled: false })}
+      />
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Open Profile & Health' })
+    );
+
+    expect(screen.getByText(/Tracking disabled\. Saved/)).toBeInTheDocument();
+    expect(screen.queryByText('Resting heart rate')).toBeNull();
+    expect(screen.queryByText('Max heart rate')).toBeNull();
+    expect(screen.queryByText('VO2 max')).toBeNull();
+  });
+
+  it('leaves only steps and files on Integrations while tracking is off', async () => {
+    const user = userEvent.setup();
+    render(
+      <SettingsHarness
+        userData={createUserData({ heartRateTrackingEnabled: false })}
+        stepSync={createStepSync()}
+      />
+    );
+    await openIntegrations(user);
+
+    expect(screen.getByText('Steps')).toBeInTheDocument();
+    expect(screen.queryByText('Heart rate & workouts')).toBeNull();
+    expect(screen.queryByRole('switch', { name: HR_SWITCH })).toBeNull();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Pair a Bluetooth heart-rate sensor',
+      })
+    ).toBeNull();
+    expect(screen.getByText(/fill in your steps;/)).toBeInTheDocument();
+  });
+
   it('says so when no health store exists instead of rendering an empty group', async () => {
     const user = userEvent.setup();
     render(<SettingsHarness />);

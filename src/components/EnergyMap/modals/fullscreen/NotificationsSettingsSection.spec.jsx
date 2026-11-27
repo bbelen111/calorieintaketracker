@@ -59,6 +59,31 @@ describe('NotificationsSettingsSection reliability banners', () => {
     vi.restoreAllMocks();
   });
 
+  it('hides the heart rate rules while heart rate tracking is off', async () => {
+    await initializeNotifications();
+    render(
+      <NotificationsSettingsSection
+        userData={{
+          heartRateSyncEnabled: true,
+          heartRateTrackingEnabled: false,
+          notifications: {
+            ...createDefaultNotificationSettings(),
+            enabled: true,
+          },
+        }}
+        onFieldChange={vi.fn()}
+        onOpenTimePicker={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Step goal close-out')).toBeInTheDocument();
+    expect(screen.queryByText('Unimported health workouts')).toBeNull();
+    expect(screen.queryByText('Live heart-rate recording guard')).toBeNull();
+    expect(
+      screen.queryByText(/Allow Health Connect background reads/i)
+    ).toBeNull();
+  });
+
   it('shows Android exact-alarm, battery optimization, and background health prompts and triggers actions', async () => {
     const user = userEvent.setup();
     await initializeNotifications();

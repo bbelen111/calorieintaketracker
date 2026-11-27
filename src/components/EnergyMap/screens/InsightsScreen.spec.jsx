@@ -118,6 +118,20 @@ describe('InsightsScreen body composition empty states', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('drops the resting heart rate card when heart rate tracking is off', () => {
+    const { unmount } = renderScreen();
+    expect(screen.getByText('Resting Heart Rate')).toBeInTheDocument();
+    unmount();
+
+    renderScreen({
+      userData: {
+        ...getDefaultEnergyMapData(),
+        heartRateTrackingEnabled: false,
+      },
+    });
+    expect(screen.queryByText('Resting Heart Rate')).toBeNull();
+  });
+
   it('explains that crude adaptive thermogenesis has no adjustment on maintenance', () => {
     const today = getTodayDateKey();
     renderScreen({

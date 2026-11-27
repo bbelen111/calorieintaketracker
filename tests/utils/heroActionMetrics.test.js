@@ -9,6 +9,7 @@ import {
   HERO_SLOT_DEFAULTS,
   HERO_SLOT_FIELDS,
   assignHeroSlot,
+  getHeroAvailability,
   getHeroOptionGroupsForSlot,
   getHeroOptionsForSlot,
   normalizeHeroActionMetric,
@@ -473,4 +474,22 @@ test('resting HR and exercise burn are plain readouts', () => {
   assert.equal(burn.unit, 'kcal burned');
   assert.equal(burn.progress, null);
   assert.equal(build('burn').primary, '0');
+});
+
+test('Resting HR steps aside while heart rate tracking is off', () => {
+  const stored = { pill: 'restingHr', left: 'weight', right: 'bodyFat' };
+  const off = getHeroAvailability({ heartRateTrackingEnabled: false });
+
+  const slots = resolveHeroSlots(stored, off);
+  assert.ok(!Object.values(slots).includes('restingHr'));
+  assert.equal(slots.left, 'weight');
+  // The stored pick is untouched, so switching tracking back on restores it.
+  assert.equal(resolveHeroSlots(stored).pill, 'restingHr');
+  // It cannot be picked while tracking is off.
+  assert.equal(assignHeroSlot(slots, 'right', 'restingHr', off), slots);
+  // A profile saved before the switch existed keeps it available.
+  assert.deepEqual(getHeroAvailability({}), {
+    bodyFatTrackingEnabled: true,
+    heartRateTrackingEnabled: true,
+  });
 });

@@ -79,16 +79,14 @@ test('synced backfill updates existing snapshots and never seeds untracked days'
   // Re-syncing the same values is a no-op (no store write)
   const before = useEnergyMapStore.getState().userData;
   assert.deepEqual(
-    useEnergyMapStore
-      .getState()
-      .saveHeartRateEntries([
-        {
-          date: yesterday,
-          restingHr: 58,
-          restingHrMethod: 'device',
-          maxHr: 171,
-        },
-      ]),
+    useEnergyMapStore.getState().saveHeartRateEntries([
+      {
+        date: yesterday,
+        restingHr: 58,
+        restingHrMethod: 'device',
+        maxHr: 171,
+      },
+    ]),
     []
   );
   assert.equal(useEnergyMapStore.getState().userData, before);
@@ -149,4 +147,43 @@ test('max HR / VO2 max settings are validated; invalid means auto', async () => 
   assert.equal(useEnergyMapStore.getState().userData.vo2MaxCustom, 51.3);
   useEnergyMapStore.getState().handleUserDataChange('vo2MaxCustom', null);
   assert.equal(useEnergyMapStore.getState().userData.vo2MaxCustom, null);
+});
+
+test('the heart rate switch keeps readings and never moves a calorie number', async () => {
+  await ensureStoreSetup();
+  const today = getTodayDateKey();
+  useEnergyMapStore.getState().addCardioSession({
+    date: today,
+    startTime: '07:00',
+    type: 'treadmill_run',
+    duration: 30,
+    effortType: 'heartRate',
+    averageHeartRate: 150,
+  });
+  useEnergyMapStore.getState().setManualRestingHeartRate(today, 55);
+  const before = useEnergyMapStore.getState();
+  const total = before.calculateBreakdown(8000, true).total;
+  assert.ok(before.totalCardioBurn > 0);
+
+  before.handleUserDataChange('heartRateTrackingEnabled', false);
+  const after = useEnergyMapStore.getState();
+
+  assert.equal(after.userData.heartRateTrackingEnabled, false);
+  assert.equal(after.totalCardioBurn, before.totalCardioBurn);
+  assert.equal(after.calculateBreakdown(8000, true).total, total);
+  // Saved readings are kept.
+  assert.equal(
+    after.userData.heartRateEntries,
+    before.userData.heartRateEntries
+  );
+
+  // Home refuses the Resting HR metric while the switch is off.
+  after.handleUserDataChange('heroActionMetric', 'restingHr');
+  assert.notEqual(
+    useEnergyMapStore.getState().userData.heroActionMetric,
+    'restingHr'
+  );
+  useEnergyMapStore
+    .getState()
+    .handleUserDataChange('heartRateTrackingEnabled', true);
 });

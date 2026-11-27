@@ -655,3 +655,23 @@ test('loading gives repeated food entry ids on one day their own ids', async () 
     assert.equal(loaded.nutritionData['2026-03-21'].lunch[0].id, 1);
   });
 });
+
+test('heart rate tracking defaults on and an off switch survives a reload', async () => {
+  assert.equal(getDefaultEnergyMapData().heartRateTrackingEnabled, true);
+
+  await withWindowStorage(async () => {
+    await clearDexieHistory();
+    // A profile saved before the switch existed
+    await Preferences.set({
+      key: PROFILE_KEY,
+      value: JSON.stringify({ age: 29 }),
+    });
+    assert.equal((await loadEnergyMapData()).heartRateTrackingEnabled, true);
+
+    await Preferences.set({
+      key: PROFILE_KEY,
+      value: JSON.stringify({ heartRateTrackingEnabled: false }),
+    });
+    assert.equal((await loadEnergyMapData()).heartRateTrackingEnabled, false);
+  });
+});
