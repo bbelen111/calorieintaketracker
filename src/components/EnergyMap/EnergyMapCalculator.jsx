@@ -4973,6 +4973,7 @@ export const EnergyMapCalculator = () => {
         onSelectedDateChange={setTrackerSelectedDate}
         calorieTargetLabel={selectedCalorieTargetData.label}
         calorieTargetCalories={selectedCalorieTargetData.targetCalories}
+        onTargetToleranceKcal={userData.onTargetToleranceKcal}
         onOpenCalorieTargetModal={openCalorieTargetPicker}
         onOpenMacroPicker={openMacroPickerModal}
         isScreenActive={visibleScreen === trackerIndex}

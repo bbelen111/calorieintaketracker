@@ -446,6 +446,56 @@ export const isDayOnTarget = (deviation, tolerance) => {
   );
 };
 
+export const INTAKE_TARGET_STATUS = Object.freeze({
+  UNDER: 'under',
+  ON_TARGET: 'onTarget',
+  OVER: 'over',
+});
+
+/**
+ * Where a day's intake sits against its calorie target, using the Daily
+ * Ledger's on-target band (`isDayOnTarget`). All values are kcal.
+ *
+ * `deviation = target - intake` (positive = under the target), the sign of the
+ * ledger's `deficit - goalTarget`. Both sides are rounded to whole kcal first,
+ * like the ledger's balance, so the verdict matches the numbers on screen.
+ * A day with nothing eaten keeps its range but gets no verdict; an unusable
+ * target gets neither.
+ *
+ * @param {object} params
+ * @param {number} params.intake         - kcal eaten
+ * @param {number} params.targetCalories - the day's calorie target
+ * @param {number} [params.tolerance]    - on-target band (kcal)
+ * @returns {{ status: string|null, deviation: number|null,
+ *             range: { low: number, high: number }|null }}
+ */
+export const judgeIntakeAgainstTarget = ({
+  intake,
+  targetCalories,
+  tolerance = DEFAULT_ON_TARGET_TOLERANCE_KCAL,
+} = {}) => {
+  const target = Math.round(toNumber(targetCalories) ?? 0);
+  if (target <= 0) {
+    return { status: null, deviation: null, range: null };
+  }
+  const range = {
+    low: Math.max(0, target - tolerance),
+    high: target + tolerance,
+  };
+  const eaten = toNumber(intake);
+  if (eaten === null || eaten <= 0) {
+    return { status: null, deviation: null, range };
+  }
+
+  const deviation = target - Math.round(eaten);
+  let status = INTAKE_TARGET_STATUS.ON_TARGET;
+  if (!isDayOnTarget(deviation, tolerance)) {
+    status =
+      deviation > 0 ? INTAKE_TARGET_STATUS.UNDER : INTAKE_TARGET_STATUS.OVER;
+  }
+  return { status, deviation, range };
+};
+
 const averageBalance = (days) =>
   days.length
     ? Math.round(days.reduce((sum, day) => sum + day.balance, 0) / days.length)

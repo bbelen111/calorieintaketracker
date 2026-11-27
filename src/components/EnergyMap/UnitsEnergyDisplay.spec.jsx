@@ -126,7 +126,13 @@ describe('energy in kilojoules', () => {
     );
 
     expect(screen.getByText('Total Energy')).toBeInTheDocument();
-    expect(screen.getByText(/418 \/ 8,368 kJ/)).toBeInTheDocument();
+    // 2,000 kcal target ± the default 100 kcal range, each end converted.
+    expect(screen.getByTestId('tracker-calorie-total')).toHaveTextContent(
+      '418 kJ'
+    );
+    expect(screen.getByTestId('tracker-calorie-range')).toHaveTextContent(
+      'of 7,950 – 8,786 kJ'
+    );
   });
 
   it('restates the figures in the info sheets', () => {

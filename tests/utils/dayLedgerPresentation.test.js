@@ -9,7 +9,9 @@ import {
   formatSignedKcal,
   getAdjacentTrackedDates,
   getMeasurementForDate,
+  INTAKE_TARGET_STATUS,
   isDayOnTarget,
+  judgeIntakeAgainstTarget,
   isValidDaySnapshot,
   summarizeMonthSnapshots,
 } from '../../src/utils/calculations/dayLedgerPresentation.js';
@@ -650,6 +652,74 @@ test('isDayOnTarget: inclusive band, unknown deviation is never on target', () =
   assert.equal(isDayOnTarget(101, 100), false);
   assert.equal(isDayOnTarget(null, 100), false);
   assert.equal(isDayOnTarget(undefined, 100), false);
+});
+
+const judge = (intake, overrides = {}) =>
+  judgeIntakeAgainstTarget({
+    intake,
+    targetCalories: 2500,
+    tolerance: 100,
+    ...overrides,
+  });
+
+test('judgeIntakeAgainstTarget: the band is inclusive on both sides', () => {
+  assert.deepEqual(judge(2300), {
+    status: INTAKE_TARGET_STATUS.UNDER,
+    deviation: 200,
+    range: { low: 2400, high: 2600 },
+  });
+  assert.equal(judge(2399).status, INTAKE_TARGET_STATUS.UNDER);
+  assert.equal(judge(2400).status, INTAKE_TARGET_STATUS.ON_TARGET);
+  assert.equal(judge(2600).status, INTAKE_TARGET_STATUS.ON_TARGET);
+  assert.equal(judge(2601).status, INTAKE_TARGET_STATUS.OVER);
+  assert.equal(judge(2601).deviation, -101);
+});
+
+test('judgeIntakeAgainstTarget: judges the whole-kcal numbers on screen', () => {
+  assert.equal(judge(2600.4).status, INTAKE_TARGET_STATUS.ON_TARGET);
+  assert.equal(judge(2600.5).status, INTAKE_TARGET_STATUS.OVER);
+  assert.deepEqual(judge(2500, { targetCalories: 2499.6 }).range, {
+    low: 2400,
+    high: 2600,
+  });
+});
+
+test('judgeIntakeAgainstTarget: the tolerance sets the range and verdict', () => {
+  const strict = judge(2300, { tolerance: 50 });
+  assert.deepEqual(strict.range, { low: 2450, high: 2550 });
+  assert.equal(strict.status, INTAKE_TARGET_STATUS.UNDER);
+
+  const loose = judge(2300, { tolerance: 250 });
+  assert.deepEqual(loose.range, { low: 2250, high: 2750 });
+  assert.equal(loose.status, INTAKE_TARGET_STATUS.ON_TARGET);
+
+  // Default band is the setting's default (100).
+  assert.deepEqual(
+    judgeIntakeAgainstTarget({ intake: 2400, targetCalories: 2500 }).range,
+    { low: 2400, high: 2600 }
+  );
+});
+
+test('judgeIntakeAgainstTarget: nothing eaten keeps the range, no verdict', () => {
+  [0, null, undefined, NaN].forEach((intake) => {
+    assert.deepEqual(judge(intake), {
+      status: null,
+      deviation: null,
+      range: { low: 2400, high: 2600 },
+    });
+  });
+});
+
+test('judgeIntakeAgainstTarget: an unusable target gives neither', () => {
+  [0, -200, null, undefined, NaN].forEach((targetCalories) => {
+    assert.deepEqual(judge(2000, { targetCalories }), {
+      status: null,
+      deviation: null,
+      range: null,
+    });
+  });
+  // A tiny target never produces a negative lower bound.
+  assert.equal(judge(0, { targetCalories: 40 }).range.low, 0);
 });
 
 test('buildDayLedgerCardSummary: nothing logged yields gaps, never zeros', () => {

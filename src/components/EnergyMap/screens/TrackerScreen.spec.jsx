@@ -10,6 +10,10 @@ import { MotionGlobalConfig } from 'framer-motion';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TrackerScreen } from './TrackerScreen';
+import { useEnergyMapStore } from '../../../store/useEnergyMapStore';
+import { getDefaultEnergyMapData } from '../../../utils/data/storage';
+import { DEFAULT_UNIT_PREFERENCES } from '../../../constants/units/units';
+import { getTodayDateKey } from '../../../utils/data/dateKeys';
 
 const HINT_TEXT = 'Tap your macros to edit the split';
 
@@ -23,6 +27,172 @@ const renderScreen = (props = {}) =>
       {...props}
     />
   );
+
+const seedStore = (overrides = {}) =>
+  act(() => {
+    useEnergyMapStore.setState({
+      userData: { ...getDefaultEnergyMapData(), ...overrides },
+    });
+  });
+
+const eatenToday = (calories) => ({
+  [getTodayDateKey()]: {
+    lunch: [
+      { id: 1, name: 'Test meal', calories, protein: 0, carbs: 0, fats: 0 },
+    ],
+  },
+});
+
+const totalLine = () => screen.getByTestId('tracker-calorie-total');
+const rangeLine = () => screen.getByTestId('tracker-calorie-range');
+const remainingLine = () => screen.getByTestId('tracker-calorie-remaining');
+const calorieBar = () => screen.getByTestId('tracker-calorie-bar');
+const targetRow = () => screen.getByRole('button', { name: /Maintenance/ });
+
+describe('TrackerScreen target range', () => {
+  beforeEach(() => {
+    MotionGlobalConfig.skipAnimations = true;
+    seedStore();
+  });
+
+  afterEach(() => {
+    MotionGlobalConfig.skipAnimations = false;
+    seedStore();
+  });
+
+  it('writes the target as the on-target range in both places', () => {
+    renderScreen({ nutritionData: eatenToday(1950) });
+
+    expect(totalLine()).toHaveTextContent('1,950 kcal');
+    expect(rangeLine()).toHaveTextContent('of 2,400 – 2,600 kcal');
+    expect(targetRow()).toHaveTextContent('2,400–2,600 kcal(Maintenance)');
+  });
+
+  it('follows the On-target range setting as it changes', async () => {
+    seedStore({ onTargetToleranceKcal: 250 });
+    renderScreen();
+    expect(rangeLine()).toHaveTextContent('of 2,250 – 2,750 kcal');
+
+    seedStore({ onTargetToleranceKcal: 50 });
+
+    await waitFor(() =>
+      expect(rangeLine()).toHaveTextContent('of 2,450 – 2,550 kcal')
+    );
+    await waitFor(() =>
+      expect(targetRow()).toHaveTextContent('2,450–2,550 kcal')
+    );
+  });
+
+  it('prefers the tolerance prop over the stored setting', () => {
+    seedStore({ onTargetToleranceKcal: 50 });
+    renderScreen({ onTargetToleranceKcal: 150 });
+
+    expect(rangeLine()).toHaveTextContent('of 2,350 – 2,650 kcal');
+  });
+
+  it('writes the range in kilojoules for kJ users', () => {
+    seedStore({
+      unitPreferences: { ...DEFAULT_UNIT_PREFERENCES, energy: 'kJ' },
+    });
+    renderScreen({ nutritionData: eatenToday(2000) });
+
+    expect(totalLine()).toHaveTextContent('8,368 kJ');
+    expect(rangeLine()).toHaveTextContent('of 10,042 – 10,878 kJ');
+    expect(targetRow()).toHaveTextContent('10,042–10,878 kJ');
+    expect(remainingLine()).toHaveTextContent('2,092 remaining');
+  });
+
+  it('reads as remaining, in emerald, below the range', () => {
+    renderScreen({ nutritionData: eatenToday(2000) });
+
+    expect(remainingLine()).toHaveTextContent('500 remaining');
+    expect(screen.getByText('80%')).toHaveClass('text-accent-emerald');
+    expect(calorieBar()).toHaveClass('bg-accent-emerald');
+  });
+
+  it('turns green inside the range while still under the target', () => {
+    renderScreen({ nutritionData: eatenToday(2440) });
+
+    expect(remainingLine()).toHaveTextContent('60 remaining');
+    expect(screen.getByText('98%')).toHaveClass('text-accent-green');
+    expect(calorieBar()).toHaveClass('bg-accent-green');
+  });
+
+  it('stays green, not "over target", just over the target', () => {
+    renderScreen({ nutritionData: eatenToday(2560) });
+
+    expect(remainingLine()).toHaveTextContent(/^60 over$/);
+    expect(screen.getByText('102%')).toHaveClass('text-accent-green');
+    expect(calorieBar()).toHaveClass('bg-accent-green');
+  });
+
+  it('turns red and says over target above the range', () => {
+    renderScreen({ nutritionData: eatenToday(2700) });
+
+    expect(remainingLine()).toHaveTextContent('200 over target');
+    expect(screen.getByText('108%')).toHaveClass('text-accent-red');
+    expect(calorieBar()).toHaveClass('bg-accent-red');
+  });
+
+  it('gives a day with nothing logged no verdict', () => {
+    renderScreen();
+
+    expect(remainingLine()).toHaveTextContent('2500 remaining');
+    expect(calorieBar()).toHaveClass('bg-accent-emerald');
+    expect(calorieBar()).not.toHaveClass('bg-accent-green');
+  });
+});
+
+describe('TrackerScreen card header day', () => {
+  const subtitle = () => screen.getByTestId('tracker-intake-day');
+  const todayDot = () => screen.queryByTestId('tracker-today-dot');
+  const dayProps = (selectedDate) => ({
+    selectedDate,
+    onSelectedDateChange: vi.fn(),
+  });
+
+  beforeEach(() => {
+    MotionGlobalConfig.skipAnimations = true;
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 27, 12));
+  });
+
+  afterEach(() => {
+    MotionGlobalConfig.skipAnimations = false;
+    vi.useRealTimers();
+  });
+
+  it("reads Today's intake, with the dot, on today", () => {
+    renderScreen(dayProps('2026-11-27'));
+
+    expect(subtitle()).toHaveTextContent('Today’s intake');
+    expect(todayDot()).toBeInTheDocument();
+  });
+
+  it('names the date, without the dot, on any other day', () => {
+    renderScreen(dayProps('2026-11-24'));
+
+    expect(subtitle()).toHaveTextContent(/^Tue, Nov 24$/);
+    expect(todayDot()).toBeNull();
+  });
+
+  it('adds the year for a date in another year', () => {
+    renderScreen(dayProps('2025-11-24'));
+
+    expect(subtitle()).toHaveTextContent(/^Mon, Nov 24, 2025$/);
+  });
+
+  it('swaps the subtitle when the selected day changes', async () => {
+    const view = renderScreen(dayProps('2026-11-27'));
+
+    view.rerender(
+      <TrackerScreen nutritionData={{}} {...dayProps('2026-11-28')} />
+    );
+
+    await waitFor(() => expect(subtitle()).toHaveTextContent(/^Sat, Nov 28$/));
+    expect(todayDot()).toBeNull();
+  });
+});
 
 describe('TrackerScreen macro helper', () => {
   beforeEach(() => {

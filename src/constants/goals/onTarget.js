@@ -1,10 +1,13 @@
-// "On target" tolerance: how far (kcal) a day's energy balance may land from its
-// goal's daily target and still count as on target in the Daily Ledger card.
+// "On target" tolerance: how far (kcal) a day may land from its target and
+// still count as on target. The Daily Ledger judges a day's energy balance
+// against its goal's daily target; the Tracker shows its calorie target as a
+// range this wide and judges intake against it.
 //
-// The target itself is recorded per day on the snapshot (`goalTarget`, positive
-// = deficit); this band is the only judgement call, so it is a user setting
-// (Settings -> Food & Macros). The stored value is the kcal number itself, but
-// only the listed options are accepted so a corrupt profile cannot reach the UI.
+// The ledger's target is recorded per day on the snapshot (`goalTarget`,
+// positive = deficit); this band is the only judgement call, so it is a user
+// setting (Settings -> Food & Macros). The stored value is the kcal number
+// itself, but only the listed options are accepted so a corrupt profile cannot
+// reach the UI.
 
 export const ON_TARGET_TOLERANCE_OPTIONS = [
   { value: 50, label: 'Strict' },

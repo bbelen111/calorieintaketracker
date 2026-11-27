@@ -42,10 +42,32 @@ import {
 } from '../../../constants/nutrients/nutrients';
 import { formatFoodDisplayName } from '../../../utils/food/foodPresentation';
 import { MicroStat } from '../common/MicroStat';
+import { normalizeOnTargetTolerance } from '../../../constants/goals/onTarget';
+import {
+  INTAKE_TARGET_STATUS,
+  judgeIntakeAgainstTarget,
+} from '../../../utils/calculations/dayLedgerPresentation';
 
 const getTodayDate = () => getTodayDateKey();
 
 const MACRO_HINT_DURATION_MS = 5000;
+
+// Colour of the calorie bar, % and amount by where intake sits against the
+// target range. A day with nothing logged has no verdict and reads as "under".
+const INTAKE_STATUS_TONE = {
+  [INTAKE_TARGET_STATUS.UNDER]: {
+    bar: 'bg-accent-emerald',
+    text: 'text-accent-emerald',
+  },
+  [INTAKE_TARGET_STATUS.ON_TARGET]: {
+    bar: 'bg-accent-green',
+    text: 'text-accent-green',
+  },
+  [INTAKE_TARGET_STATUS.OVER]: {
+    bar: 'bg-accent-red',
+    text: 'text-accent-red',
+  },
+};
 
 // Circular progress bar component
 const CircularProgress = ({ percent, color, size = 120, strokeWidth = 10 }) => {
@@ -128,6 +150,7 @@ export const TrackerScreen = memo(function TrackerScreen({
   onSelectedDateChange,
   calorieTargetLabel = '',
   calorieTargetCalories = 2500,
+  onTargetToleranceKcal,
   onOpenCalorieTargetModal,
   onOpenMacroPicker,
   isScreenActive = false,
@@ -141,6 +164,7 @@ export const TrackerScreen = memo(function TrackerScreen({
       macroRecommendationSplit:
         state.userData.macroRecommendationSplit ?? undefined,
       macroLocks: state.userData.macroLocks ?? undefined,
+      onTargetToleranceKcal: state.userData.onTargetToleranceKcal,
     }),
     shallow
   );
@@ -150,6 +174,9 @@ export const TrackerScreen = memo(function TrackerScreen({
     macroRecommendationSplit ?? store.macroRecommendationSplit
   );
   const resolvedMacroLocks = macroLocks ?? store.macroLocks;
+  const resolvedTolerance = normalizeOnTargetTolerance(
+    onTargetToleranceKcal ?? store.onTargetToleranceKcal
+  );
 
   // One-time macro helper: appears the first time this screen is the visible
   // one, is recorded as seen immediately (so it never returns, even if the user
@@ -211,6 +238,22 @@ export const TrackerScreen = memo(function TrackerScreen({
       };
     });
   }, [selectedDate]);
+  // Header subtitle for any day but today; the year only when it differs.
+  const selectedDayLabel = useMemo(
+    () =>
+      parseDateKey(selectedDate).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year:
+          selectedDate.slice(0, 4) === todayKey.slice(0, 4)
+            ? undefined
+            : 'numeric',
+        // Date keys parse as UTC midnight; local time would shift the day.
+        timeZone: 'UTC',
+      }),
+    [selectedDate, todayKey]
+  );
   const selectedMonthLabel = useMemo(() => {
     const date = parseDateKey(selectedDate);
     return date.toLocaleDateString('en-US', {
@@ -304,6 +347,38 @@ export const TrackerScreen = memo(function TrackerScreen({
   const targetCalories = calorieTargetCalories || 2500;
   const caloriesRemaining = targetCalories - totals.calories;
   const caloriesPercent = Math.round((totals.calories / targetCalories) * 100);
+
+  // The target is a band (the "On-target range" setting). One verdict colours
+  // the bar, the % and the amount so they can never disagree.
+  const intakeVerdict = useMemo(
+    () =>
+      judgeIntakeAgainstTarget({
+        intake: totals.calories,
+        targetCalories,
+        tolerance: resolvedTolerance,
+      }),
+    [totals.calories, targetCalories, resolvedTolerance]
+  );
+  const intakeTone =
+    INTAKE_STATUS_TONE[intakeVerdict.status ?? INTAKE_TARGET_STATUS.UNDER];
+  // Each end converts to the energy unit on its own.
+  const targetRangeEnds = (
+    intakeVerdict.range
+      ? [intakeVerdict.range.low, intakeVerdict.range.high]
+      : [targetCalories]
+  ).map((kcal) => units.energy.value(kcal));
+  const targetRangeText = targetRangeEnds.join(' – ');
+  // The header reads as a sentence ("of 2,400 – 2,600"), so its dash is spaced.
+  const headerRangeText = targetRangeEnds.join(' – ');
+  const isViewingToday = selectedDate === todayKey;
+  // "over target" is kept for a day that left the range, not one inside it.
+  let remainingCaption = 'remaining';
+  if (caloriesRemaining < 0) {
+    remainingCaption =
+      intakeVerdict.status === INTAKE_TARGET_STATUS.OVER
+        ? 'over target'
+        : 'over';
+  }
 
   const macroRecommendation = useMemo(
     () =>
@@ -770,49 +845,88 @@ export const TrackerScreen = memo(function TrackerScreen({
 
       {/* Total Calories */}
       <div className="bg-surface rounded-2xl p-6 border border-border shadow-lg">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Flame className="text-accent-blue" size={20} />
-            <span className="text-foreground text-lg font-bold tracking-wide">
-              Total {units.energy.noun}
-            </span>
+        {/* The two sides mirror each other line for line (same size and line
+            height), so title/intake and day/range align. The intake block drops
+            to its own line when it cannot sit beside the title (large text,
+            narrow screens). */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-4">
+          <div className="flex items-center gap-3">
+            <Flame className="shrink-0 text-accent-blue" size={24} />
+            <div>
+              <h2 className="text-foreground text-lg font-extrabold leading-tight">
+                Total {units.energy.noun}
+              </h2>
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={`intake-day-${selectedDate}`}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22 }}
+                  className="mt-0.5 flex items-center gap-1.5 text-sm text-muted whitespace-nowrap"
+                  data-testid="tracker-intake-day"
+                >
+                  {isViewingToday ? 'Today’s intake' : selectedDayLabel}
+                  {isViewingToday && (
+                    <span
+                      aria-hidden="true"
+                      data-testid="tracker-today-dot"
+                      className="h-1.5 w-1.5 rounded-full bg-accent-blue"
+                    />
+                  )}
+                </motion.p>
+              </AnimatePresence>
+            </div>
           </div>
-          <span className="text-foreground font-bold text-xl tracking-wide">
+          <div className="ml-auto text-right">
             <AnimatePresence mode="wait">
-              <motion.span
-                key={`totals-cal-${totals.calories}`}
+              <motion.div
+                key={`totals-cal-${totals.calories}-${headerRangeText}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.22 }}
-                className="inline-block leading-none"
               >
-                {units.energy.value(totals.calories)} /{' '}
-                {units.energy.value(targetCalories)} {units.energy.unit}
-              </motion.span>
+                <p
+                  className="text-xl font-extrabold leading-tight text-foreground whitespace-nowrap"
+                  data-testid="tracker-calorie-total"
+                >
+                  {units.energy.value(totals.calories)}{' '}
+                  {/* leading-none: the smaller unit must not grow the line */}
+                  <span className="text-base leading-none text-foreground/70">
+                    {units.energy.unit}
+                  </span>
+                </p>
+                <p
+                  className="mt-0.5 text-sm text-muted whitespace-nowrap"
+                  data-testid="tracker-calorie-range"
+                >
+                  of {headerRangeText} {units.energy.unit}
+                </p>
+              </motion.div>
             </AnimatePresence>
-          </span>
+          </div>
         </div>
 
         {/* Calorie Target Selector */}
         <div className="relative">
           <button
             onClick={() => onOpenCalorieTargetModal?.()}
-            className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between md:hover:bg-surface-highlight transition-all shadow-xs pressable-card focus-ring"
+            className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between gap-2 md:hover:bg-surface-highlight transition-all shadow-xs pressable-card focus-ring"
           >
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p className="text-muted text-xs mb-0.5">Target</p>
               <div className="relative h-6">
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={`target-${targetCalories}-${calorieTargetLabel}`}
+                    key={`target-${targetRangeText}-${calorieTargetLabel}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
                     transition={{ duration: 0.22 }}
-                    className="text-foreground text-sm font-semibold absolute left-0"
+                    className="text-foreground text-sm font-semibold absolute inset-x-0 truncate"
                   >
-                    {units.energy.compact(targetCalories)} {units.energy.unit}
+                    {targetRangeText} {units.energy.unit}
                     <span className="text-muted font-normal ml-2">
                       ({calorieTargetLabel})
                     </span>
@@ -828,9 +942,8 @@ export const TrackerScreen = memo(function TrackerScreen({
         <div className="mt-4 mb-5">
           <div className="w-full bg-surface-highlight rounded-full h-4 overflow-hidden">
             <div
-              className={`h-full ${
-                caloriesPercent >= 100 ? 'bg-accent-red' : 'bg-accent-emerald'
-              }`}
+              data-testid="tracker-calorie-bar"
+              className={`h-full ${intakeTone.bar}`}
               style={{
                 width: `${Math.min(100, caloriesPercent)}%`,
                 transition: 'width 220ms ease',
@@ -847,32 +960,16 @@ export const TrackerScreen = memo(function TrackerScreen({
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.22 }}
                   className="inline-block"
+                  data-testid="tracker-calorie-remaining"
                 >
-                  {caloriesRemaining >= 0 ? (
-                    <>
-                      <span className="text-accent-emerald font-semibold">
-                        {units.energy.compact(caloriesRemaining)}
-                      </span>{' '}
-                      remaining
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-accent-red font-semibold">
-                        {units.energy.compact(Math.abs(caloriesRemaining))}
-                      </span>{' '}
-                      over target
-                    </>
-                  )}
+                  <span className={`${intakeTone.text} font-semibold`}>
+                    {units.energy.compact(Math.abs(caloriesRemaining))}
+                  </span>{' '}
+                  {remainingCaption}
                 </motion.span>
               </AnimatePresence>
             </div>
-            <p
-              className={`text-xs font-semibold ${
-                caloriesPercent >= 100
-                  ? 'text-accent-red'
-                  : 'text-accent-emerald'
-              }`}
-            >
+            <p className={`text-xs font-semibold ${intakeTone.text}`}>
               {caloriesPercent}%
             </p>
           </div>

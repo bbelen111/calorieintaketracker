@@ -2356,7 +2356,8 @@ const FoodNutritionSection = ({
         <p className="mt-2 text-xs text-muted">
           {onTargetOption.label}: a day counts as on target when its balance
           lands within {energy.format(onTargetOption.value)} of your goal&apos;s
-          daily target. Used by the Daily Ledger.
+          daily target. Used by the Daily Ledger and the Tracker&apos;s calorie
+          target range.
         </p>
       </div>
 
