@@ -123,6 +123,7 @@ import {
   hasNutritionEntriesForDate,
 } from '../../utils/phases/phases';
 import { resolveSnapshotBreakdownContexts } from '../../utils/calculations/dailySnapshots';
+import { resolveDayCalorieTarget } from '../../utils/calculations/dayLedgerPresentation';
 import { isStepBasedCardioType } from '../../utils/calculations/steps';
 import {
   deriveSessionTimestamps,
@@ -2913,6 +2914,15 @@ export const EnergyMapCalculator = () => {
     trackerStepRange,
   ]);
 
+  // The header's Tracker chip follows the Tracker card: a finished day is
+  // measured against the target saved with it.
+  const { targetCalories: trackerDayCalorieTarget } = resolveDayCalorieTarget({
+    dateKey: trackerSelectedDate,
+    todayKey: todayDateKey,
+    snapshot: userData.dailySnapshots?.[trackerSelectedDate],
+    liveTargetCalories: selectedCalorieTargetData.targetCalories,
+  });
+
   // Per-step-range goal-seeded TDEE details, computed ONCE for every
   // consumer (Calorie Map cards + calorie target options). Previously the
   // Calorie Map cards called `getRangeDetails` inline per card, per render —
@@ -5104,7 +5114,7 @@ export const EnergyMapCalculator = () => {
           loopScreens={loopScreens}
           nutritionData={nutritionData}
           trackerSelectedDate={trackerSelectedDate}
-          calorieTargetCalories={selectedCalorieTargetData?.targetCalories}
+          calorieTargetCalories={trackerDayCalorieTarget}
           onTargetToleranceKcal={userData.onTargetToleranceKcal}
           phases={phases}
           weightEntries={weightEntries}

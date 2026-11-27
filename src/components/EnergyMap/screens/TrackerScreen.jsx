@@ -17,6 +17,7 @@ import {
   CalendarCog,
   Settings2,
   PieChart,
+  Lock,
 } from 'lucide-react';
 import {
   MEAL_TYPE_ORDER,
@@ -42,17 +43,24 @@ import {
 } from '../../../constants/nutrients/nutrients';
 import { formatFoodDisplayName } from '../../../utils/food/foodPresentation';
 import { MicroStat } from '../common/MicroStat';
+import { HeroProgressOutline } from '../common/HeroProgressOutline';
 import { normalizeOnTargetTolerance } from '../../../constants/goals/onTarget';
 import {
   INTAKE_TARGET_STATUS,
   describeIntakeRemaining,
   formatIntakeRange,
+  getDayIntakeProgress,
   judgeIntakeAgainstTarget,
+  resolveDayCalorieTarget,
 } from '../../../utils/calculations/dayLedgerPresentation';
+import { getNutritionTotalsForDate } from '../../../utils/phases/phases';
 
 const getTodayDate = () => getTodayDateKey();
 
 const MACRO_HINT_DURATION_MS = 5000;
+
+const DATE_RIM_STROKE_PX = 2;
+const DATE_RIM_RADIUS_PX = 3.5; // concentric inside `rounded-md` and its border
 
 // Colour of the calorie bar, % and amount by where intake sits against the
 // target range. A day with nothing logged has no verdict and reads as "under".
@@ -167,6 +175,7 @@ export const TrackerScreen = memo(function TrackerScreen({
         state.userData.macroRecommendationSplit ?? undefined,
       macroLocks: state.userData.macroLocks ?? undefined,
       onTargetToleranceKcal: state.userData.onTargetToleranceKcal,
+      dailySnapshots: state.userData.dailySnapshots,
     }),
     shallow
   );
@@ -350,7 +359,39 @@ export const TrackerScreen = memo(function TrackerScreen({
     };
   }, [meals]);
 
-  const targetCalories = calorieTargetCalories || 2500;
+  const liveTargetCalories = calorieTargetCalories || 2500;
+  // A finished day is measured against the target saved with it, not today's.
+  const { targetCalories, isSaved: isSavedTarget } = resolveDayCalorieTarget({
+    dateKey: selectedDate,
+    todayKey,
+    snapshot: store.dailySnapshots?.[selectedDate],
+    liveTargetCalories,
+  });
+  const targetLabel = isSavedTarget ? 'Saved that day' : calorieTargetLabel;
+  const TargetRow = isSavedTarget ? 'div' : 'button';
+  const weekProgress = useMemo(
+    () =>
+      Object.fromEntries(
+        weekDates.map(({ key }) => [
+          key,
+          getDayIntakeProgress({
+            dateKey: key,
+            todayKey,
+            intake: getNutritionTotalsForDate(resolvedNutritionData, key)
+              .calories,
+            snapshot: store.dailySnapshots?.[key],
+            liveTargetCalories,
+          }),
+        ])
+      ),
+    [
+      weekDates,
+      todayKey,
+      resolvedNutritionData,
+      store.dailySnapshots,
+      liveTargetCalories,
+    ]
+  );
   const caloriesPercent = Math.round((totals.calories / targetCalories) * 100);
 
   // The target is a band (the "On-target range" setting). One verdict colours
@@ -800,6 +841,7 @@ export const TrackerScreen = memo(function TrackerScreen({
                 const isToday = weekDate.key === todayKey;
                 const hasEntries = hasEntriesForDate(weekDate.key);
                 const isSunday = weekDate.weekday === 'Sun';
+                const progress = weekProgress[weekDate.key];
                 return (
                   <button
                     key={`week-${weekDate.key}`}
@@ -817,6 +859,16 @@ export const TrackerScreen = memo(function TrackerScreen({
                         : 'bg-surface-highlight/60 border-border/50 text-foreground/80 md:hover:bg-surface-highlight/70'
                     } ${isToday && !isSelected ? 'ring-1 ring-accent-blue/70' : ''}`}
                   >
+                    {progress != null && (
+                      <HeroProgressOutline
+                        progress={progress}
+                        radius={DATE_RIM_RADIUS_PX}
+                        strokeWidth={DATE_RIM_STROKE_PX}
+                        colorVar={
+                          isSelected ? '--primary-foreground' : '--foreground'
+                        }
+                      />
+                    )}
                     <span
                       className={`text-[10px] ${isSunday && !isSelected ? 'text-accent-red' : ''}`}
                     >
@@ -903,18 +955,28 @@ export const TrackerScreen = memo(function TrackerScreen({
           </div>
         </div>
 
-        {/* Calorie Target Selector */}
+        {/* Calorie Target Selector (read-only on a day with a saved target) */}
         <div className="relative">
-          <button
-            onClick={() => onOpenCalorieTargetModal?.()}
-            className="w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between gap-2 md:hover:bg-surface-highlight transition-all shadow-xs pressable-card focus-ring"
+          <TargetRow
+            {...(isSavedTarget
+              ? {}
+              : {
+                  type: 'button',
+                  onClick: () => onOpenCalorieTargetModal?.(),
+                })}
+            data-testid="tracker-calorie-target"
+            className={`w-full bg-surface-highlight/50 border border-border/50 rounded-lg px-3 py-2 text-left flex items-center justify-between gap-2 shadow-xs ${
+              isSavedTarget
+                ? ''
+                : 'md:hover:bg-surface-highlight transition-all pressable-card focus-ring'
+            }`}
           >
             <div className="flex-1 min-w-0">
               <p className="text-muted text-xs mb-0.5">Target</p>
               <div className="relative h-6">
                 <AnimatePresence mode="wait">
                   <motion.p
-                    key={`target-${targetRangeText}-${calorieTargetLabel}`}
+                    key={`target-${targetRangeText}-${targetLabel}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -6 }}
@@ -923,14 +985,18 @@ export const TrackerScreen = memo(function TrackerScreen({
                   >
                     {targetRangeText} {units.energy.unit}
                     <span className="text-muted font-normal ml-2">
-                      ({calorieTargetLabel})
+                      ({targetLabel})
                     </span>
                   </motion.p>
                 </AnimatePresence>
               </div>
             </div>
-            <Settings2 size={20} className="text-muted" />
-          </button>
+            {isSavedTarget ? (
+              <Lock size={18} className="text-muted" aria-hidden="true" />
+            ) : (
+              <Settings2 size={20} className="text-muted" />
+            )}
+          </TargetRow>
         </div>
 
         {/* Progress Bar */}

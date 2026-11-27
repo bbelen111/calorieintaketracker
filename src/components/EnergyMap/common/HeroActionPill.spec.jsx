@@ -76,7 +76,7 @@ describe('HeroActionPill', () => {
     expect(attrValue(progress, 'pathlength')).toBe('100');
     expect(attrValue(progress, 'stroke-dasharray')).toBe('50 100');
     expect(progress.getAttribute('style')).toContain(
-      'drop-shadow(0 0 2px rgb(var(--primary-foreground) / 0.15))'
+      'drop-shadow(0 0 2px rgb(var(--primary-foreground) / 0.3))'
     );
     expect(progress.getAttribute('style')).toContain(
       'transition: stroke-dasharray'

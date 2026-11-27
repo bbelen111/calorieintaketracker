@@ -194,6 +194,98 @@ describe('TrackerScreen card header day', () => {
   });
 });
 
+describe('TrackerScreen saved day targets', () => {
+  // Today is Fri 27; the strip runs Sun 22 to Sat 28.
+  const meal = (calories) => ({
+    lunch: [
+      { id: 1, name: 'Test meal', calories, protein: 0, carbs: 0, fats: 0 },
+    ],
+  });
+  const nutritionData = {
+    '2026-11-24': meal(2200),
+    '2026-11-25': meal(2200),
+    '2026-11-27': meal(1000),
+    '2026-11-28': meal(1000),
+  };
+  const renderDay = (selectedDate) =>
+    renderScreen({
+      nutritionData,
+      selectedDate,
+      onSelectedDateChange: vi.fn(),
+    });
+  const target = () => screen.getByTestId('tracker-calorie-target');
+  const dateButton = (weekday) => screen.getByText(weekday).closest('button');
+  const rim = (weekday) => {
+    const rect = dateButton(weekday).querySelector(
+      'rect[data-part="progress"]'
+    );
+    return (
+      rect && [
+        rect.getAttribute('stroke-dasharray'),
+        rect.getAttribute('stroke'),
+      ]
+    );
+  };
+
+  beforeEach(() => {
+    MotionGlobalConfig.skipAnimations = true;
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 27, 12));
+    // Saved targets of 2,200 (TDEE 2,500, 300 deficit).
+    const saved = { tdee: 2500, goalTarget: 300, goalAtSnapshot: 'cutting' };
+    seedStore({
+      dailySnapshots: {
+        '2026-11-24': saved,
+        '2026-11-27': saved,
+        '2026-11-28': saved,
+      },
+    });
+  });
+
+  afterEach(() => {
+    MotionGlobalConfig.skipAnimations = false;
+    vi.useRealTimers();
+    seedStore();
+  });
+
+  it('judges a past day against its saved target, read-only', () => {
+    renderDay('2026-11-24');
+
+    expect(rangeLine()).toHaveTextContent('of 2,100 – 2,300 kcal');
+    expect(calorieBar()).toHaveClass('bg-accent-green');
+    expect(target()).toHaveTextContent('(Saved that day)');
+    expect(target().tagName).toBe('DIV');
+  });
+
+  it.each([
+    ['today, whatever its snapshot says', '2026-11-27'],
+    ['a past day with no saved target', '2026-11-25'],
+    ['a future day', '2026-11-28'],
+  ])('keeps the picked target for %s', (_label, selectedDate) => {
+    renderDay(selectedDate);
+
+    expect(rangeLine()).toHaveTextContent('of 2,400 – 2,600 kcal');
+    expect(target()).toHaveTextContent('(Maintenance)');
+    expect(target().tagName).toBe('BUTTON');
+  });
+
+  it('outlines each date in white, filled against its own target', () => {
+    renderDay('2026-11-27');
+
+    // 2,200 of the saved 2,200; the text colour is white on the dark themes.
+    expect(rim('Tue')).toEqual(['100 100', 'rgb(var(--foreground) / 1)']);
+    // 1,000 of the live 2,500; selected, so on the blue fill.
+    expect(rim('Fri')).toEqual([
+      '40 100',
+      'rgb(var(--primary-foreground) / 1)',
+    ]);
+    // Eaten but no saved target, nothing eaten, and a future day.
+    expect(rim('Wed')).toBeNull();
+    expect(rim('Thu')).toBeNull();
+    expect(rim('Sat')).toBeNull();
+  });
+});
+
 describe('TrackerScreen dates behind UTC', () => {
   beforeEach(() => {
     // Node honours a runtime TZ change.

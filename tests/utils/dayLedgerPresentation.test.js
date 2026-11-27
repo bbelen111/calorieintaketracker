@@ -5,12 +5,14 @@ import { createUnitFormatter } from '../../src/utils/units/unitFormatter.js';
 import {
   buildDayLedgerCardSummary,
   buildDayLedgerRows,
+  resolveDayCalorieTarget,
   describeGoalTarget,
   describeIntakeRemaining,
   formatIntakeRange,
   buildDaySnapshotPreview,
   formatSignedKcal,
   getAdjacentTrackedDates,
+  getDayIntakeProgress,
   getMeasurementForDate,
   INTAKE_TARGET_STATUS,
   isDayOnTarget,
@@ -723,6 +725,66 @@ test('judgeIntakeAgainstTarget: an unusable target gives neither', () => {
   });
   // A tiny target never produces a negative lower bound.
   assert.equal(judge(0, { targetCalories: 40 }).range.low, 0);
+});
+
+// A cut day saved with a 2,200 target (TDEE 2,500, 300 deficit).
+const savedDay = { tdee: 2500, goalTarget: 300, goalAtSnapshot: 'cutting' };
+const dayTarget = (dateKey, snapshot) =>
+  resolveDayCalorieTarget({
+    dateKey,
+    todayKey: '2026-03-20',
+    snapshot,
+    liveTargetCalories: 3000,
+  });
+
+test('resolveDayCalorieTarget: a finished day uses its saved target', () => {
+  assert.deepEqual(dayTarget('2026-03-19', savedDay), {
+    targetCalories: 2200,
+    isSaved: true,
+  });
+  // A surplus is a negative deficit target.
+  assert.equal(
+    dayTarget('2026-03-19', { tdee: 2500, goalTarget: -500 }).targetCalories,
+    3000
+  );
+  // A snapshot older than `goalTarget` uses its goal's nominal delta.
+  assert.deepEqual(
+    dayTarget('2026-03-19', { tdee: 2500, goalAtSnapshot: 'cutting' }),
+    { targetCalories: 2200, isSaved: true }
+  );
+});
+
+test('resolveDayCalorieTarget: today, the future and unsaved days stay live', () => {
+  const live = { targetCalories: 3000, isSaved: false };
+  assert.deepEqual(dayTarget('2026-03-20', savedDay), live);
+  assert.deepEqual(dayTarget('2026-03-21', savedDay), live);
+  assert.deepEqual(dayTarget('2026-03-19', undefined), live);
+  assert.deepEqual(dayTarget('2026-03-19', { tdee: 2500 }), live);
+  assert.deepEqual(dayTarget('2026-03-19', { ...savedDay, tdee: 0 }), live);
+});
+
+const progressFor = (dateKey, intake, snapshot = savedDay) =>
+  getDayIntakeProgress({
+    dateKey,
+    todayKey: '2026-03-20',
+    intake,
+    snapshot,
+    liveTargetCalories: 3000,
+  });
+
+test('getDayIntakeProgress: fills against the day’s own target', () => {
+  assert.equal(progressFor('2026-03-19', 1100), 50); // saved 2,200
+  assert.equal(progressFor('2026-03-19', 2400), 100); // over stays full
+  // The same intake against today's live 3,000.
+  assert.equal(progressFor('2026-03-20', 2400), 80);
+});
+
+test('getDayIntakeProgress: no rim without something honest to show', () => {
+  assert.equal(progressFor('2026-03-21', 2000), null); // future
+  assert.equal(progressFor('2026-03-19', 0), null); // nothing eaten
+  assert.equal(progressFor('2026-03-20', 0), null);
+  // `null`, not `undefined`, which would pick up the helper's default.
+  assert.equal(progressFor('2026-03-19', 2000, null), null); // no saved target
 });
 
 const remainingFor = (intake, units) =>

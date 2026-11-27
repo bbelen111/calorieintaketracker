@@ -543,6 +543,62 @@ export const describeIntakeRemaining = (
   };
 };
 
+/**
+ * The calorie target a date is measured against on the Tracker.
+ *
+ * A finished day uses the target saved with it: `tdee - goalTarget`, the figure
+ * the Daily Ledger judges it by (the goal's nominal delta for a snapshot older
+ * than `goalTarget`). Today, a future date and a finished day with no usable
+ * snapshot use the live target the user picked.
+ *
+ * @returns {{ targetCalories: number|undefined, isSaved: boolean }}
+ */
+export const resolveDayCalorieTarget = ({
+  dateKey,
+  todayKey,
+  snapshot,
+  liveTargetCalories,
+} = {}) => {
+  const goal = dateKey < todayKey ? resolveSnapshotGoalTarget(snapshot) : null;
+  const tdee = toNumber(snapshot?.tdee);
+  const saved = goal && tdee > 0 ? Math.round(tdee - goal.target) : 0;
+  return saved > 0
+    ? { targetCalories: saved, isSaved: true }
+    : { targetCalories: liveTargetCalories, isSaved: false };
+};
+
+/**
+ * How full the rim around a date in the Tracker's week strip is: intake as a
+ * share of that day's target. `null` (no rim) for a future date, a day with
+ * nothing eaten, and a finished day with no saved target, since today's live
+ * target says nothing about it.
+ *
+ * @returns {number|null} 0-100
+ */
+export const getDayIntakeProgress = ({
+  dateKey,
+  todayKey,
+  intake,
+  snapshot,
+  liveTargetCalories,
+} = {}) => {
+  if (dateKey > todayKey) {
+    return null;
+  }
+  const { targetCalories, isSaved } = resolveDayCalorieTarget({
+    dateKey,
+    todayKey,
+    snapshot,
+    liveTargetCalories,
+  });
+  if (dateKey < todayKey && !isSaved) {
+    return null;
+  }
+  return intake > 0 && targetCalories > 0
+    ? Math.min(100, (intake / targetCalories) * 100)
+    : null;
+};
+
 const averageBalance = (days) =>
   days.length
     ? Math.round(days.reduce((sum, day) => sum + day.balance, 0) / days.length)
