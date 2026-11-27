@@ -346,14 +346,9 @@ export const MacroPickerModal = ({
   const sliderFirstGramsCurrent = sliderFirst
     ? recommendations.grams[sliderFirst]
     : 0;
-  const sliderPositionPercent =
-    gramRange.max > gramRange.min
-      ? Math.round(
-          ((sliderFirstGramsCurrent - gramRange.min) /
-            (gramRange.max - gramRange.min)) *
-            100
-        )
-      : 50;
+  // The thumb moves toward the macro it increases. The first macro is labelled
+  // on the left, so the input runs opposite to its grams: input = mirror - grams.
+  const sliderMirror = gramRange.min + gramRange.max;
 
   const sliderFirstRatioPercent = useMemo(() => {
     const firstKcal =
@@ -366,7 +361,7 @@ export const MacroPickerModal = ({
 
   const handleSliderChange = useCallback(
     (event) => {
-      const firstGrams = Number(event.target.value);
+      const firstGrams = sliderMirror - Number(event.target.value);
       const firstKcal = firstGrams * (sliderFirst === 'fats' ? 9 : 4);
       const lockedKey = lockedKeys[0];
       const lockedCalories = lockedKey
@@ -399,6 +394,7 @@ export const MacroPickerModal = ({
       draftSplit,
       sliderFirst,
       sliderSecond,
+      sliderMirror,
       lockedKeys,
       targetCalories,
       recommendations.grams,
@@ -599,12 +595,14 @@ export const MacroPickerModal = ({
                   min={gramRange.min}
                   max={gramRange.max}
                   step={1}
-                  value={sliderFirstGramsCurrent}
+                  value={sliderMirror - sliderFirstGramsCurrent}
                   onChange={handleSliderChange}
                   aria-label={`Balance ${sliderFirstMeta.label} vs ${sliderSecondMeta.label}`}
+                  aria-valuetext={`${sliderFirstMeta.label} ${sliderFirstGrams}g, ${sliderSecondMeta.label} ${sliderSecondGrams}g`}
                   style={{
-                    '--value': `${sliderPositionPercent}%`,
-                    background: `linear-gradient(to right, ${sliderFirstMeta.colorVar} 0%, ${sliderFirstMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} var(--value), ${sliderSecondMeta.colorVar} 100%)`,
+                    // A fixed blend, not a split at the thumb: a split would
+                    // grow the left colour while the left macro shrinks.
+                    background: `linear-gradient(to right, ${sliderFirstMeta.colorVar}, ${sliderSecondMeta.colorVar})`,
                   }}
                   className="w-full cursor-pointer transition-all appearance-none h-3 rounded-lg"
                 />
