@@ -1,10 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { createUnitFormatter } from '../../src/utils/units/unitFormatter.js';
 import {
   buildDayLedgerCardSummary,
   buildDayLedgerRows,
   describeGoalTarget,
+  describeIntakeRemaining,
+  formatIntakeRange,
   buildDaySnapshotPreview,
   formatSignedKcal,
   getAdjacentTrackedDates,
@@ -720,6 +723,59 @@ test('judgeIntakeAgainstTarget: an unusable target gives neither', () => {
   });
   // A tiny target never produces a negative lower bound.
   assert.equal(judge(0, { targetCalories: 40 }).range.low, 0);
+});
+
+const remainingFor = (intake, units) =>
+  describeIntakeRemaining({ intake, range: { low: 2400, high: 2600 } }, units);
+
+test('formatIntakeRange: both ends in the energy unit', () => {
+  const range = { low: 2400, high: 2600 };
+  assert.equal(formatIntakeRange(range), '2,400 – 2,600');
+  assert.equal(
+    formatIntakeRange(range, createUnitFormatter({ energy: 'kJ' })),
+    '10,042 – 10,878'
+  );
+});
+
+test('describeIntakeRemaining: a span below the range', () => {
+  assert.deepEqual(remainingFor(0), {
+    prefix: null,
+    amount: '2,400 – 2,600',
+    caption: 'remaining',
+  });
+  assert.equal(remainingFor(2000).amount, '400 – 600');
+  assert.equal(remainingFor(2399).amount, '1 – 201');
+});
+
+test('describeIntakeRemaining: only the top is left inside the range', () => {
+  assert.deepEqual(remainingFor(2400), {
+    prefix: 'up to',
+    amount: '200',
+    caption: 'remaining',
+  });
+  assert.equal(remainingFor(2560).amount, '40');
+  // Nothing left at the very top, so no "up to".
+  assert.deepEqual(remainingFor(2600.4), {
+    prefix: null,
+    amount: '0',
+    caption: 'remaining',
+  });
+});
+
+test('describeIntakeRemaining: over is measured from the top', () => {
+  assert.deepEqual(remainingFor(2700), {
+    prefix: null,
+    amount: '100',
+    caption: 'over target',
+  });
+  assert.equal(
+    remainingFor(2700, createUnitFormatter({ energy: 'kJ' })).amount,
+    '418'
+  );
+});
+
+test('describeIntakeRemaining: no range, nothing to say', () => {
+  assert.equal(describeIntakeRemaining({ intake: 100, range: null }), null);
 });
 
 test('buildDayLedgerCardSummary: nothing logged yields gaps, never zeros', () => {

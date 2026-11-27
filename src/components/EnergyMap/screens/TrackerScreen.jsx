@@ -45,6 +45,8 @@ import { MicroStat } from '../common/MicroStat';
 import { normalizeOnTargetTolerance } from '../../../constants/goals/onTarget';
 import {
   INTAKE_TARGET_STATUS,
+  describeIntakeRemaining,
+  formatIntakeRange,
   judgeIntakeAgainstTarget,
 } from '../../../utils/calculations/dayLedgerPresentation';
 
@@ -234,7 +236,10 @@ export const TrackerScreen = memo(function TrackerScreen({
       return {
         key: toDateKey(date),
         day: date.getUTCDate(),
-        weekday: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        weekday: date.toLocaleDateString('en-US', {
+          weekday: 'short',
+          timeZone: 'UTC',
+        }),
       };
     });
   }, [selectedDate]);
@@ -259,6 +264,7 @@ export const TrackerScreen = memo(function TrackerScreen({
     return date.toLocaleDateString('en-US', {
       month: 'long',
       year: 'numeric',
+      timeZone: 'UTC',
     });
   }, [selectedDate]);
 
@@ -345,7 +351,6 @@ export const TrackerScreen = memo(function TrackerScreen({
   }, [meals]);
 
   const targetCalories = calorieTargetCalories || 2500;
-  const caloriesRemaining = targetCalories - totals.calories;
   const caloriesPercent = Math.round((totals.calories / targetCalories) * 100);
 
   // The target is a band (the "On-target range" setting). One verdict colours
@@ -361,24 +366,14 @@ export const TrackerScreen = memo(function TrackerScreen({
   );
   const intakeTone =
     INTAKE_STATUS_TONE[intakeVerdict.status ?? INTAKE_TARGET_STATUS.UNDER];
-  // Each end converts to the energy unit on its own.
-  const targetRangeEnds = (
-    intakeVerdict.range
-      ? [intakeVerdict.range.low, intakeVerdict.range.high]
-      : [targetCalories]
-  ).map((kcal) => units.energy.value(kcal));
-  const targetRangeText = targetRangeEnds.join(' – ');
-  // The header reads as a sentence ("of 2,400 – 2,600"), so its dash is spaced.
-  const headerRangeText = targetRangeEnds.join(' – ');
+  const targetRangeText = intakeVerdict.range
+    ? formatIntakeRange(intakeVerdict.range, units)
+    : units.energy.value(targetCalories);
+  const remaining = describeIntakeRemaining(
+    { intake: totals.calories, range: intakeVerdict.range },
+    units
+  );
   const isViewingToday = selectedDate === todayKey;
-  // "over target" is kept for a day that left the range, not one inside it.
-  let remainingCaption = 'remaining';
-  if (caloriesRemaining < 0) {
-    remainingCaption =
-      intakeVerdict.status === INTAKE_TARGET_STATUS.OVER
-        ? 'over target'
-        : 'over';
-  }
 
   const macroRecommendation = useMemo(
     () =>
@@ -881,7 +876,7 @@ export const TrackerScreen = memo(function TrackerScreen({
           <div className="ml-auto text-right">
             <AnimatePresence mode="wait">
               <motion.div
-                key={`totals-cal-${totals.calories}-${headerRangeText}`}
+                key={`totals-cal-${totals.calories}-${targetRangeText}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
@@ -901,7 +896,7 @@ export const TrackerScreen = memo(function TrackerScreen({
                   className="mt-0.5 text-sm text-muted whitespace-nowrap"
                   data-testid="tracker-calorie-range"
                 >
-                  of {headerRangeText} {units.energy.unit}
+                  of {targetRangeText} {units.energy.unit}
                 </p>
               </motion.div>
             </AnimatePresence>
@@ -954,7 +949,7 @@ export const TrackerScreen = memo(function TrackerScreen({
             <div className="text-muted text-xs">
               <AnimatePresence mode="wait">
                 <motion.span
-                  key={`remaining-${caloriesRemaining}`}
+                  key={`remaining-${remaining?.amount}-${remaining?.caption}`}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
@@ -962,10 +957,15 @@ export const TrackerScreen = memo(function TrackerScreen({
                   className="inline-block"
                   data-testid="tracker-calorie-remaining"
                 >
-                  <span className={`${intakeTone.text} font-semibold`}>
-                    {units.energy.compact(Math.abs(caloriesRemaining))}
-                  </span>{' '}
-                  {remainingCaption}
+                  {remaining && (
+                    <>
+                      {remaining.prefix && `${remaining.prefix} `}
+                      <span className={`${intakeTone.text} font-semibold`}>
+                        {remaining.amount}
+                      </span>{' '}
+                      {remaining.caption}
+                    </>
+                  )}
                 </motion.span>
               </AnimatePresence>
             </div>

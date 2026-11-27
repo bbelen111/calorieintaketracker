@@ -5105,6 +5105,7 @@ export const EnergyMapCalculator = () => {
           nutritionData={nutritionData}
           trackerSelectedDate={trackerSelectedDate}
           calorieTargetCalories={selectedCalorieTargetData?.targetCalories}
+          onTargetToleranceKcal={userData.onTargetToleranceKcal}
           phases={phases}
           weightEntries={weightEntries}
           todaySnapshot={todaySnapshot}

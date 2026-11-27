@@ -65,7 +65,7 @@ describe('TrackerScreen target range', () => {
 
     expect(totalLine()).toHaveTextContent('1,950 kcal');
     expect(rangeLine()).toHaveTextContent('of 2,400 – 2,600 kcal');
-    expect(targetRow()).toHaveTextContent('2,400–2,600 kcal(Maintenance)');
+    expect(targetRow()).toHaveTextContent('2,400 – 2,600 kcal(Maintenance)');
   });
 
   it('follows the On-target range setting as it changes', async () => {
@@ -79,7 +79,7 @@ describe('TrackerScreen target range', () => {
       expect(rangeLine()).toHaveTextContent('of 2,450 – 2,550 kcal')
     );
     await waitFor(() =>
-      expect(targetRow()).toHaveTextContent('2,450–2,550 kcal')
+      expect(targetRow()).toHaveTextContent('2,450 – 2,550 kcal')
     );
   });
 
@@ -98,14 +98,14 @@ describe('TrackerScreen target range', () => {
 
     expect(totalLine()).toHaveTextContent('8,368 kJ');
     expect(rangeLine()).toHaveTextContent('of 10,042 – 10,878 kJ');
-    expect(targetRow()).toHaveTextContent('10,042–10,878 kJ');
-    expect(remainingLine()).toHaveTextContent('2,092 remaining');
+    expect(targetRow()).toHaveTextContent('10,042 – 10,878 kJ');
+    expect(remainingLine()).toHaveTextContent('1,674 – 2,510 remaining');
   });
 
   it('reads as remaining, in emerald, below the range', () => {
     renderScreen({ nutritionData: eatenToday(2000) });
 
-    expect(remainingLine()).toHaveTextContent('500 remaining');
+    expect(remainingLine()).toHaveTextContent(/^400 – 600 remaining$/);
     expect(screen.getByText('80%')).toHaveClass('text-accent-emerald');
     expect(calorieBar()).toHaveClass('bg-accent-emerald');
   });
@@ -113,15 +113,15 @@ describe('TrackerScreen target range', () => {
   it('turns green inside the range while still under the target', () => {
     renderScreen({ nutritionData: eatenToday(2440) });
 
-    expect(remainingLine()).toHaveTextContent('60 remaining');
+    expect(remainingLine()).toHaveTextContent(/^up to 160 remaining$/);
     expect(screen.getByText('98%')).toHaveClass('text-accent-green');
     expect(calorieBar()).toHaveClass('bg-accent-green');
   });
 
-  it('stays green, not "over target", just over the target', () => {
+  it('stays green, with room left, just over the single target', () => {
     renderScreen({ nutritionData: eatenToday(2560) });
 
-    expect(remainingLine()).toHaveTextContent(/^60 over$/);
+    expect(remainingLine()).toHaveTextContent(/^up to 40 remaining$/);
     expect(screen.getByText('102%')).toHaveClass('text-accent-green');
     expect(calorieBar()).toHaveClass('bg-accent-green');
   });
@@ -129,7 +129,7 @@ describe('TrackerScreen target range', () => {
   it('turns red and says over target above the range', () => {
     renderScreen({ nutritionData: eatenToday(2700) });
 
-    expect(remainingLine()).toHaveTextContent('200 over target');
+    expect(remainingLine()).toHaveTextContent(/^100 over target$/);
     expect(screen.getByText('108%')).toHaveClass('text-accent-red');
     expect(calorieBar()).toHaveClass('bg-accent-red');
   });
@@ -137,7 +137,7 @@ describe('TrackerScreen target range', () => {
   it('gives a day with nothing logged no verdict', () => {
     renderScreen();
 
-    expect(remainingLine()).toHaveTextContent('2500 remaining');
+    expect(remainingLine()).toHaveTextContent(/^2,400 – 2,600 remaining$/);
     expect(calorieBar()).toHaveClass('bg-accent-emerald');
     expect(calorieBar()).not.toHaveClass('bg-accent-green');
   });
@@ -191,6 +191,36 @@ describe('TrackerScreen card header day', () => {
 
     await waitFor(() => expect(subtitle()).toHaveTextContent(/^Sat, Nov 28$/));
     expect(todayDot()).toBeNull();
+  });
+});
+
+describe('TrackerScreen dates behind UTC', () => {
+  beforeEach(() => {
+    // Node honours a runtime TZ change.
+    vi.stubEnv('TZ', 'America/New_York');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('gives each week strip day its own weekday and month', () => {
+    // Guard: UTC midnight must really be the evening before in this zone.
+    expect(new Date('2026-11-01T00:00:00Z').getDate()).toBe(31);
+
+    // 2026-11-01 is a Sunday and the first of its month.
+    renderScreen({
+      selectedDate: '2026-11-01',
+      onSelectedDateChange: vi.fn(),
+    });
+
+    expect(screen.getByText('Sun').closest('button')).toHaveTextContent(
+      /^Sun1$/
+    );
+    expect(screen.getByText('Sat').closest('button')).toHaveTextContent(
+      /^Sat7$/
+    );
+    expect(screen.getByText('November 2026')).toBeInTheDocument();
   });
 });
 

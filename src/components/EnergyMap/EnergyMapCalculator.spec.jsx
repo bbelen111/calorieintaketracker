@@ -248,7 +248,9 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
 
     // Tracker
     await tapTab(user, 'Tracker');
-    expect(await findHeaderStat(/[\d,]+ \/ [\d,]+ kcal/)).toBeInTheDocument();
+    expect(
+      await findHeaderStat(/[\d,]+ \/ [\d,]+ – [\d,]+ kcal/)
+    ).toBeInTheDocument();
 
     // Calorie Map
     await tapTab(user, 'Calorie Map');
@@ -293,7 +295,9 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
     expect(
       within(tabBar).getByRole('button', { name: 'Tracker' })
     ).toHaveAttribute('aria-pressed', 'true');
-    expect(await findHeaderStat(/[\d,]+ \/ [\d,]+ kcal/)).toBeInTheDocument();
+    expect(
+      await findHeaderStat(/[\d,]+ \/ [\d,]+ – [\d,]+ kcal/)
+    ).toBeInTheDocument();
 
     // The pages move with their tabs.
     const slides = document.querySelectorAll('.carousel-slide');
@@ -335,7 +339,9 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
     await findTabBar();
 
     await tapTab(user, 'Tracker');
-    expect(await findHeaderStat(/^0 \/ [\d,]+ kcal/)).toBeInTheDocument();
+    expect(
+      await findHeaderStat(/^0 \/ [\d,]+ – [\d,]+ kcal/)
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       get().addFoodEntry(TODAY, 'lunch', {
@@ -352,7 +358,9 @@ describe('EnergyMapCalculator (orchestrator integration)', () => {
     });
 
     // Store mutation → orchestrator props → AppHeader → rendered stat.
-    expect(await findHeaderStat(/^500 \/ [\d,]+ kcal/)).toBeInTheDocument();
+    expect(
+      await findHeaderStat(/^500 \/ [\d,]+ – [\d,]+ kcal/)
+    ).toBeInTheDocument();
   });
 
   it('opens and closes the lazy Settings modal through the modal stack', async () => {

@@ -496,6 +496,53 @@ export const judgeIntakeAgainstTarget = ({
   return { status, deviation, range };
 };
 
+/** A kcal range in the user's energy unit, each end converted on its own. */
+export const formatIntakeRange = (range, units = METRIC_UNITS) =>
+  `${units.energy.value(range.low)} – ${units.energy.value(range.high)}`;
+
+/**
+ * How much of a target range (from `judgeIntakeAgainstTarget`) is left, worded
+ * for the line under the Tracker's bar. Distances are to the range's ends,
+ * never to the single target in its middle:
+ *  below the range -> "400 – 600" + "remaining"
+ *  inside it       -> "up to" + "160" + "remaining" (a bare "0" at the top)
+ *  above it        -> "100" + "over target"
+ *
+ * @returns {{ prefix: string|null, amount: string, caption: string }|null}
+ *   `null` without a range.
+ */
+export const describeIntakeRemaining = (
+  { intake, range },
+  units = METRIC_UNITS
+) => {
+  if (!range) {
+    return null;
+  }
+  const eaten = Math.max(0, Math.round(toNumber(intake) ?? 0));
+  if (eaten > range.high) {
+    return {
+      prefix: null,
+      amount: units.energy.value(eaten - range.high),
+      caption: 'over target',
+    };
+  }
+  if (eaten < range.low) {
+    return {
+      prefix: null,
+      amount: formatIntakeRange(
+        { low: range.low - eaten, high: range.high - eaten },
+        units
+      ),
+      caption: 'remaining',
+    };
+  }
+  return {
+    prefix: eaten < range.high ? 'up to' : null,
+    amount: units.energy.value(range.high - eaten),
+    caption: 'remaining',
+  };
+};
+
 const averageBalance = (days) =>
   days.length
     ? Math.round(days.reduce((sum, day) => sum + day.balance, 0) / days.length)

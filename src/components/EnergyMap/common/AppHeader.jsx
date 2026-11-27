@@ -27,6 +27,11 @@ import {
   getRingCopyOffsets,
 } from '../../../utils/visuals/carouselLoop';
 import { SCREEN_KEYS } from '../../../constants/navigation/screens';
+import { normalizeOnTargetTolerance } from '../../../constants/goals/onTarget';
+import {
+  formatIntakeRange,
+  judgeIntakeAgainstTarget,
+} from '../../../utils/calculations/dayLedgerPresentation';
 
 const MINUTE_MS = 60_000;
 
@@ -108,6 +113,7 @@ export const AppHeader = ({
   nutritionData,
   trackerSelectedDate,
   calorieTargetCalories,
+  onTargetToleranceKcal,
   phases,
   weightEntries,
   todaySnapshot,
@@ -167,7 +173,15 @@ export const AppHeader = ({
       }
       case SCREEN_KEYS.TRACKER: {
         const intake = units.energy.value(trackerTotals.calories);
-        const target = units.energy.value(calorieTargetCalories ?? 0);
+        // The same target range the Tracker card shows.
+        const { range } = judgeIntakeAgainstTarget({
+          intake: trackerTotals.calories,
+          targetCalories: calorieTargetCalories,
+          tolerance: normalizeOnTargetTolerance(onTargetToleranceKcal),
+        });
+        const target = range
+          ? formatIntakeRange(range, units)
+          : units.energy.value(calorieTargetCalories ?? 0);
         return {
           key: 'tracker',
           icon: Flame,
@@ -224,6 +238,7 @@ export const AppHeader = ({
   }, [
     activeScreenKey,
     calorieTargetCalories,
+    onTargetToleranceKcal,
     phases,
     todaySnapshot,
     trackerTotals.calories,

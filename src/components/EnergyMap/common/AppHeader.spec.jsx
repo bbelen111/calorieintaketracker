@@ -102,7 +102,7 @@ describe('AppHeader', () => {
       ).toBeInTheDocument();
     });
 
-    it('shows intake against target on the Tracker', () => {
+    it('shows intake against the target range on the Tracker', () => {
       renderHeader({
         activeScreenKey: 'tracker',
         nutritionData: {
@@ -113,7 +113,18 @@ describe('AppHeader', () => {
         },
       });
 
-      expect(screen.getByText('1,200 / 2,000 kcal')).toBeInTheDocument();
+      expect(
+        screen.getByText('1,200 / 1,900 – 2,100 kcal')
+      ).toBeInTheDocument();
+    });
+
+    it('widens the Tracker range with the on-target setting', () => {
+      renderHeader({
+        activeScreenKey: 'tracker',
+        onTargetToleranceKcal: 250,
+      });
+
+      expect(screen.getByText('0 / 1,750 – 2,250 kcal')).toBeInTheDocument();
     });
 
     it('shows the day type and TDEE on Home', () => {
