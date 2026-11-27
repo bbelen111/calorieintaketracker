@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CloudOff,
@@ -17,11 +17,14 @@ import {
   SendHorizontal,
   X,
 } from 'lucide-react';
+import { useReducedMotionPreference } from '../../../../../hooks/useMotionMode';
+import { isCameraCaptureSupported } from '../../../../../services/cameraCapture';
 import { buildLookupContextEntryKey } from '../../../../../services/foodLookupContext';
+import { FoodSearchCameraViewfinder } from './FoodSearchCameraViewfinder';
 import { FoodSearchEntryCard } from './FoodSearchEntryCard';
 import {
   GLASS_ACCENT_STYLE,
-  GLASS_PILL_CLASS,
+  GLASS_SURFACE_CLASS,
 } from '../../../common/glassStyles';
 
 const CHAT_STAGE_LABELS = {
@@ -150,11 +153,63 @@ export const FoodSearchChatPanel = ({
   handleChatInputPaste,
   sendChat,
   handleAddAttachmentFiles,
+  isCameraOpen,
+  onCameraOpenChange,
+  maxImageCount,
 }) => {
   const [expandedTraceKeys, setExpandedTraceKeys] = useState({});
   const [expandedTechnicalTraceKeys, setExpandedTechnicalTraceKeys] = useState(
     {}
   );
+
+  const reduceMotion = useReducedMotionPreference();
+  const cameraButtonRef = useRef(null);
+  // Each opening mounts a fresh viewfinder, even while the last one is still
+  // collapsing.
+  const [cameraSession, setCameraSession] = useState(0);
+  // The composer stays squared off until the viewfinder has finished collapsing
+  // (a tall `rounded-full` box would balloon into a capsule on the way out).
+  const [isViewfinderMounted, setIsViewfinderMounted] = useState(false);
+  if (isCameraOpen && !isViewfinderMounted) {
+    setIsViewfinderMounted(true);
+  }
+  const isComposerExpanded =
+    isCameraOpen || (!reduceMotion && isViewfinderMounted);
+
+  const closeCamera = useCallback(
+    () => onCameraOpenChange(false),
+    [onCameraOpenChange]
+  );
+
+  const dismissCamera = useCallback(() => {
+    closeCamera();
+    cameraButtonRef.current?.focus({ preventScroll: true });
+  }, [closeCamera]);
+
+  const openSystemCamera = () => {
+    closeCamera();
+    cameraInputRef.current?.click();
+  };
+
+  const toggleCamera = () => {
+    if (isCameraOpen) {
+      closeCamera();
+      return;
+    }
+    if (!isCameraCaptureSupported()) {
+      openSystemCamera();
+      return;
+    }
+    // The keyboard and the viewfinder never share the screen.
+    chatTextareaRef.current?.blur();
+    setCameraSession((session) => session + 1);
+    onCameraOpenChange(true);
+  };
+
+  const handleCameraCapture = (photo) => {
+    handleAddAttachmentFiles([photo]);
+    dismissCamera();
+  };
 
   const currentStage = activeChatRequest?.currentStage || 'processing';
   const activeStatusLabel =
@@ -757,15 +812,52 @@ export const FoodSearchChatPanel = ({
                 </div>
               )}
 
-              {/* Pill-shaped composer, iMessage-style */}
+              {/* Pill-shaped composer, iMessage-style. It grows upward into
+                  a rounded card while the camera viewfinder is open. */}
               <div
-                className={`pointer-events-auto overflow-hidden ${GLASS_PILL_CLASS}`}
+                className={`pointer-events-auto overflow-hidden ${GLASS_SURFACE_CLASS} ${
+                  isComposerExpanded ? 'rounded-[28px]' : 'rounded-full'
+                }`}
               >
+                <AnimatePresence
+                  initial={false}
+                  onExitComplete={() => {
+                    if (!isCameraOpen) setIsViewfinderMounted(false);
+                  }}
+                >
+                  {isCameraOpen && (
+                    <motion.div
+                      key={`camera-${cameraSession}`}
+                      initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={
+                        reduceMotion ? undefined : { height: 0, opacity: 0 }
+                      }
+                      transition={{
+                        height: { duration: 0.24, ease: [0.32, 0.72, 0, 1] },
+                        opacity: { duration: 0.18, ease: 'easeOut' },
+                      }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-1.5 pt-1.5">
+                        <FoodSearchCameraViewfinder
+                          onCapture={handleCameraCapture}
+                          onClose={dismissCamera}
+                          onUseSystemCamera={openSystemCamera}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <div className="flex items-center gap-1.5 pl-1.5 pr-1.5 py-1.5 min-h-[56px]">
                   <div className="flex items-center gap-0.5 shrink-0">
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={() => {
+                        closeCamera();
+                        fileInputRef.current?.click();
+                      }}
                       disabled={isSendingChat}
                       className="w-10 h-10 rounded-full flex items-center justify-center text-muted md:hover:text-foreground md:hover:bg-surface transition-all pressable-inline focus-ring disabled:opacity-40"
                       aria-label="Attach image"
@@ -773,11 +865,19 @@ export const FoodSearchChatPanel = ({
                       <Paperclip size={17} />
                     </button>
                     <button
+                      ref={cameraButtonRef}
                       type="button"
-                      onClick={() => cameraInputRef.current?.click()}
-                      disabled={isSendingChat}
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-muted md:hover:text-foreground md:hover:bg-surface transition-all pressable-inline focus-ring disabled:opacity-40"
+                      onClick={toggleCamera}
+                      disabled={
+                        isSendingChat || chatAttachments.length >= maxImageCount
+                      }
+                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all pressable-inline focus-ring disabled:opacity-40 ${
+                        isCameraOpen
+                          ? 'bg-accent-blue/15 text-accent-blue'
+                          : 'text-muted md:hover:text-foreground md:hover:bg-surface'
+                      }`}
                       aria-label="Take photo"
+                      aria-expanded={Boolean(isCameraOpen)}
                     >
                       <Camera size={17} />
                     </button>
@@ -789,6 +889,7 @@ export const FoodSearchChatPanel = ({
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={handleChatInputKeyDown}
                     onPaste={handleChatInputPaste}
+                    onFocus={closeCamera}
                     placeholder={chatPlaceholder}
                     rows={1}
                     className="flex-1 resize-none max-h-28 min-h-11 bg-transparent text-foreground placeholder:text-muted outline-hidden py-2.5 px-1 text-[15px] leading-relaxed overflow-y-auto"
@@ -796,7 +897,14 @@ export const FoodSearchChatPanel = ({
 
                   <button
                     type="button"
-                    onClick={isSendingChat ? stopChatRequest : sendChat}
+                    onClick={
+                      isSendingChat
+                        ? stopChatRequest
+                        : () => {
+                            closeCamera();
+                            sendChat();
+                          }
+                    }
                     disabled={isSendDisabled}
                     className={`shrink-0 w-10 h-10 rounded-full text-primary-foreground transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center press-feedback focus-ring md:hover:brightness-110 ${
                       isSendingChat ? 'bg-accent-red' : 'bg-primary'

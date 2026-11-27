@@ -66,10 +66,11 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<!-- Camera: @capacitor/barcode-scanner, plus the experimental camera pulse
-	     reading (fingertip over the lens) in the resting heart rate sheet. -->
+	<!-- Camera: @capacitor/barcode-scanner, the AI food chat's meal photo
+	     viewfinder, plus the experimental camera pulse reading (fingertip over
+	     the lens) in the resting heart rate sheet. -->
 	<key>NSCameraUsageDescription</key>
-	<string>Energy Map uses the camera to scan food barcodes and, if you choose, to measure your resting pulse from your fingertip.</string>
+	<string>Energy Map uses the camera to scan food barcodes, to photograph meals you add to the AI food chat and, if you choose, to measure your resting pulse from your fingertip.</string>
 	<!-- @capgo/capacitor-health reads through HealthKit (read-only: the app
 	     never writes health data on iOS, so NSHealthUpdateUsageDescription is
 	     deliberately absent to keep the permission prompt minimal). Steps,

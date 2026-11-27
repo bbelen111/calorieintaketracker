@@ -634,6 +634,28 @@ export const FoodSearchModal = ({
   const queuedReplayInFlightRef = useRef(false);
   const previousViewModeRef = useRef(viewMode);
 
+  // The AI chat's inline camera viewfinder. It lives only on an open, idle chat
+  // view with a free photo slot.
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  if (
+    isCameraOpen &&
+    (viewMode !== 'chat' ||
+      isClosing ||
+      isSendingChat ||
+      chatAttachments.length >= maxImageCount)
+  ) {
+    setIsCameraOpen(false);
+  }
+
+  // Escape / Android back close the viewfinder before they close the page.
+  const handleShellDismiss = useCallback(() => {
+    if (isCameraOpen) {
+      setIsCameraOpen(false);
+      return;
+    }
+    onClose?.();
+  }, [isCameraOpen, onClose]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     let cancelled = false;
@@ -3118,12 +3140,17 @@ export const FoodSearchModal = ({
     <ModalShell
       isOpen={isOpen}
       isClosing={isClosing}
-      onClose={onClose}
+      onClose={handleShellDismiss}
       fullHeight
       overlayClassName="fixed inset-0 bg-surface/70 p-0! flex-none! items-stretch! justify-stretch!"
       contentClassName="fixed inset-0 w-screen h-screen p-0 bg-background rounded-none border-none max-h-none! flex flex-col overflow-x-hidden pt-[env(safe-area-inset-top)] keyboard-bottom-inset pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
     >
-      <div className="flex items-center justify-between px-4 py-3 fullscreen-header bg-background border-b border-border shrink-0">
+      {/* Using anything outside the chat releases the camera (the barcode
+          scanner needs it, and other sheets would cover the preview). */}
+      <div
+        className="flex items-center justify-between px-4 py-3 fullscreen-header bg-background border-b border-border shrink-0"
+        onClickCapture={() => setIsCameraOpen(false)}
+      >
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -3248,7 +3275,10 @@ export const FoodSearchModal = ({
 
       <div className="flex-1 fullscreen-body bg-surface border-t border-border overflow-y-auto flex flex-col">
         {/* Action Buttons - Always on top */}
-        <div className="px-4 pt-4 pb-3 border-b border-border">
+        <div
+          className="px-4 pt-4 pb-3 border-b border-border"
+          onClickCapture={() => setIsCameraOpen(false)}
+        >
           <div className="relative overflow-hidden">
             <div
               ref={setActionScrollEl}
@@ -3476,6 +3506,9 @@ export const FoodSearchModal = ({
                 handleChatInputPaste={handleChatInputPaste}
                 sendChat={sendChat}
                 handleAddAttachmentFiles={handleAddAttachmentFiles}
+                isCameraOpen={isCameraOpen}
+                onCameraOpenChange={setIsCameraOpen}
+                maxImageCount={maxImageCount}
               />
             </motion.div>
           ) : viewMode === 'recents' ? (

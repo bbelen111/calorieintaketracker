@@ -52,7 +52,7 @@ main.jsx
             │   ├─ CalorieMapScreen
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
-                └─ 54 top-level useAnimatedModal instances → 74 modal-related files (68 modals + 6 panels)
+                └─ 54 top-level useAnimatedModal instances → 76 modal-related files (68 modals + 8 panels)
                  └─ 34 additional child-level modal instances inside modal/common components
 ```
 
@@ -174,7 +174,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 
 - **54 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
 - **34 additional child-level modal instances** declared inside modal components and `common/ImportWorkoutButton.jsx` (e.g., delete confirmations, sub-pickers, the workout import list, the recipe ingredient picker + its portion sheet)
-- **68 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 6 supporting panel components under `fullscreen/panels/`:
+- **68 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 8 supporting panel components under `fullscreen/panels/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal, RollingEnergyBalanceModal, **HeartRateTrackerModal**, **LiveHeartRateSessionModal**, **RecipeIngredientPickerModal** (the recipe builder's "Add ingredient" page: a child of `AddCustomFoodModal`, lazy-loaded, same fullscreen chrome as Food Search)
   - heart-rate additions elsewhere: `forms/` **RestingHeartRateEntryModal**, `info/` **HeartRateZonesInfoModal**, `lists/` **HealthWorkoutImportModal** (child of the cardio/training forms) and **HeartRateSensorPairingModal**
   - `pickers/` — AgePickerModal, CalendarPickerModal, **CaloriesPerHourPickerModal**, DatePickerModal, **DualWheelModal**, DurationPickerModal, **EnergyPickerModal**, EpocWindowPickerModal, FoodPortionModal, HeartRatePickerModal, HeightPickerModal, **MacroPickerModal**, MealTypePickerModal, MetValuePickerModal, **NumericValuePickerModal**, StepGoalPickerModal, TemplatePickerModal, TimePickerModal
@@ -294,6 +294,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - `FoodSearchModal` is now a **5-mode surface**: local search, online search, favourites, recents, and AI chat (`viewMode` + `searchMode` state machine).
 - `FoodSearchModal` now composes focused panel components from `modals/fullscreen/panels/`:
   - `FoodSearchChatPanel.jsx`
+  - `FoodSearchCameraViewfinder.jsx` (see "AI Chat Inline Camera")
   - `FoodSearchFilterControls.jsx`
   - `FoodSearchMealPreviewPanel.jsx`
   - `FoodSearchResultsPanel.jsx`
@@ -322,6 +323,15 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 - Food source/type resolution is centralized in `utils/foodTags.js`.
 - Food display naming is centralized in `utils/foodPresentation.js` (`formatFoodDisplayName`).
 - Brand presentation rule: display brand in name as **`Brand - Food name`**; avoid separate brand tag chips in food list cards.
+
+### AI Chat Inline Camera
+
+- The composer's camera button opens a **live viewfinder inside the composer** (`panels/FoodSearchCameraViewfinder.jsx`), not the OS camera app. The glass composer grows upward and squares off (`GLASS_SURFACE_CLASS` + `rounded-[28px]`) until the collapse finishes. Shutter, close, camera switch (2+ cameras) and flash (only when the track reports a torch). One shot attaches the photo and closes.
+- Layers: `utils/visuals/cameraFrame.js` (pure cover crop + scaling), `services/cameraCapture.js` (`getUserMedia`, error classes, `captureMealPhoto`), `hooks/useCameraStream.js` (stream lifetime = active presence via `useIsPresent()`, so the hardware stops immediately when exit begins rather than waiting for the collapse animation; status derived from the request object, so a late stream is released and nothing sets state synchronously in an effect).
+- **The photo is what the preview shows**, JPEG, longest edge 1024 px, at most `CAMERA_CAPTURE_MAX_BYTES` (110 KiB): the proxy caps `messages` at 500,000 bytes and a message holds 3 base64 images. Gallery, paste and camera-app images are **not** downscaled yet.
+- **The camera is released** on capture, close, Attach, Send, text-box focus (keyboard and viewfinder never share the screen), any header or action-row tap (the barcode scanner needs the camera), leaving the chat view, sending, a full set of photos, modal close and app backgrounding. `FoodSearchModal` owns `isCameraOpen`; Escape and Android back close the viewfinder first (`handleShellDismiss`).
+- The hidden `capture="environment"` input remains only as the fallback: no `getUserMedia`, or "Use camera app" after a preview error.
+- Covered by `tests/utils/cameraFrame.test.js`, `services/cameraCapture.spec.js`, `panels/FoodSearchCameraViewfinder.spec.jsx`, `panels/FoodSearchChatPanel.camera.spec.jsx` and `FoodSearchModal.camera.spec.jsx` (camera double: `src/tests/helpers/fakeCamera.js`).
 
 ### Food Search Recents
 
@@ -1436,8 +1446,8 @@ The master **Heart rate** switch (Settings → Profile & Health, profile scope, 
 
 ### Platform
 
-- **Android** (`android/app/src/main/AndroidManifest.xml`): exactly READ_STEPS / WRITE_STEPS / READ_HEART_RATE / READ_RESTING_HEART_RATE / READ_VO2_MAX / READ_EXERCISE / READ_HEALTH_DATA_IN_BACKGROUND; every other plugin-merged health permission is `tools:node="remove"`d (keep the Play Console Health Connect declaration in sync). Privacy policy = the plugin's `PermissionsRationaleActivity` + alias loading `public/privacypolicy.html` — never re-declare those intent filters elsewhere. BLE: `BLUETOOTH_SCAN` (`neverForLocation`) + `BLUETOOTH_CONNECT`; location only ≤ API 30. Camera declared for the barcode scanner + camera pulse.
-- **iOS** (`Info.plist`): `NSHealthShareUsageDescription` names steps, heart rate, resting HR, VO2 max and workouts (still no update description: read-only); `NSBluetoothAlwaysUsageDescription`; camera string covers the pulse reading. No background modes: live recording is foreground + keep-awake, gaps are excluded and shown as coverage.
+- **Android** (`android/app/src/main/AndroidManifest.xml`): exactly READ_STEPS / WRITE_STEPS / READ_HEART_RATE / READ_RESTING_HEART_RATE / READ_VO2_MAX / READ_EXERCISE / READ_HEALTH_DATA_IN_BACKGROUND; every other plugin-merged health permission is `tools:node="remove"`d (keep the Play Console Health Connect declaration in sync). Privacy policy = the plugin's `PermissionsRationaleActivity` + alias loading `public/privacypolicy.html` — never re-declare those intent filters elsewhere. BLE: `BLUETOOTH_SCAN` (`neverForLocation`) + `BLUETOOTH_CONNECT`; location only ≤ API 30. Camera declared for the barcode scanner, AI chat meal photos + camera pulse.
+- **iOS** (`Info.plist`): `NSHealthShareUsageDescription` names steps, heart rate, resting HR, VO2 max and workouts (still no update description: read-only); `NSBluetoothAlwaysUsageDescription`; camera string covers barcodes, AI chat meal photos and the pulse reading. No background modes: live recording is foreground + keep-awake, gaps are excluded and shown as coverage.
 - **Bundle:** both community plugins are dynamically imported by `services/heartRateSensor.js`; `vite.config.js` keeps `@capacitor-community/*` out of `chunk-capacitor`.
 
 ## Notification Subsystem (Layer 1 Local + Layer 2 Remote Push)
@@ -1483,7 +1493,7 @@ src/
 │   │   ├─ TrackerSelectionCard.jsx # Shared tracker day/month detail card (fixed top-centre slot, no measured tooltip) + TrackerCardMetric
 │   │   ├─ AppHeader.jsx         # Header zone (greeting, per-screen stat line, swipe dots, coach mark, settings gear)
 │   │   └─ ScreenTabs.jsx        # Fixed floating glass bottom tab bar (drag-linked active circle)
-│   ├─ modals/                   # 68 modal files in 6 subfolders + 6 fullscreen panel components
+│   ├─ modals/                   # 68 modal files in 6 subfolders + 8 fullscreen panel components
 │   │   ├─ fullscreen/           # Full-screen takeover modals (WeightTracker, BodyFatTracker, StepTracker, Settings, FoodSearch, RecipeIngredientPicker)
 │   │   ├─ pickers/              # Scroll-wheel value pickers (Age, Calendar, Height, MealType, etc.)
 │   │   ├─ info/                 # Read-only info/reference sheets (AdaptiveThermogenesisInfo, BmiInfo, BmrInfo, CalorieBreakdown, TefInfo, etc.)
@@ -1525,6 +1535,7 @@ src/
 ├─ hooks/
 │   ├─ useUnits.js               # Unit formatter for the current preferences (see Measurement Units)
 │   ├─ useAnimatedModal.js       # Modal lifecycle (isOpen/isClosing/requestClose)
+│   ├─ useCameraStream.js        # Live camera stream bound to a <video> for the owner's lifetime (AI chat viewfinder)
 │   ├─ useDaySwapAnimation.js    # Tracker day change: `data-day-swap` blocks fade out, swap, fade in (Web Animations API)
 │   ├─ useHardwareBackButton.js  # Android back handling (home-first + double-exit; registers nothing on iOS)
 │   ├─ useSwipeableScreens.js    # 5-screen horizontal carousel (edge peek, compositor settles, drag-progress vars)
@@ -1610,6 +1621,7 @@ src/
 │   │  └─ aiDisplayUnits.js      # [DISPLAY_UNITS] block + preconverted values for the AI chat
 │   ├─ visuals/
 │   │  ├─ bezierPath.js          # SVG cubic Bézier curve interpolation + gap-aware chart path runs
+│   │  ├─ cameraFrame.js         # AI chat inline camera frame math (object-cover crop + max-edge scaling)
 │   │  ├─ carouselLoop.js        # Canonical swipe-shell loop math (wrapped offsets/fades, transforms,
 │   │  │                         #   teleport tiers, settle planning, interruption clock, ease)
 │   │  ├─ carouselDragVars.js    # Registry of the drag-linked chrome elements; the shell writes
@@ -1641,6 +1653,7 @@ src/
 │   ├─ heartRateHealth.js        # HR plugin reads: per-local-day aggregates, resting, VO2, session samples, workouts
 │   ├─ heartRateSync.js          # HR sync singleton (status store, connect/backfill/refresh/disconnect)
 │   ├─ heartRateSensor.js        # Live BLE HR sensor singleton (scan/connect/record/checkpoint; lazy plugins)
+│   ├─ cameraCapture.js          # AI chat inline camera: getUserMedia bridge + budgeted JPEG capture
 │   ├─ cameraPulse.js            # Experimental camera pulse measurement (getUserMedia + torch)
 │   └─ foodCatalog.js            # SQLite-backed local food catalog service (sql.js)
 ├─ tests/                        # UI-tier harness ONLY — setup.js (plugin doubles) + mocks/capacitor.js
@@ -1687,6 +1700,7 @@ src/
     ├─ sessionCarryover.test.js
     ├─ steps.test.js
     ├─ foodTags.test.js
+    ├─ cameraFrame.test.js       # Inline camera cover-crop + max-edge scaling math
     ├─ carouselLoop.test.js      # Swipe-shell loop math (wrap periods, px transform geometry, teleport tiers,
                                  #   settle clock, shortest tab path, ease)
     ├─ keyboardInset.test.js     # Keyboard-inset rule (overlay vs adjustResize, ordering, zoom guard)
@@ -1894,3 +1908,4 @@ npm run test:ui:coverage # UI-tier coverage (components + hooks + modalStack)
 132. **Screen slots move:** the user can re-order the five screens and turn the loop off, so never compare against a literal screen index, never assume Logbook is slot 0, and keep new loop math behind the `{ loop }` option in `carouselLoop.js`. The icon module is `common/screenIcons.js` on purpose: a `screenTabs.js` beside `ScreenTabs.jsx` resolves to the same import on case-insensitive filesystems. See "Carousel Structure".
 
 133. **The heart rate switch is visibility, not maths:** gate every new heart-rate surface (card, shortcut, metric, form control, notification rule, health read) on `isHeartRateTrackingEnabled(userData)`, and never read it inside a calculation. It must not delete data or clear `heartRateSyncEnabled`. See "Heart Rate → Tracking switch".
+134. **The AI chat camera runs inside the composer and stops on exit:** `FoodSearchCameraViewfinder` binds `useCameraStream(useIsPresent())`, so the camera sensor releases as soon as dismissal starts (preventing contention with the barcode scanner or quick re-opens) while the paused frame collapses smoothly. Keep `captureMealPhoto` within `CAMERA_CAPTURE_MAX_BYTES` (110 KiB, so 3 base64 photos fit the 500 KB `api/openrouter.js` payload cap), keep Escape / Android back closing the viewfinder before the modal (`handleShellDismiss`), and keep the hidden `capture="environment"` file input as the no-`getUserMedia` / error fallback. See "AI Chat Inline Camera".

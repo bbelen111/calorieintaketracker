@@ -5,8 +5,12 @@
   The glass only reads as glass when content scrolls *behind* the element, so a
   consumer should float it over its scroll area rather than stacking it below.
 */
-export const GLASS_PILL_CLASS =
-  'rounded-full border border-border/50 bg-surface/35 shadow-lg shadow-background/30 inset-shadow-[0_1px_0_rgb(255_255_255/0.07)] backdrop-blur-2xl';
+// The glass without a corner radius, for a surface that changes shape (the AI
+// chat composer squares off to hold its camera viewfinder).
+export const GLASS_SURFACE_CLASS =
+  'border border-border/50 bg-surface/35 shadow-lg shadow-background/30 inset-shadow-[0_1px_0_rgb(255_255_255/0.07)] backdrop-blur-2xl';
+
+export const GLASS_PILL_CLASS = `rounded-full ${GLASS_SURFACE_CLASS}`;
 
 /*
   Accent circle sitting inside the pill (apply on a `bg-primary` element):

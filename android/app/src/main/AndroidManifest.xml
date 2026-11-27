@@ -65,7 +65,8 @@
          opt-in so reminders fire on time even while the app is closed. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Camera: barcode scanning and the experimental camera pulse reading. -->
+    <!-- Camera: barcode scanning, AI food chat meal photos and the
+         experimental camera pulse reading. -->
     <uses-permission android:name="android.permission.CAMERA" />
 
     <!-- Health Connect: exactly what the app reads (steps; heart rate,
