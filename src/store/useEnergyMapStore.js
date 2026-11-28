@@ -14,7 +14,10 @@ import {
   resolveGoalCalorieDelta,
 } from '../utils/calculations/calculations.js';
 import { deriveTargetCreationModePayload } from '../utils/calculations/phaseTargetPlanning.js';
-import { getStepRangeSortValue } from '../utils/calculations/steps.js';
+import {
+  compareStepRanges,
+  sortAndDedupeStepRanges,
+} from '../utils/calculations/steps.js';
 import { clampCustomActivityMultiplier } from '../constants/activity/activityPresets.js';
 import {
   getDefaultEnergyMapData,
@@ -925,23 +928,64 @@ export const useEnergyMapStore = createWithEqualityFn(
     },
 
     addStepRange: (newStepRange) => {
-      if (!newStepRange) return;
+      const trimmed = String(newStepRange ?? '').trim();
+      if (!trimmed) return;
       updateUserData(set, get, (prev) => {
-        if (prev.stepRanges.includes(newStepRange)) {
+        if (prev.stepRanges.includes(trimmed)) {
           return prev;
         }
-        const nextRanges = [...prev.stepRanges, newStepRange].sort(
-          (a, b) => getStepRangeSortValue(a) - getStepRangeSortValue(b)
+        const nextRanges = [...prev.stepRanges, trimmed].sort(
+          compareStepRanges
         );
         return { ...prev, stepRanges: nextRanges };
       });
     },
 
     removeStepRange: (stepRange) => {
-      updateUserData(set, get, (prev) => ({
-        ...prev,
-        stepRanges: prev.stepRanges.filter((range) => range !== stepRange),
-      }));
+      const removedPinId = `step_range:${stepRange}`;
+      updateUserData(set, get, (prev) => {
+        const nextRanges = prev.stepRanges.filter(
+          (range) => range !== stepRange
+        );
+        const currentPins = Array.isArray(prev.pinnedCalorieTargets)
+          ? prev.pinnedCalorieTargets
+          : [];
+        const nextPins = currentPins.filter((id) => id !== removedPinId);
+        return {
+          ...prev,
+          stepRanges: nextRanges,
+          pinnedCalorieTargets:
+            nextPins.length === currentPins.length ? currentPins : nextPins,
+        };
+      });
+    },
+
+    setStepRanges: (nextRanges) => {
+      const normalized = sortAndDedupeStepRanges(nextRanges);
+      updateUserData(set, get, (prev) => {
+        const current = Array.isArray(prev.stepRanges) ? prev.stepRanges : [];
+        const allowedRangeSet = new Set(normalized);
+        const currentPins = Array.isArray(prev.pinnedCalorieTargets)
+          ? prev.pinnedCalorieTargets
+          : [];
+        const nextPins = currentPins.filter(
+          (id) =>
+            !String(id).startsWith('step_range:') ||
+            allowedRangeSet.has(String(id).slice('step_range:'.length))
+        );
+        const rangesUnchanged =
+          current.length === normalized.length &&
+          current.every((range, index) => range === normalized[index]);
+        const pinsUnchanged = nextPins.length === currentPins.length;
+        if (rangesUnchanged && pinsUnchanged) {
+          return prev;
+        }
+        return {
+          ...prev,
+          stepRanges: normalized,
+          pinnedCalorieTargets: pinsUnchanged ? currentPins : nextPins,
+        };
+      });
     },
 
     addCardioSession: (session) => {

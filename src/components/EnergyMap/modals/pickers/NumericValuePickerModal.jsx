@@ -70,6 +70,7 @@ export const NumericValuePickerModal = ({
   max = 100,
   step = 1,
   unitLabel = '',
+  formatOption,
   onCancel,
   onSave,
 }) => {
@@ -193,6 +194,9 @@ export const NumericValuePickerModal = ({
           <div className="h-16" />
           {values.map((option) => {
             const formatted = formatValue(option, precision);
+            const displayLabel = formatOption
+              ? formatOption(option)
+              : formatted;
             const isSelected = selectedValue === option;
 
             return (
@@ -200,11 +204,11 @@ export const NumericValuePickerModal = ({
                 key={formatted}
                 data-value={formatted}
                 onClick={() => handleItemClick(option)}
-                className={`h-16 flex items-center justify-center text-2xl font-semibold snap-center cursor-pointer transition-all ${
+                className={`h-16 flex items-center justify-center text-2xl font-semibold tabular-nums snap-center cursor-pointer transition-all ${
                   isSelected ? 'text-foreground scale-110' : 'text-muted'
                 }`}
               >
-                {formatted}
+                {displayLabel}
               </div>
             );
           })}

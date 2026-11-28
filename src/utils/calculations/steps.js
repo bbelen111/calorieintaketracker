@@ -297,6 +297,95 @@ export const getStepDetails = (stepRange, userData) => {
   };
 };
 
+export const DEFAULT_STEP_RANGES = [
+  '<10k',
+  '10k',
+  '12k',
+  '14k',
+  '16k',
+  '18k',
+  '20k',
+  '>20k',
+];
+
+export const STEP_RANGE_MIN_STEPS = 1000;
+export const STEP_RANGE_MAX_STEPS = 50000;
+export const STEP_RANGE_WHEEL_INCREMENT = 500;
+export const STEP_RANGE_NUDGE_INCREMENT = 1000;
+
+export const STEP_RANGE_PRESETS = [
+  {
+    id: 'standard',
+    label: 'Standard (2k)',
+    description: 'Default 2,000-step ladder from under 10k to over 20k',
+    ranges: DEFAULT_STEP_RANGES,
+  },
+  {
+    id: 'everyday',
+    label: 'Everyday',
+    description: 'Lower to moderate daily movement',
+    ranges: ['<6k', '6k', '8k', '10k', '12k', '15k', '>15k'],
+  },
+  {
+    id: 'banded',
+    label: 'Banded',
+    description: 'Grouped step brackets estimated at each midpoint',
+    ranges: ['<6k', '6k-8k', '8k-10k', '10k-12k', '12k-15k', '>15k'],
+  },
+  {
+    id: 'high_volume',
+    label: 'High Volume',
+    description: 'Higher step milestones for active or cutting phases',
+    ranges: ['<10k', '10k', '12.5k', '15k', '17.5k', '20k', '25k', '>25k'],
+  },
+];
+
+export const formatCompactStepCount = (steps) => {
+  const numeric = Math.round(Number(steps));
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return '';
+  }
+
+  if (numeric < 1000) {
+    return String(numeric);
+  }
+
+  const thousands = numeric / 1000;
+  const formatted = Number.isInteger(thousands)
+    ? String(thousands)
+    : thousands.toFixed(2).replace(/\.?0+$/, '');
+  return `${formatted}k`;
+};
+
+export const buildStepRangeLabel = ({
+  mode = 'exact',
+  primarySteps,
+  secondarySteps,
+}) => {
+  const primary = Math.round(Number(primarySteps));
+  if (!Number.isFinite(primary) || primary <= 0) {
+    return null;
+  }
+
+  if (mode === 'under') {
+    return `<${formatCompactStepCount(primary)}`;
+  }
+
+  if (mode === 'over') {
+    return `>${formatCompactStepCount(primary)}`;
+  }
+
+  if (mode === 'range') {
+    const secondary = Math.round(Number(secondarySteps));
+    if (!Number.isFinite(secondary) || secondary <= primary) {
+      return null;
+    }
+    return `${formatCompactStepCount(primary)}-${formatCompactStepCount(secondary)}`;
+  }
+
+  return formatCompactStepCount(primary);
+};
+
 export const getStepRangeSortValue = (range) => {
   const parsed = parseStepRange(range);
   if (parsed.operator === 'lt') {
@@ -312,4 +401,235 @@ export const getStepRangeSortValue = (range) => {
     return parsed.max;
   }
   return 0;
+};
+
+export const compareStepRanges = (a, b) => {
+  const sortDiff = getStepRangeSortValue(a) - getStepRangeSortValue(b);
+  if (sortDiff !== 0) {
+    return sortDiff;
+  }
+
+  const estA = estimateStepsFromRange(parseStepRange(a));
+  const estB = estimateStepsFromRange(parseStepRange(b));
+  if (estA !== estB) {
+    return estA - estB;
+  }
+
+  return String(a ?? '').localeCompare(String(b ?? ''));
+};
+
+export const sortAndDedupeStepRanges = (ranges) => {
+  if (!Array.isArray(ranges)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const unique = [];
+
+  ranges.forEach((raw) => {
+    const trimmed = String(raw ?? '').trim();
+    if (!trimmed || seen.has(trimmed)) {
+      return;
+    }
+    seen.add(trimmed);
+    unique.push(trimmed);
+  });
+
+  return unique.sort(compareStepRanges);
+};
+
+export const areStepRangesEquivalent = (rangeA, rangeB) => {
+  const trimmedA = String(rangeA ?? '').trim();
+  const trimmedB = String(rangeB ?? '').trim();
+  if (!trimmedA || !trimmedB) {
+    return false;
+  }
+  if (trimmedA === trimmedB) {
+    return true;
+  }
+
+  const parsedA = parseStepRange(trimmedA);
+  const parsedB = parseStepRange(trimmedB);
+  return (
+    parsedA.operator === parsedB.operator &&
+    parsedA.min === parsedB.min &&
+    parsedA.max === parsedB.max
+  );
+};
+
+export const findMatchingStepRange = (ranges, candidateRange) => {
+  if (!Array.isArray(ranges) || !candidateRange) {
+    return null;
+  }
+
+  return (
+    ranges.find((existing) =>
+      areStepRangesEquivalent(existing, candidateRange)
+    ) ?? null
+  );
+};
+
+export const findActiveStepRangePreset = (ranges) => {
+  if (!Array.isArray(ranges) || ranges.length === 0) {
+    return null;
+  }
+
+  const match = STEP_RANGE_PRESETS.find(
+    (preset) =>
+      preset.ranges.length === ranges.length &&
+      preset.ranges.every((range, index) => range === ranges[index])
+  );
+
+  return match?.id ?? null;
+};
+
+const SUGGESTED_STEP_COUNTS = [
+  15000, 8000, 25000, 6000, 10000, 12000, 5000, 22000, 7500, 12500, 30000,
+];
+
+export const getNextSuggestedStepCount = (ranges) => {
+  const safeRanges = Array.isArray(ranges) ? ranges : [];
+
+  for (const steps of SUGGESTED_STEP_COUNTS) {
+    const label = buildStepRangeLabel({ mode: 'exact', primarySteps: steps });
+    if (label && !findMatchingStepRange(safeRanges, label)) {
+      return steps;
+    }
+  }
+
+  return 15000;
+};
+
+export const isStepGoalMatchedByRange = (range, stepGoal, allRanges = []) => {
+  const numericGoal = Number(stepGoal);
+  if (!Number.isFinite(numericGoal) || numericGoal <= 0 || !range) {
+    return false;
+  }
+
+  const parsed = parseStepRange(range);
+  if (parsed.operator === 'exact') {
+    return parsed.min === numericGoal;
+  }
+
+  if (parsed.operator !== 'range' || parsed.min == null || parsed.max == null) {
+    return false;
+  }
+
+  const safeAll = Array.isArray(allRanges) ? allRanges : [];
+  const hasExactMatch = safeAll.some((item) => {
+    const parsedItem = parseStepRange(item);
+    return parsedItem.operator === 'exact' && parsedItem.min === numericGoal;
+  });
+  if (hasExactMatch) {
+    return false;
+  }
+
+  if (numericGoal >= parsed.min && numericGoal < parsed.max) {
+    return true;
+  }
+
+  const hasHalfOpenMatch = safeAll.some((item) => {
+    const parsedItem = parseStepRange(item);
+    return (
+      parsedItem.operator === 'range' &&
+      parsedItem.min != null &&
+      parsedItem.max != null &&
+      numericGoal >= parsedItem.min &&
+      numericGoal < parsedItem.max
+    );
+  });
+
+  return (
+    !hasHalfOpenMatch && numericGoal >= parsed.min && numericGoal <= parsed.max
+  );
+};
+
+export const formatStepRangeEstimate = (parsedRange, estimatedSteps) => {
+  const safeSteps = Math.round(Number(estimatedSteps));
+  if (!Number.isFinite(safeSteps) || safeSteps <= 0) {
+    return '—';
+  }
+
+  if (parsedRange?.operator === 'exact') {
+    return `${safeSteps.toLocaleString()} steps`;
+  }
+
+  return `~${safeSteps.toLocaleString()} steps`;
+};
+
+/**
+ * Resolve which range in `ranges` should become the active step-range target
+ * when the list changes (e.g. switching presets). Preserves exact or
+ * semantically equivalent matches, then prefers a containing bracket, and
+ * finally picks the range with the nearest estimated step count.
+ */
+export const resolveClosestStepRange = (ranges, targetRange) => {
+  const safeRanges = Array.isArray(ranges)
+    ? ranges.map((item) => String(item ?? '').trim()).filter(Boolean)
+    : [];
+  if (safeRanges.length === 0) {
+    return null;
+  }
+
+  const trimmedTarget = String(targetRange ?? '').trim();
+  if (!trimmedTarget) {
+    return safeRanges[0];
+  }
+
+  if (safeRanges.includes(trimmedTarget)) {
+    return trimmedTarget;
+  }
+
+  const equivalent = findMatchingStepRange(safeRanges, trimmedTarget);
+  if (equivalent) {
+    return equivalent;
+  }
+
+  const targetSteps = estimateStepsFromRange(parseStepRange(trimmedTarget));
+
+  const halfOpenBracket = safeRanges.find((candidate) => {
+    const parsed = parseStepRange(candidate);
+    return (
+      parsed.operator === 'range' &&
+      parsed.min != null &&
+      parsed.max != null &&
+      targetSteps >= parsed.min &&
+      targetSteps < parsed.max
+    );
+  });
+  if (halfOpenBracket) {
+    return halfOpenBracket;
+  }
+
+  const closedBracket = safeRanges.find((candidate) => {
+    const parsed = parseStepRange(candidate);
+    return (
+      parsed.operator === 'range' &&
+      parsed.min != null &&
+      parsed.max != null &&
+      targetSteps >= parsed.min &&
+      targetSteps <= parsed.max
+    );
+  });
+  if (closedBracket) {
+    return closedBracket;
+  }
+
+  let closest = safeRanges[0];
+  let smallestDiff = Math.abs(
+    estimateStepsFromRange(parseStepRange(closest)) - targetSteps
+  );
+
+  for (let i = 1; i < safeRanges.length; i += 1) {
+    const candidate = safeRanges[i];
+    const diff = Math.abs(
+      estimateStepsFromRange(parseStepRange(candidate)) - targetSteps
+    );
+    if (diff < smallestDiff) {
+      smallestDiff = diff;
+      closest = candidate;
+    }
+  }
+
+  return closest;
 };

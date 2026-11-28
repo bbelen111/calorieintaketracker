@@ -43,6 +43,7 @@ import {
   sanitizeSessionHeartRateDetails,
 } from '../../utils/calculations/sessionHeartRate.js';
 import { saveLastSelectedCardioType } from '../../utils/data/storage';
+import { resolveClosestStepRange } from '../../utils/calculations/steps';
 import { getSettingsParentPage } from '../../utils/settings/settingsNavigation';
 import {
   ScreenTabs,
@@ -524,6 +525,7 @@ export const EnergyMapCalculator = () => {
     setSelectedGoal,
     addStepRange,
     removeStepRange,
+    setStepRanges,
     addCardioSession,
     removeCardioSession,
     updateCardioSession,
@@ -596,6 +598,7 @@ export const EnergyMapCalculator = () => {
       setSelectedGoal: state.setSelectedGoal,
       addStepRange: state.addStepRange,
       removeStepRange: state.removeStepRange,
+      setStepRanges: state.setStepRanges,
       addCardioSession: state.addCardioSession,
       removeCardioSession: state.removeCardioSession,
       updateCardioSession: state.updateCardioSession,
@@ -731,7 +734,6 @@ export const EnergyMapCalculator = () => {
   const [tempEpocWindowValue, setTempEpocWindowValue] = useState(
     userData.epocCarryoverHours ?? 6
   );
-  const [newStepRange, setNewStepRange] = useState('');
   const [selectedBreakdownRequest, setSelectedBreakdownRequest] =
     useState(null);
   const [cardioDraft, setCardioDraft] = useState(() =>
@@ -2592,13 +2594,6 @@ export const EnergyMapCalculator = () => {
     ]
   );
 
-  const handleAddStepRange = useCallback(() => {
-    const trimmed = newStepRange.trim();
-    if (!trimmed) return;
-    addStepRange(trimmed);
-    setNewStepRange('');
-  }, [addStepRange, newStepRange]);
-
   const todayDateKey = getTodayDateString();
   const macroTotalsByDate = useMemo(
     () => ({
@@ -2852,15 +2847,20 @@ export const EnergyMapCalculator = () => {
     [userData.stepRanges]
   );
 
+  const effectiveTrackerStepRange = useMemo(
+    () => resolveClosestStepRange(normalizedStepRanges, trackerStepRange),
+    [normalizedStepRanges, trackerStepRange]
+  );
+
   useEffect(() => {
-    if (normalizedStepRanges.length === 0) {
+    if (!effectiveTrackerStepRange) {
       return;
     }
 
-    if (!normalizedStepRanges.includes(trackerStepRange)) {
-      setTrackerStepRange(normalizedStepRanges[0]);
+    if (effectiveTrackerStepRange !== trackerStepRange) {
+      setTrackerStepRange(effectiveTrackerStepRange);
     }
-  }, [normalizedStepRanges, trackerStepRange]);
+  }, [effectiveTrackerStepRange, trackerStepRange]);
 
   useEffect(() => {
     if (
@@ -2873,12 +2873,12 @@ export const EnergyMapCalculator = () => {
   }, [healthConnect.status, liveStepData, selectedCalorieTargetType]);
 
   const trackerRangeData = useMemo(() => {
-    if (!trackerStepRange) {
+    if (!effectiveTrackerStepRange) {
       return null;
     }
 
-    return getRangeDetails(trackerStepRange);
-  }, [getRangeDetails, trackerStepRange]);
+    return getRangeDetails(effectiveTrackerStepRange);
+  }, [getRangeDetails, effectiveTrackerStepRange]);
 
   const selectedCalorieTargetData = useMemo(() => {
     if (selectedCalorieTargetType === 'live_steps' && liveStepData) {
@@ -2892,30 +2892,36 @@ export const EnergyMapCalculator = () => {
       };
     }
 
-    if (!trackerStepRange || !trackerRangeData) {
+    if (!effectiveTrackerStepRange || !trackerRangeData) {
       return {
         type: 'step_range',
-        id: trackerStepRange ? `step_range:${trackerStepRange}` : null,
-        key: trackerStepRange ? `step_range:${trackerStepRange}` : null,
-        steps: trackerStepRange,
-        label: trackerStepRange ? `${trackerStepRange} steps` : 'No target',
+        id: effectiveTrackerStepRange
+          ? `step_range:${effectiveTrackerStepRange}`
+          : null,
+        key: effectiveTrackerStepRange
+          ? `step_range:${effectiveTrackerStepRange}`
+          : null,
+        steps: effectiveTrackerStepRange,
+        label: effectiveTrackerStepRange
+          ? `${effectiveTrackerStepRange} steps`
+          : 'No target',
         targetCalories: 2500,
       };
     }
 
     return {
       type: 'step_range',
-      id: `step_range:${trackerStepRange}`,
-      key: `step_range:${trackerStepRange}`,
-      steps: trackerStepRange,
-      label: `${trackerStepRange} steps`,
+      id: `step_range:${effectiveTrackerStepRange}`,
+      key: `step_range:${effectiveTrackerStepRange}`,
+      steps: effectiveTrackerStepRange,
+      label: `${effectiveTrackerStepRange} steps`,
       targetCalories: trackerRangeData.targetCalories ?? 2500,
     };
   }, [
+    effectiveTrackerStepRange,
     liveStepData,
     selectedCalorieTargetType,
     trackerRangeData,
-    trackerStepRange,
   ]);
 
   // The header's Tracker chip follows the Tracker card: a finished day is
@@ -3621,6 +3627,31 @@ export const EnergyMapCalculator = () => {
     setTrackerStepRange(optionSteps);
     setSelectedCalorieTargetType('step_range');
   }, []);
+
+  const handleSelectActiveStepRange = useCallback((nextRange) => {
+    const trimmed = String(nextRange ?? '').trim();
+    if (!trimmed) {
+      return;
+    }
+    setTrackerStepRange(trimmed);
+    setSelectedCalorieTargetType('step_range');
+  }, []);
+
+  const handleOpenCalorieTargetFromStepRanges = useCallback(() => {
+    if (calorieTargetModal.isOpen && !calorieTargetModal.isClosing) {
+      stepRangesModal.requestClose();
+      return;
+    }
+    calorieTargetModal.open();
+  }, [calorieTargetModal, stepRangesModal]);
+
+  const handleOpenStepRangesFromCalorieTarget = useCallback(() => {
+    if (stepRangesModal.isOpen && !stepRangesModal.isClosing) {
+      calorieTargetModal.requestClose();
+      return;
+    }
+    stepRangesModal.open();
+  }, [calorieTargetModal, stepRangesModal]);
 
   const handleMacroPickerChange = useCallback((nextSplit) => {
     setTempMacroRecommendationSplit(
@@ -5390,6 +5421,7 @@ export const EnergyMapCalculator = () => {
         selectedDay={selectedDay}
         goals={goals}
         onTargetToleranceKcal={userData.onTargetToleranceKcal}
+        onManageStepRanges={handleOpenStepRangesFromCalorieTarget}
       />
 
       <TimePickerModal
@@ -5673,10 +5705,16 @@ export const EnergyMapCalculator = () => {
         isOpen={stepRangesModal.isOpen}
         isClosing={stepRangesModal.isClosing}
         stepRanges={userData.stepRanges}
-        newStepRange={newStepRange}
-        onNewStepRangeChange={setNewStepRange}
-        onAddRange={handleAddStepRange}
+        activeStepRange={
+          selectedCalorieTargetType === 'step_range'
+            ? effectiveTrackerStepRange
+            : null
+        }
+        onSelectActiveRange={handleSelectActiveStepRange}
+        onOpenCalorieTargetModal={handleOpenCalorieTargetFromStepRanges}
+        onAddRange={addStepRange}
         onRemoveRange={removeStepRange}
+        onReplaceRanges={setStepRanges}
         onClose={stepRangesModal.requestClose}
       />
 

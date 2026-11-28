@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Activity, Flame, Info, Pin, X } from 'lucide-react';
+import { Activity, Flame, Footprints, Info, Pin, X } from 'lucide-react';
 import { shallow } from 'zustand/shallow';
 import { ModalShell } from '../../common/ModalShell';
 import { goals as baseGoals } from '../../../../constants/goals/goals';
@@ -45,6 +45,7 @@ export const CalorieTargetModal = ({
   pinnedCalorieTargets,
   onTogglePinnedCalorieTarget,
   onTargetToleranceKcal,
+  onManageStepRanges,
 }) => {
   const units = useUnits();
   const reduceMotion = useReducedMotionPreference();
@@ -203,7 +204,7 @@ export const CalorieTargetModal = ({
       onClose={onClose}
       contentClassName="w-full md:max-w-md p-5"
     >
-      <div className="flex items-start justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 mb-4">
         <div className="flex items-center gap-2 min-w-0">
           <Flame className="text-accent-blue shrink-0" size={28} />
           <div>
@@ -224,209 +225,270 @@ export const CalorieTargetModal = ({
           </div>
         </div>
 
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsInfoOpen((prev) => !prev)}
-            className={`relative z-20 h-8 w-8 rounded-full border transition-colors flex items-center justify-center focus-ring pressable-inline ${
-              isInfoOpen
-                ? 'border-accent-blue bg-accent-blue/15 text-accent-blue'
-                : 'border-border bg-surface-highlight text-muted md:hover:text-foreground md:hover:border-muted/50'
-            }`}
-            aria-label="Show calorie target list info"
-            aria-expanded={isInfoOpen}
-          >
-            <Info size={15} />
-          </button>
-
-          <AnimatePresence>
-            {isInfoOpen && (
-              <motion.div
-                key="calorie-target-info-backdrop"
-                data-testid="calorie-target-info-backdrop"
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {typeof onManageStepRanges === 'function' && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsInfoOpen(false);
+                onManageStepRanges();
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-highlight px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-foreground transition-colors press-feedback focus-ring md:hover:border-accent-blue"
+            >
+              <Footprints
+                size={14}
+                className="text-accent-blue"
                 aria-hidden="true"
-                initial={backdropMotion.initial}
-                animate={backdropMotion.animate}
-                exit={backdropMotion.exit}
-                transition={backdropMotion.transition}
-                onClick={() => setIsInfoOpen(false)}
-                className="fixed inset-0 z-10"
               />
-            )}
-            {isInfoOpen && (
-              <motion.div
-                key="calorie-target-info-card"
-                role="region"
-                aria-label="Calorie target list info"
-                initial={popoverMotion.initial}
-                animate={popoverMotion.animate}
-                exit={popoverMotion.exit}
-                transition={popoverMotion.transition}
-                className="absolute right-0 top-full mt-2 z-20 origin-top-right w-[min(20rem,calc(100vw-4.5rem))] rounded-2xl border border-border/80 bg-surface/95 supports-[backdrop-filter]:bg-surface/90 backdrop-blur-xl p-3.5 shadow-2xl shadow-background/40"
-              >
-                <div className="flex items-center justify-between gap-2 mb-2.5">
-                  <p className="text-foreground text-sm font-semibold leading-tight">
-                    How these targets work
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setIsInfoOpen(false)}
-                    className="h-6 w-6 rounded-full text-muted md:hover:text-foreground md:hover:bg-surface-highlight transition-colors flex items-center justify-center focus-ring pressable-inline"
-                    aria-label="Close calorie target info"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
+              Ranges
+            </button>
+          )}
 
-                <ul className="space-y-2 text-xs leading-relaxed text-muted">
-                  <li className="flex items-start gap-2">
-                    <Flame
-                      size={13}
-                      className="text-accent-blue shrink-0 mt-0.5"
-                      aria-hidden="true"
-                    />
-                    <span>
-                      The bold figure is your goal-adjusted daily target; the{' '}
-                      <span className="text-foreground font-medium">
-                        ±{units.energy.format(resolvedTolerance)}
-                      </span>{' '}
-                      on-target range sits to its left.
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Activity
-                      size={13}
-                      className="text-accent-indigo shrink-0 mt-0.5"
-                      aria-hidden="true"
-                    />
-                    <span>
-                      The{' '}
-                      <span className="text-foreground font-medium">TDEE</span>{' '}
-                      line shows today’s estimated burn for that step count (or{' '}
-                      <span className="text-foreground font-medium">
-                        Live Steps
-                      </span>{' '}
-                      when health sync is connected), plus your goal’s
-                      adjustment.
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Pin
-                      size={13}
-                      className="text-accent-blue shrink-0 mt-0.5"
-                      aria-hidden="true"
-                    />
-                    <span>
-                      <span className="text-foreground font-medium">
-                        Press and hold
-                      </span>{' '}
-                      any row to pin or unpin it at the top of the list.
-                    </span>
-                  </li>
-                </ul>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsInfoOpen((prev) => !prev)}
+              className={`relative z-20 h-8 w-8 rounded-full border transition-colors flex items-center justify-center focus-ring pressable-inline ${
+                isInfoOpen
+                  ? 'border-accent-blue bg-accent-blue/15 text-accent-blue'
+                  : 'border-border bg-surface-highlight text-muted md:hover:text-foreground md:hover:border-muted/50'
+              }`}
+              aria-label="Show calorie target list info"
+              aria-expanded={isInfoOpen}
+            >
+              <Info size={15} />
+            </button>
 
-                <div className="mt-3 rounded-xl bg-surface-highlight/70 border border-border/70 px-3 py-2 text-xs">
-                  <p className="text-foreground font-medium">
-                    Customize in Settings
-                  </p>
-                  <p className="text-muted mt-1 leading-relaxed">
-                    Edit step ranges in{' '}
-                    <span className="text-foreground font-medium">
-                      Activity &amp; Steps
-                    </span>
-                    , or change the on-target range in{' '}
-                    <span className="text-foreground font-medium">
-                      Food &amp; Macros
-                    </span>
-                    .
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <AnimatePresence>
+              {isInfoOpen && (
+                <motion.div
+                  key="calorie-target-info-backdrop"
+                  data-testid="calorie-target-info-backdrop"
+                  aria-hidden="true"
+                  initial={backdropMotion.initial}
+                  animate={backdropMotion.animate}
+                  exit={backdropMotion.exit}
+                  transition={backdropMotion.transition}
+                  onClick={() => setIsInfoOpen(false)}
+                  className="fixed inset-0 z-10"
+                />
+              )}
+              {isInfoOpen && (
+                <motion.div
+                  key="calorie-target-info-card"
+                  role="region"
+                  aria-label="Calorie target list info"
+                  initial={popoverMotion.initial}
+                  animate={popoverMotion.animate}
+                  exit={popoverMotion.exit}
+                  transition={popoverMotion.transition}
+                  className="absolute right-0 top-full mt-2 z-20 origin-top-right w-[min(20rem,calc(100vw-4.5rem))] rounded-2xl border border-border/80 bg-surface/95 supports-[backdrop-filter]:bg-surface/90 backdrop-blur-xl p-3.5 shadow-2xl shadow-background/40"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <p className="text-foreground text-sm font-semibold leading-tight">
+                      How these targets work
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsInfoOpen(false)}
+                      className="h-6 w-6 rounded-full text-muted md:hover:text-foreground md:hover:bg-surface-highlight transition-colors flex items-center justify-center focus-ring pressable-inline"
+                      aria-label="Close calorie target info"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  <ul className="space-y-2 text-xs leading-relaxed text-muted">
+                    <li className="flex items-start gap-2">
+                      <Flame
+                        size={13}
+                        className="text-accent-blue shrink-0 mt-0.5"
+                        aria-hidden="true"
+                      />
+                      <span>
+                        The bold figure is your goal-adjusted daily target; the{' '}
+                        <span className="text-foreground font-medium">
+                          ±{units.energy.format(resolvedTolerance)}
+                        </span>{' '}
+                        on-target range sits to its left.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Activity
+                        size={13}
+                        className="text-accent-indigo shrink-0 mt-0.5"
+                        aria-hidden="true"
+                      />
+                      <span>
+                        The{' '}
+                        <span className="text-foreground font-medium">
+                          TDEE
+                        </span>{' '}
+                        line shows today’s estimated burn for that step count
+                        (or{' '}
+                        <span className="text-foreground font-medium">
+                          Live Steps
+                        </span>{' '}
+                        when health sync is connected), plus your goal’s
+                        adjustment.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Pin
+                        size={13}
+                        className="text-accent-blue shrink-0 mt-0.5"
+                        aria-hidden="true"
+                      />
+                      <span>
+                        <span className="text-foreground font-medium">
+                          Press and hold
+                        </span>{' '}
+                        any row to pin or unpin it at the top of the list.
+                      </span>
+                    </li>
+                  </ul>
+
+                  <div className="mt-3 rounded-xl bg-surface-highlight/70 border border-border/70 px-3 py-2 text-xs">
+                    <p className="text-foreground font-medium">
+                      Customize in Settings
+                    </p>
+                    <p className="text-muted mt-1 leading-relaxed">
+                      Edit step ranges in{' '}
+                      <span className="text-foreground font-medium">
+                        Activity &amp; Steps
+                      </span>
+                      , or change the on-target range in{' '}
+                      <span className="text-foreground font-medium">
+                        Food &amp; Macros
+                      </span>
+                      .
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
       <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-        {displayOptions.map((option) => {
-          const isSelected = option.key === selectedKey;
-          const optionId = String(option.id ?? option.key ?? '').trim();
-          const isPinned = resolvedPinnedCalorieTargets.includes(optionId);
-          const isLongPressing = longPressingId === optionId;
-          const baseSurfaceClass = isSelected
-            ? 'border-primary bg-primary'
-            : isPinned || isLongPressing
-              ? 'border-accent-blue bg-surface-highlight md:hover:bg-surface-highlight/60'
-              : 'border-border bg-surface-highlight md:hover:bg-surface-highlight/60';
-          const { range: targetRange } = judgeIntakeAgainstTarget({
-            targetCalories: option.targetCalories,
-            tolerance: resolvedTolerance,
-          });
-          const targetRangeText = targetRange
-            ? formatIntakeRange(targetRange, units)
-            : null;
+        {displayOptions.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-surface-highlight/30 px-4 py-6 text-center">
+            <Footprints
+              size={20}
+              className="mx-auto text-muted mb-2"
+              aria-hidden="true"
+            />
+            <p className="text-foreground text-sm font-semibold">
+              No calorie targets available
+            </p>
+            <p className="text-muted text-xs mt-1">
+              Add step ranges to choose a daily calorie target.
+            </p>
+            {typeof onManageStepRanges === 'function' && (
+              <button
+                type="button"
+                onClick={onManageStepRanges}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-accent-blue/15 px-3.5 py-2 text-xs font-semibold text-accent-blue md:hover:bg-accent-blue/25 focus-ring pressable-inline"
+              >
+                <Footprints size={14} aria-hidden="true" />
+                Manage Step Ranges
+              </button>
+            )}
+          </div>
+        ) : (
+          displayOptions.map((option) => {
+            const isSelected = option.key === selectedKey;
+            const optionId = String(option.id ?? option.key ?? '').trim();
+            const isPinned = resolvedPinnedCalorieTargets.includes(optionId);
+            const isLongPressing = longPressingId === optionId;
+            const baseSurfaceClass = isSelected
+              ? 'border-primary bg-primary'
+              : isPinned || isLongPressing
+                ? 'border-accent-blue bg-surface-highlight/50 md:hover:bg-surface-highlight/80'
+                : 'border-border/50 bg-surface-highlight/50 md:hover:bg-surface-highlight/80';
+            const { range: targetRange } = judgeIntakeAgainstTarget({
+              targetCalories: option.targetCalories,
+              tolerance: resolvedTolerance,
+            });
+            const targetRangeText = targetRange
+              ? formatIntakeRange(targetRange, units)
+              : null;
 
-          return (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => handleSelect(option)}
-              onPointerDown={(event) => handlePressStart(optionId, event)}
-              onPointerUp={() => handlePressEnd(false)}
-              onPointerLeave={() => handlePressEnd(true)}
-              onPointerCancel={() => handlePressEnd(true)}
-              className={`relative w-full rounded-xl border px-3 py-3 text-left transition-all focus-ring ${baseSurfaceClass} ${
-                isLongPressing ? 'scale-[0.98]' : 'pressable-card'
-              }`}
-            >
-              {isPinned && (
-                <div
-                  className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-primary-foreground' : 'bg-accent-blue'}`}
-                />
-              )}
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-foreground font-semibold text-sm flex items-center gap-1.5">
-                    <span>{option.label}</span>
-                  </p>
-                  <p
-                    className={`text-xs mt-0.5 ${isSelected ? 'text-primary-foreground' : 'text-muted'}`}
-                  >
-                    {formatStepsLabel(option.steps)}
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="flex items-baseline justify-end gap-1.5 whitespace-nowrap">
-                    {targetRangeText && (
+            return (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => handleSelect(option)}
+                onPointerDown={(event) => handlePressStart(optionId, event)}
+                onPointerUp={() => handlePressEnd(false)}
+                onPointerLeave={() => handlePressEnd(true)}
+                onPointerCancel={() => handlePressEnd(true)}
+                className={`relative w-full rounded-xl border px-3 py-3 text-left transition-all focus-ring ${baseSurfaceClass} ${
+                  isLongPressing ? 'scale-[0.98]' : 'pressable-card'
+                }`}
+              >
+                {isPinned && (
+                  <div
+                    className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-primary-foreground' : 'bg-accent-blue'}`}
+                  />
+                )}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p
+                      className={`font-semibold text-sm flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'text-primary-foreground'
+                          : 'text-foreground'
+                      }`}
+                    >
+                      <span>{option.label}</span>
+                    </p>
+                    <p
+                      className={`text-xs mt-0.5 tabular-nums ${isSelected ? 'text-primary-foreground/90' : 'text-muted'}`}
+                    >
+                      {formatStepsLabel(option.steps)}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="flex items-baseline justify-end gap-1.5 whitespace-nowrap">
+                      {targetRangeText && (
+                        <span
+                          data-testid="calorie-target-range"
+                          className={`text-xs font-normal tabular-nums ${
+                            isSelected
+                              ? 'text-primary-foreground/85'
+                              : 'text-muted'
+                          }`}
+                        >
+                          ({targetRangeText})
+                        </span>
+                      )}
                       <span
-                        data-testid="calorie-target-range"
-                        className={`text-xs font-normal ${
+                        className={`text-lg font-bold tabular-nums ${
                           isSelected
-                            ? 'text-primary-foreground/85'
-                            : 'text-muted'
+                            ? 'text-primary-foreground'
+                            : 'text-foreground'
                         }`}
                       >
-                        ({targetRangeText})
+                        {units.energy.value(option.targetCalories || 0)}
                       </span>
-                    )}
-                    <span className="text-lg font-bold text-foreground">
-                      {units.energy.value(option.targetCalories || 0)}
-                    </span>
-                  </p>
-                  <p
-                    className={`text-xs mt-0.5 ${isSelected ? 'text-primary-foreground' : 'text-muted'}`}
-                  >
-                    {formatTdeeLabel(
-                      option.tdee,
-                      option.difference,
-                      units.energy
-                    )}
-                  </p>
+                    </p>
+                    <p
+                      className={`text-xs mt-0.5 tabular-nums ${isSelected ? 'text-primary-foreground/90' : 'text-muted'}`}
+                    >
+                      {formatTdeeLabel(
+                        option.tdee,
+                        option.difference,
+                        units.energy
+                      )}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </button>
-          );
-        })}
+              </button>
+            );
+          })
+        )}
       </div>
 
       <div className="mt-4">

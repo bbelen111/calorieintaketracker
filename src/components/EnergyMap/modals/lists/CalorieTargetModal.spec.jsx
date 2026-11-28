@@ -250,4 +250,45 @@ describe('CalorieTargetModal', () => {
       screen.queryByRole('region', { name: 'Calorie target list info' })
     ).not.toBeInTheDocument();
   });
+
+  it('matches StepRangesModal inset surface styling and links to Step Ranges from header and empty state', () => {
+    const onManageStepRanges = vi.fn();
+    const { rerender } = renderModal({ onManageStepRanges });
+
+    // Inactive item uses the same bg-surface-highlight/50 surface as StepRangesModal.
+    const inactiveButton = screen.getByRole('button', {
+      name: /10k steps/i,
+    });
+    expect(inactiveButton).toHaveClass(
+      'bg-surface-highlight/50',
+      'border-border/50'
+    );
+
+    // Header Ranges button opens StepRangesModal.
+    fireEvent.click(screen.getByRole('button', { name: /Ranges/i }));
+    expect(onManageStepRanges).toHaveBeenCalledTimes(1);
+
+    // Empty options render a helpful empty state with Manage Step Ranges CTA.
+    rerender(
+      <CalorieTargetModal
+        isOpen
+        isClosing={false}
+        onClose={vi.fn()}
+        options={[]}
+        selectedKey={null}
+        onSelect={vi.fn()}
+        selectedGoal="aggressive_bulk"
+        selectedDay="training"
+        onManageStepRanges={onManageStepRanges}
+      />
+    );
+
+    expect(
+      screen.getByText('No calorie targets available')
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: /Manage Step Ranges/i })
+    );
+    expect(onManageStepRanges).toHaveBeenCalledTimes(2);
+  });
 });
