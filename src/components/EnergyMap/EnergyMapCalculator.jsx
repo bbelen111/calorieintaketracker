@@ -5389,6 +5389,7 @@ export const EnergyMapCalculator = () => {
         selectedGoal={selectedGoal}
         selectedDay={selectedDay}
         goals={goals}
+        onTargetToleranceKcal={userData.onTargetToleranceKcal}
       />
 
       <TimePickerModal
