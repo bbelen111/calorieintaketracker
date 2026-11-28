@@ -53,7 +53,7 @@ main.jsx
             │   └─ InsightsScreen
             ├─ PhaseDetailScreen (drill-down, not in carousel)
                 └─ 54 top-level useAnimatedModal instances → 76 modal-related files (68 modals + 8 panels)
-                 └─ 34 additional child-level modal instances inside modal/common components
+                 └─ 36 additional child-level modal instances inside modal/common/screen components
 ```
 
 ### Data Flow
@@ -173,7 +173,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 ### Modal Count
 
 - **54 top-level `useAnimatedModal()` instances** in `EnergyMapCalculator.jsx` (top-level orchestrator)
-- **34 additional child-level modal instances** declared inside modal components and `common/ImportWorkoutButton.jsx` (e.g., delete confirmations, sub-pickers, the workout import list, the recipe ingredient picker + its portion sheet)
+- **36 additional child-level modal instances** declared inside modal, common, and screen components (e.g., delete confirmations, sub-pickers including `StepRangesModal`'s wheel picker, the workout import list, the recipe ingredient picker + its portion sheet)
 - **68 modal component files** organised into 6 subfolders inside `src/components/EnergyMap/modals/`, plus 8 supporting panel components under `fullscreen/panels/`:
   - `fullscreen/` — WeightTrackerModal, BodyFatTrackerModal, StepTrackerModal, SettingsModal, FoodSearchModal, AdaptiveThermogenesisModal, RollingEnergyBalanceModal, **HeartRateTrackerModal**, **LiveHeartRateSessionModal**, **RecipeIngredientPickerModal** (the recipe builder's "Add ingredient" page: a child of `AddCustomFoodModal`, lazy-loaded, same fullscreen chrome as Food Search)
   - heart-rate additions elsewhere: `forms/` **RestingHeartRateEntryModal**, `info/` **HeartRateZonesInfoModal**, `lists/` **HealthWorkoutImportModal** (child of the cardio/training forms) and **HeartRateSensorPairingModal**
@@ -183,7 +183,7 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
   - `lists/` — CardioFavouritesModal, CardioTypeListModal, CalorieTargetModal, DayLedgerListModal
   - `common/` — ConfirmActionModal
   - `forms/RecipeIngredientsSection.jsx` is a **section component, not a modal** (the Recipe half of `AddCustomFoodModal`); it owns one `NumericValuePickerModal`
-- Total across codebase: 88 modal hook instances (`useAnimatedModal`)
+- Total across codebase: 90 modal hook instances (`useAnimatedModal`)
 
 ### Settings Modal Navigation
 
@@ -263,6 +263,12 @@ Removed from the codebase. **Do not reintroduce** full-store spread wrappers; us
 ### Tracker Modal Selection Card (Weight / Body Fat / Step / Rolling Energy Balance / Heart Rate)
 
 `HeartRateTrackerModal` follows the same contract (fixed `topPx`, in-SVG guide line, tap-to-dismiss, re-tap to edit, render-phase retention) with resting-HR deltas from a pre-filtered single-family series; its month (12m) cards are read-only.
+
+### Step Ranges & Calorie Target Linking
+
+- `StepRangesModal` (`modals/forms/`) manages its own builder state internally (no draft state in `EnergyMapCalculator`) using the 4-mode `SegmentedToggle` (`Exact`, `Range`, `Under`, `Over`, using the default `bg-accent-blue` pill so it picks up the shared top-light gradient in `index.css`), ±1,000 stepper controls, and a child `NumericValuePickerModal` (with `formatOption` for comma-formatted 500-step increments). Rows animate in/out via Framer Motion `AnimatePresence` (`initial={false}`, `ROW_EASE`, reduced-motion safe) inside a stable `min-h` scroll frame (`min-h-[16.5rem] md:min-h-[19rem]`), showing resolved step estimates and unit-aware step burn from `utils/calculations/steps.js`.
+- **Presets & store cleanup:** `STEP_RANGE_PRESETS` (`Standard (2k)`, `Everyday`, `Banded`, `High Volume`) and `DEFAULT_STEP_RANGES` live in `utils/calculations/steps.js`. Store actions `removeStepRange` and `setStepRanges` deduplicate/sort deterministically (`compareStepRanges` / `sortAndDedupeStepRanges`) and prune removed `step_range:*` entries from `userData.pinnedCalorieTargets` while keeping `live_steps` and valid pins intact.
+- **Bidirectional modal linking & Active goal protection:** `StepRangesModal` (header **Calorie Target** / **Target** button) and `CalorieTargetModal` (header **Ranges** button) link to each other from their headers without stack loops — if the destination modal is already open underneath, the orchestrator closes the top modal to reveal it. The currently selected step-range target (`activeStepRange`, when `selectedCalorieTargetType === 'step_range'`) wears an **Active goal** badge and a non-interactive lock icon instead of a delete button. When presets or range edits remove the active step range, `EnergyMapCalculator` and `StepRangesModal` remap it via `resolveClosestStepRange` (exact → semantically equivalent → containing bracket → nearest estimated step count) instead of snapping to index `0`. Both modals share `bg-surface-highlight/50 border-border/50` item surfaces and the icon-led info popover pattern (`CalorieTargetModal` also renders an actionable empty state linking to `StepRangesModal`). Covered by `StepRangesModal.spec.jsx`, `CalorieTargetModal.spec.jsx`, and `tests/utils/steps.test.js`.
 
 - The four tracker modals share **one** detail surface: `TrackerSelectionCard` (`common/TrackerSelectionCard.jsx`, with the `TrackerCardMetric` inline label/value pair). It replaced a per-modal floating tooltip that was measured onto the tapped point (`getBoundingClientRect()` + `scrollLeft` + a `resize` listener) and rendered **outside** `ModalShell` at `z-[1200]`. Do not reintroduce a positioned tooltip: it drifted when the chart was panned (so panning had to dismiss it), overflowed at the first/last slot and above the header, escaped the `1000 + 2/depth` z-lanes, and needed a capture-phase `document.pointerdown` listener with `circle`/`g`/`[data-date-label]` whitelists to dismiss.
 - **Placement is fixed, never measured.** The card is a **graph-wide strip** (`w-full` inside a wrapper that defaults to `inset-x-2` — an 8px gutter, the same one the modals' graph row already carries as `pr-2`) inside a `relative` graph container, so its edges never touch the screen edges while its right edge still lands on the y-axis column's own right edge: the **whole axis (ticks + current-value pill) stays behind the card while it is open**. That is the accepted trade-off — the card's own value is the reading you need, the axis is a static scale, and a tap or a swipe dismisses the card; `className` can still override the inset, but no modal does today. The wrapper is `pointer-events-none` and only the card captures pointers. The only inline geometry is `top`, and it is a **constant handed down by the modal** (`topPx`, default `8`) — the plot's top edge — never a measurement, and never a `left`.
